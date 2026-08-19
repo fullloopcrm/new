@@ -23,11 +23,11 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return {
     title: `${post.title} | The New Jersey Maid`,
     description: post.metaDescription,
-    alternates: { canonical: `https://www.thenewjerseymaid.com/nyc-maid-service-blog/${post.slug}` },
+    alternates: { canonical: `https://www.thenewjerseymaid.com/new-jersey-maid-service-blog/${post.slug}` },
     openGraph: {
       title: post.title,
       description: post.excerpt,
-      url: `https://www.thenewjerseymaid.com/nyc-maid-service-blog/${post.slug}`,
+      url: `https://www.thenewjerseymaid.com/new-jersey-maid-service-blog/${post.slug}`,
       type: 'article',
       publishedTime: post.date,
     },
@@ -82,9 +82,9 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
     },
     mainEntityOfPage: {
       '@type': 'WebPage',
-      '@id': `https://www.thenewjerseymaid.com/nyc-maid-service-blog/${post.slug}`,
+      '@id': `https://www.thenewjerseymaid.com/new-jersey-maid-service-blog/${post.slug}`,
     },
-    url: `https://www.thenewjerseymaid.com/nyc-maid-service-blog/${post.slug}`,
+    url: `https://www.thenewjerseymaid.com/new-jersey-maid-service-blog/${post.slug}`,
   }
 
   return (
@@ -93,8 +93,8 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
         localBusinessSchema(),
         breadcrumbSchema([
           { name: 'Home', url: 'https://www.thenewjerseymaid.com' },
-          { name: 'Blog', url: 'https://www.thenewjerseymaid.com/nyc-maid-service-blog' },
-          { name: post.title, url: `https://www.thenewjerseymaid.com/nyc-maid-service-blog/${post.slug}` },
+          { name: 'Blog', url: 'https://www.thenewjerseymaid.com/new-jersey-maid-service-blog' },
+          { name: post.title, url: `https://www.thenewjerseymaid.com/new-jersey-maid-service-blog/${post.slug}` },
         ]),
         articleSchema,
       ]} />
@@ -128,8 +128,8 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
 
       <article className="max-w-3xl mx-auto px-4 py-12">
         <Breadcrumbs items={[
-          { name: 'Blog', href: '/nyc-maid-service-blog' },
-          { name: post.title, href: `/nyc-maid-service-blog/${post.slug}` },
+          { name: 'Blog', href: '/new-jersey-maid-service-blog' },
+          { name: post.title, href: `/new-jersey-maid-service-blog/${post.slug}` },
         ]} />
 
         <div className="prose prose-lg max-w-none">
@@ -170,7 +170,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
             &ldquo;I cannot recommend this company enough! The cleaner was thorough, professional, and left my apartment looking better than it has in months.&rdquo;
           </blockquote>
           <div className="flex items-center justify-between">
-            <p className="text-gray-500 text-sm">— Desiree Marie, NYC</p>
+            <p className="text-gray-500 text-sm">— Desiree Marie, New Jersey</p>
             <div className="flex items-center gap-3">
               <Link href="/reviews" className="text-[#1E2A4A] text-sm font-medium underline underline-offset-2">Read all reviews</Link>
               <Link href="https://g.page/r/CSX9IqciUG9SEAE/review" className="text-[#1E2A4A] text-sm font-medium underline underline-offset-2">Write a review</Link>
@@ -195,7 +195,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
             <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide mb-6">Keep Reading</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {related.map(r => (
-                <Link key={r.slug} href={`/nyc-maid-service-blog/${r.slug}`} className="group border border-gray-200 rounded-xl p-6 hover:border-[#A8F0DC] hover:shadow-lg transition-all">
+                <Link key={r.slug} href={`/new-jersey-maid-service-blog/${r.slug}`} className="group border border-gray-200 rounded-xl p-6 hover:border-[#A8F0DC] hover:shadow-lg transition-all">
                   <span className="text-xs font-medium text-[#1E2A4A]/60 uppercase tracking-widest">{r.category}</span>
                   <h4 className="font-semibold text-[#1E2A4A] group-hover:text-[#1E2A4A]/80 mt-2 line-clamp-2">{r.title}</h4>
                   <p className="text-gray-500 text-sm mt-2 line-clamp-2">{r.excerpt}</p>

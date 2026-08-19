@@ -42,8 +42,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!service) return {}
 
   const url = `https://www.thenewjerseymaid.com/services/${slug}`
-  const title = `${service.name} in NYC From ${service.priceRange.split('–')[0]} | 5-Star Rated | The New Jersey Maid`
-  const description = `Professional ${service.name.toLowerCase()} across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester & NJ. ${service.features.slice(0, 2).join(', ')} & more. From ${service.priceRange.split('–')[0]}. 5.0★ Rated. (973) 370-8800`
+  const title = `${service.name} From ${service.priceRange.split('–')[0]} | 5-Star Rated | The New Jersey Maid`
+  const description = `Professional ${service.name.toLowerCase()} across New Jersey. ${service.features.slice(0, 2).join(', ')} & more. From ${service.priceRange.split('–')[0]}. 5.0★ Rated.`
 
   return {
     title: { absolute: title },
@@ -64,7 +64,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     },
     other: {
       'geo.region': 'US-NY',
-      'geo.placename': 'New York City',
+      'geo.placename': 'New Jersey',
       'geo.position': '40.7589;-73.9851',
       'ICBM': '40.7589, -73.9851',
     },
@@ -102,7 +102,7 @@ export default async function ServicePage({ params }: Props) {
                 <span className="text-blue-200/60 text-sm">5.0 Rating &middot; 50+ verified reviews</span>
               </div>
               <h1 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl lg:text-6xl text-white tracking-wide leading-[0.95] mb-5">
-                {rich?.heroH1 || `${service.name} in NYC — Professional & Affordable`}
+                {rich?.heroH1 || `${service.name} in New Jersey — Professional & Affordable`}
               </h1>
               <p className="text-blue-200/60 text-lg leading-relaxed mb-6">
                 {rich?.heroSubtitle || content.intro}
@@ -157,7 +157,7 @@ export default async function ServicePage({ params }: Props) {
         <figure className="relative aspect-[21/9] w-full overflow-hidden max-h-[520px]">
           <Image
             src={servicePhoto.src}
-            alt={`${servicePhoto.alt} — ${service.name} in NYC`}
+            alt={`${servicePhoto.alt} — ${service.name} in New Jersey`}
             fill
             priority
             sizes="100vw"
@@ -301,12 +301,12 @@ export default async function ServicePage({ params }: Props) {
         </section>
       )}
 
-      {/* NYC Tips — large numbered cards */}
+      {/* Service Tips — large numbered cards */}
       {rich && rich.nycTips.length > 0 && (
         <section className="py-16 bg-gradient-to-b from-[#1E2A4A] to-[#243352]">
           <div className="max-w-5xl mx-auto px-4">
             <h2 className="text-xs font-semibold text-[#A8F0DC]/60 tracking-[0.25em] uppercase mb-3 text-center">Pro Tips</h2>
-            <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-white tracking-wide text-center mb-12">{rich?.tipsTitle || `NYC ${service.name} Tips From Local Pros`}</p>
+            <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-white tracking-wide text-center mb-12">{rich?.tipsTitle || `New Jersey ${service.name} Tips From Local Pros`}</p>
             <div className="space-y-5">
               {rich.nycTips.map((tip, i) => (
                 <div key={tip.title} className="bg-white/[0.06] backdrop-blur-sm border border-white/10 rounded-xl p-6 flex items-start gap-5">
@@ -435,7 +435,7 @@ export default async function ServicePage({ params }: Props) {
       <section className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4">
           <h2 className="text-xs font-semibold text-gray-400 tracking-[0.25em] uppercase mb-3 text-center">{service.name} Near You</h2>
-          <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide text-center mb-4">{service.name} Across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester &amp; New Jersey</p>
+          <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide text-center mb-4">{service.name} Across New Jersey</p>
           <p className="text-gray-500 text-center max-w-2xl mx-auto mb-12">Same rates, same quality — no matter which neighborhood you call home. Click any location to book {service.name.toLowerCase()} in your area.</p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -470,7 +470,7 @@ export default async function ServicePage({ params }: Props) {
       {/* Other services — full showcase */}
       <section className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4">
-          <h2 className="text-xs font-semibold text-gray-400 tracking-[0.25em] uppercase mb-3 text-center">More NYC Cleaning Services</h2>
+          <h2 className="text-xs font-semibold text-gray-400 tracking-[0.25em] uppercase mb-3 text-center">More New Jersey Cleaning Services</h2>
           <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide text-center mb-4">Not What You Need? We Do That Too.</p>
           <p className="text-gray-500 text-center max-w-2xl mx-auto mb-12">
             Same background-checked cleaners, same flat hourly rate, same quality — regardless of service type. Explore what else we can do for you.
@@ -508,7 +508,7 @@ export default async function ServicePage({ params }: Props) {
       </section>
 
       <FAQSection faqs={faqs} title={`${service.name} — Frequently Asked Questions`} columns={2} />
-      <CTABlock title={`Book ${service.name} Today`} subtitle="Text us — trusted by thousands of New Yorkers." />
+      <CTABlock title={`Book ${service.name} Today`} subtitle="Text us — background-checked, insured cleaners serving New Jersey." />
     </>
   )
 }

@@ -12,7 +12,7 @@ const categories = [
   { id: 'living', name: 'Living Room', icon: '🛋️' },
   { id: 'floors', name: 'Floors & Surfaces', icon: '✨' },
   { id: 'laundry', name: 'Laundry', icon: '👕' },
-  { id: 'nyc', name: 'NYC-Specific', icon: '🏙️' },
+  { id: 'long-island', name: 'Long Island-Specific', icon: '🏙️' },
   { id: 'green', name: 'Eco-Friendly', icon: '🌿' },
   { id: 'pets', name: 'Pet Owners', icon: '🐾' },
   { id: 'habits', name: 'Daily Habits', icon: '⏰' },
@@ -41,7 +41,7 @@ const tips: Record<string, { title: string; tip: string }[]> = {
     { title: 'Bath mat maintenance', tip: 'Wash bath mats every 1–2 weeks in hot water. They harbor more bacteria than your toilet seat. Replace every 6 months.' },
     { title: 'Prevent mold on caulking', tip: 'After recaulking, spray the caulk line weekly with vinegar. Mold can\'t establish itself on surfaces regularly treated with acid.' },
     { title: 'Drain maintenance', tip: 'Pour a half cup of baking soda down the drain monthly, follow with vinegar. Let it fizz, then flush with boiling water.' },
-    { title: 'Ventilation is everything', tip: 'Run the bathroom fan for 30 minutes after every shower. If it doesn\'t work, tell your landlord — it\'s required by code in NYC.' },
+    { title: 'Ventilation is everything', tip: 'Run the bathroom fan for 30 minutes after every shower. If it doesn\'t work, tell your landlord — it\'s required by code in Long Island.' },
   ],
   bedroom: [
     { title: 'Wash sheets weekly', tip: 'Hot water, every week. You shed 1.5 grams of skin per day — that\'s dust mite food. Weekly washing is the minimum.' },
@@ -64,7 +64,7 @@ const tips: Record<string, { title: string; tip: string }[]> = {
     { title: 'Light fixture dusting', tip: 'Ceiling lights and sconces collect dead bugs and dust. Clean them quarterly and your room will literally look brighter.' },
     { title: 'Wipe light switches', tip: 'Every light switch and door handle gets touched dozens of times daily. Wipe them with disinfectant weekly.' },
     { title: 'Move furniture occasionally', tip: 'Slide the couch or bookshelf aside and vacuum behind it every 2–3 months. The dust back there is circulating through your air.' },
-    { title: 'Window sill maintenance', tip: 'Wipe sills weekly in NYC. City dust and pollution settle there first, and it tracks into the room when you open the window.' },
+    { title: 'Window sill maintenance', tip: 'Wipe sills weekly in Long Island. City dust and pollution settle there first, and it tracks into the room when you open the window.' },
     { title: 'Throw pillow and blanket wash', tip: 'Wash throw pillow covers and throw blankets monthly. They absorb body oils, pet dander, and food residue.' },
   ],
   floors: [
@@ -89,19 +89,19 @@ const tips: Record<string, { title: string; tip: string }[]> = {
     { title: 'Zip up zippers before washing', tip: 'Open zippers snag and damage other clothes in the wash. Close them all before throwing clothes in.' },
     { title: 'Wash darks inside out', tip: 'Reduces friction on the visible side of the fabric, which prevents fading. Dark jeans especially benefit from this.' },
     { title: 'Dry clean only? Maybe not', tip: 'Many "dry clean only" items can be hand washed in cold water with mild detergent. Check the fabric — silk and wool usually can handle it.' },
-    { title: 'Shared laundry room etiquette', tip: 'In NYC buildings: set a timer, remove clothes promptly, wipe the lint trap, and don\'t leave detergent residue on machines. Your neighbors will appreciate it.' },
+    { title: 'Shared laundry room etiquette', tip: 'In Long Island buildings: set a timer, remove clothes promptly, wipe the lint trap, and don\'t leave detergent residue on machines. Your neighbors will appreciate it.' },
   ],
-  nyc: [
-    { title: 'Cockroach prevention is cleaning', tip: 'In NYC, cockroaches are a fact of life — but a clean kitchen denies them food. Wipe counters nightly, seal food in containers, take trash out daily.' },
+  'long-island': [
+    { title: 'Cockroach prevention is cleaning', tip: 'In Long Island, cockroaches are a fact of life — but a clean kitchen denies them food. Wipe counters nightly, seal food in containers, take trash out daily.' },
     { title: 'Window AC filter cleaning', tip: 'Clean or replace your window AC filter every 2 weeks during summer. A dirty filter circulates dust and allergens and kills efficiency.' },
     { title: 'Radiator cleaning before heating season', tip: 'Clean between the radiator fins in September. That burnt-dust smell when the heat first kicks on? That\'s months of buildup cooking.' },
-    { title: 'City dust requires more frequent dusting', tip: 'NYC apartments get dustier than suburban homes due to air pollution and constant construction. Dust weekly minimum, not monthly.' },
+    { title: 'City dust requires more frequent dusting', tip: 'Long Island apartments get dustier than suburban homes due to air pollution and constant construction. Dust weekly minimum, not monthly.' },
     { title: 'Check under the sink for pests', tip: 'Gaps around pipes under kitchen and bathroom sinks are pest highways. Steel wool + caulk these gaps. Clean under sinks monthly.' },
     { title: 'De-icing salt on floors', tip: 'Winter salt ruins floors. Put a boot tray by the door and wipe shoes immediately. Mop the entryway weekly in winter with warm water.' },
     { title: 'Manage building smells', tip: 'Cooking smells from neighbors seep through gaps around pipes and outlets. Seal these with caulk and run an air purifier.' },
     { title: 'Pre-war window track cleaning', tip: 'Old double-hung windows have deep tracks that collect years of grime. Vacuum, then scrub with a toothbrush and soapy water.' },
     { title: 'Fire escape access', tip: 'Keep the area near fire escape windows clean and clear. It\'s a safety requirement and your landlord can fine you for obstructions.' },
-    { title: 'Building laundry lint hazard', tip: 'If your building has shared dryers, check the vent ducts. Clogged dryer vents are one of the top causes of apartment fires in NYC.' },
+    { title: 'Building laundry lint hazard', tip: 'If your building has shared dryers, check the vent ducts. Clogged dryer vents are one of the top causes of apartment fires in Long Island.' },
   ],
   green: [
     { title: 'Vinegar is your best friend', tip: 'White vinegar cuts grease, dissolves mineral deposits, deodorizes, and disinfects. It replaces 5+ commercial products.' },
@@ -135,28 +135,28 @@ const tips: Record<string, { title: string; tip: string }[]> = {
     { title: 'Weekly 15-minute purge', tip: 'Walk through your apartment for 15 minutes and grab anything to trash or donate. Consistent small purges prevent big clutter.' },
     { title: 'Deal with dishes immediately', tip: 'Rinse and load the dishwasher (or wash by hand) right after eating. A full sink takes 10 minutes to deal with. One plate takes 30 seconds.' },
     { title: 'Wipe the bathroom sink daily', tip: 'After your morning routine, quick wipe of the sink and counter. 15 seconds. Prevents toothpaste and soap buildup entirely.' },
-    { title: 'Shoe-free home', tip: 'Take shoes off at the door. NYC sidewalks carry bacteria, rat poison residue, and general filth. Your floors stay cleaner for days longer.' },
+    { title: 'Shoe-free home', tip: 'Take shoes off at the door. Long Island sidewalks carry bacteria, rat poison residue, and general filth. Your floors stay cleaner for days longer.' },
     { title: 'Declutter before you clean', tip: 'Spending 10 minutes putting things away before cleaning means your cleaning time is actually spent cleaning, not organizing.' },
     { title: 'End-of-day reset', tip: 'Before bed, walk through each room for 2 minutes. Straighten pillows, put away stray items, quick counter wipe. Wake up to a reset home.' },
   ],
 }
 
 const faqData = [
-  { q: 'How often should I deep clean my apartment?', a: 'Every 4–6 weeks is ideal for most NYC apartments. If you have pets or cook frequently, monthly deep cleaning keeps things manageable. Regular weekly maintenance between deep cleans keeps your space consistently comfortable.' },
+  { q: 'How often should I deep clean my apartment?', a: 'Every 4–6 weeks is ideal for most Long Island apartments. If you have pets or cook frequently, monthly deep cleaning keeps things manageable. Regular weekly maintenance between deep cleans keeps your space consistently comfortable.' },
   { q: 'What\'s the most important cleaning habit?', a: 'Making your bed and wiping kitchen counters daily. These two habits take under 2 minutes combined and have the biggest visual and psychological impact on how clean your home feels.' },
   { q: 'Are eco-friendly cleaning products as effective?', a: 'Yes. White vinegar, baking soda, and castile soap handle 90% of household cleaning. For disinfecting, hydrogen peroxide (3%) is as effective as bleach without the toxic fumes. The main exception is truly stubborn mold — that sometimes needs stronger treatment.' },
-  { q: 'How do I keep my NYC apartment clean between professional cleanings?', a: 'Follow the daily habits section above — make the bed, wipe counters, deal with dishes immediately, and take shoes off at the door. These 5 habits keep your apartment presentable between professional visits.' },
+  { q: 'How do I keep my Long Island apartment clean between professional cleanings?', a: 'Follow the daily habits section above — make the bed, wipe counters, deal with dishes immediately, and take shoes off at the door. These 5 habits keep your apartment presentable between professional visits.' },
   { q: 'What cleaning products should I avoid with pets?', a: 'Avoid bleach, ammonia, phenol-based products (Lysol, Pine-Sol), and anything with essential oils — especially tea tree, eucalyptus, and citrus, which are toxic to cats. Stick with vinegar, castile soap, and enzyme cleaners.' },
 ]
 
 export const metadata: Metadata = {
-  title: 'The 100 Best Cleaning Tips for NYC Apartments | The Long Island Maid',
-  description: 'The definitive list — 100 expert cleaning tips for NYC apartments from professional cleaners. Kitchen, bathroom, floors, pets & more. From $59/hr. (516) 202-5900',
-  alternates: { canonical: 'https://www.thelongislandmaid.com/nyc-maid-and-cleaning-tips-and-advice-by-the-nyc-maid' },
+  title: 'The 100 Best Cleaning Tips for Long Island Apartments | The Long Island Maid',
+  description: 'The definitive list — 100 expert cleaning tips for Long Island apartments from professional cleaners. Kitchen, bathroom, floors, pets & more. From $59/hr. (516) 202-5900',
+  alternates: { canonical: 'https://www.thelongislandmaid.com/long-island-maid-and-cleaning-tips-and-advice-by-the-long-island-maid' },
   openGraph: {
     title: '100 Best Cleaning Tips | The Long Island Maid',
-    description: 'The definitive cleaning tips guide for NYC apartments — 100 expert tips organized by room.',
-    url: 'https://www.thelongislandmaid.com/nyc-maid-and-cleaning-tips-and-advice-by-the-nyc-maid',
+    description: 'The definitive cleaning tips guide for Long Island apartments — 100 expert tips organized by room.',
+    url: 'https://www.thelongislandmaid.com/long-island-maid-and-cleaning-tips-and-advice-by-the-long-island-maid',
   },
 }
 
@@ -174,8 +174,8 @@ export default function TipsPage() {
   const howToSchema = {
     '@context': 'https://schema.org',
     '@type': 'HowTo',
-    name: '100 Cleaning Tips for NYC Apartments',
-    description: 'The definitive guide to keeping your NYC apartment clean — 100 expert tips organized by room and category.',
+    name: '100 Cleaning Tips for Long Island Apartments',
+    description: 'The definitive guide to keeping your Long Island apartment clean — 100 expert tips organized by room and category.',
     step: categories.map((cat, i) => ({
       '@type': 'HowToSection',
       name: cat.name,
@@ -197,7 +197,7 @@ export default function TipsPage() {
         localBusinessSchema(),
         breadcrumbSchema([
           { name: 'Home', url: 'https://www.thelongislandmaid.com' },
-          { name: '100 Cleaning Tips', url: 'https://www.thelongislandmaid.com/nyc-maid-and-cleaning-tips-and-advice-by-the-nyc-maid' },
+          { name: '100 Cleaning Tips', url: 'https://www.thelongislandmaid.com/long-island-maid-and-cleaning-tips-and-advice-by-the-long-island-maid' },
         ]),
         faqSchema,
         howToSchema,
@@ -205,14 +205,14 @@ export default function TipsPage() {
 
       <section className="bg-gradient-to-b from-[#1E2A4A] to-[#243352] py-16 md:py-24">
         <div className="max-w-5xl mx-auto px-4 text-center">
-          <p className="text-xs font-semibold text-[#A8F0DC] tracking-[0.25em] uppercase mb-4">From the Pros Who Clean NYC Every Day</p>
-          <h1 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl lg:text-7xl text-white tracking-wide leading-[0.95] mb-4">The 100 Best Cleaning Tips for NYC Apartments</h1>
-          <p className="text-white/60 text-lg max-w-3xl mx-auto">No fluff, no sponsored products — just the tips our professional cleaning team actually uses in real NYC apartments every single day.</p>
+          <p className="text-xs font-semibold text-[#A8F0DC] tracking-[0.25em] uppercase mb-4">From the Pros Who Clean Long Island Every Day</p>
+          <h1 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl lg:text-7xl text-white tracking-wide leading-[0.95] mb-4">The 100 Best Cleaning Tips for Long Island Apartments</h1>
+          <p className="text-white/60 text-lg max-w-3xl mx-auto">No fluff, no sponsored products — just the tips our professional cleaning team actually uses in real Long Island apartments every single day.</p>
         </div>
       </section>
 
       <div className="max-w-5xl mx-auto px-4 py-12">
-        <Breadcrumbs items={[{ name: '100 Cleaning Tips', href: '/nyc-maid-and-cleaning-tips-and-advice-by-the-nyc-maid' }]} />
+        <Breadcrumbs items={[{ name: '100 Cleaning Tips', href: '/long-island-maid-and-cleaning-tips-and-advice-by-the-long-island-maid' }]} />
 
         {/* Table of contents */}
         <nav className="border border-gray-200 rounded-xl p-6 md:p-8 mb-16">
@@ -276,7 +276,7 @@ export default function TipsPage() {
 
         <div className="text-center">
           <p className="text-gray-600">
-            Want more in-depth articles? Check out our <Link href="/nyc-maid-service-blog" className="text-[#1E2A4A] font-semibold hover:underline">blog</Link> for detailed cleaning guides.
+            Want more in-depth articles? Check out our <Link href="/long-island-maid-service-blog" className="text-[#1E2A4A] font-semibold hover:underline">blog</Link> for detailed cleaning guides.
           </p>
         </div>
       </div>

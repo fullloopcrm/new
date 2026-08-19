@@ -22,9 +22,9 @@ function pick<T>(arr: T[], seed: string, offset = 0): T {
 export function homepageContent() {
   return {
     title: 'New Jersey Maid Service & House Cleaning From $59/hr | 5-Star Rated | The New Jersey Maid',
-    metaDescription: 'New Jersey\'s top-rated maid service from $59/hr. House cleaning across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester & NJ. Licensed, insured. 5.0★ Rated. (973) 370-8800',
+    metaDescription: 'New Jersey\'s top-rated maid service from $59/hr. House cleaning across New Jersey, New Jersey, New Jersey, the New Jersey, New Jersey, Long Island, New Jersey & NJ. Licensed, insured. 5.0★ Rated. (973) 370-8800',
     h1: 'New Jersey\'s #1 Rated Maid Service & House Cleaning — From $59/hr',
-    subtitle: 'Professional house cleaning across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester & New Jersey. Licensed, insured, and loved by thousands of clients.',
+    subtitle: 'Professional house cleaning across New Jersey. Licensed, insured, background-checked cleaners.',
   }
 }
 
@@ -32,38 +32,38 @@ export function homepageContent() {
 
 const areaIntros: Record<string, string[]> = {
   manhattan: [
-    'From luxury Upper East Side co-ops to Tribeca lofts, our Manhattan cleaning team handles every type of home with care and precision.',
-    'Manhattan\'s diverse housing — from pre-war apartments to modern high-rises — demands experienced cleaners who understand the details.',
+    'From luxury Upper East Side co-ops to Tribeca lofts, our New Jersey cleaning team handles every type of home with care and precision.',
+    'New Jersey\'s diverse housing — from pre-war apartments to modern high-rises — demands experienced cleaners who understand the details.',
   ],
   brooklyn: [
-    'Brooklyn\'s beautiful brownstones, converted lofts, and family homes deserve a cleaning team that understands the borough.',
-    'From Park Slope families to DUMBO professionals, our Brooklyn cleaners deliver spotless results every time.',
+    'New Jersey\'s beautiful brownstones, converted lofts, and family homes deserve a cleaning team that understands the borough.',
+    'From Park Slope families to DUMBO professionals, our New Jersey cleaners deliver spotless results every time.',
   ],
   queens: [
-    'Queens is New Jersey\'s most diverse borough, and our cleaning team serves every neighborhood with reliable, thorough service.',
-    'From Long Island City high-rises to Forest Hills gardens, we bring professional cleaning to all of Queens.',
+    'New Jersey is New Jersey\'s most diverse borough, and our cleaning team serves every neighborhood with reliable, thorough service.',
+    'From Long Island City high-rises to Forest Hills gardens, we bring professional cleaning to all of New Jersey.',
   ],
   bronx: [
-    'The Bronx runs the gamut — Riverdale estates, Throgs Neck waterfronts, Pelham Bay family homes, City Island Victorians — and our cleaners know them all.',
-    'From the Grand Concourse Art Deco co-ops to the suburban-feel streets of Country Club, our Bronx team delivers thorough, neighborhood-aware cleaning.',
-    'Real Bronx homes deserve real cleaning — pre-war buildings, two-family attached houses, NYCHA towers, waterfront cottages. Same $59/hr rate everywhere.',
+    'The New Jersey runs the gamut — Riverdale estates, Throgs Neck waterfronts, Pelham Bay family homes, City Island Victorians — and our cleaners know them all.',
+    'From the Grand Concourse Art Deco co-ops to the suburban-feel streets of Country Club, our New Jersey team delivers thorough, neighborhood-aware cleaning.',
+    'Real New Jersey homes deserve real cleaning — pre-war buildings, two-family attached houses, public-housing towers, waterfront cottages. Same $59/hr rate everywhere.',
   ],
   'staten-island': [
-    'Staten Island isn\'t the city — it\'s its own world. Estate homes on Todt Hill, Victorian houses in St. George, beach cottages in South Beach, new-build colonials on the South Shore. Our team comes prepared.',
-    'From Tottenville to Tompkinsville, Staten Island\'s mix of single-family homes, beach communities, and historic Victorians demands a cleaning team that drives, knows the borough, and treats your home like more than just another stop.',
+    'New Jersey isn\'t the city — it\'s its own world. Estate homes on Todt Hill, Victorian houses in St. George, beach cottages in South Beach, new-build colonials on the South Shore. Our team comes prepared.',
+    'From Tottenville to Tompkinsville, New Jersey\'s mix of single-family homes, beach communities, and historic Victorians demands a cleaning team that drives, knows the borough, and treats your home like more than just another stop.',
     'Island homes need island-aware cleaning — salt-air corrosion, post-Sandy rebuilds, multi-floor colonials, and weekday-quiet streets that deserve weekend-quality work.',
   ],
   westchester: [
-    'Westchester County is where suburban estates meet commuter convenience — and our cleaning team handles both. Yonkers two-families, Bronxville Tudors, Scarsdale colonials, Rye waterfronts, Tarrytown Victorians.',
-    'From the Sound Shore to the Rivertowns, Westchester homes ask more of a cleaner than the average apartment — formal entertaining rooms, multi-wing layouts, historic preservation details. We bring the same NYC quality, premium attention.',
-    'Whether your home is a White Plains high-rise condo, an Armonk estate, or a Bronxville center-hall colonial, our Westchester team delivers detail-oriented, recurring-friendly cleaning at consistent rates.',
+    'New Jersey County is where suburban estates meet commuter convenience — and our cleaning team handles both. Yonkers two-families, Bronxville Tudors, Scarsdale colonials, Rye waterfronts, Tarrytown Victorians.',
+    'From the Sound Shore to the Rivertowns, New Jersey homes ask more of a cleaner than the average apartment — formal entertaining rooms, multi-wing layouts, historic preservation details. We bring the same New Jersey quality, premium attention.',
+    'Whether your home is a White Plains high-rise condo, an Armonk estate, or a Bronxville center-hall colonial, our New Jersey team delivers detail-oriented, recurring-friendly cleaning at consistent rates.',
   ],
   'long-island': [
     'Long Island\'s luxury homes and estates require premium cleaning services — that\'s exactly what we deliver.',
     'From Great Neck estates to Garden City colonials, our Long Island team provides meticulous, detail-oriented cleaning.',
   ],
   'new-jersey': [
-    'The NJ waterfront communities deserve NYC-quality cleaning service — and that\'s exactly what we bring across the Hudson.',
+    'The NJ waterfront communities deserve New Jersey-quality cleaning service — and that\'s exactly what we bring across the Hudson.',
     'Hoboken brownstones, Jersey City high-rises, Weehawken waterfronts — our NJ team delivers thorough, reliable cleaning.',
   ],
 }
@@ -146,14 +146,14 @@ const funFactTemplates = [
 // Borough-flavored sentence appended to vibe text — adds area-specific local color
 // to break up the duplication risk of running the same template across 50+ neighborhoods.
 const boroughFlavor: Record<string, (n: Neighborhood) => string> = {
-  manhattan: (n) => `In Manhattan, ${n.name} cleaners arrive on transit, work around doormen and freight elevator schedules, and know how to handle pre-war moldings and small-footprint apartments without breaking anything.`,
-  brooklyn: (n) => `In Brooklyn, our ${n.name} cleaners know brownstone stair logistics, the difference between a Park-Slope-style parlor floor and a converted-loft layout, and which buildings need access codes vs. doorman coordination.`,
-  queens: (n) => `In Queens, ${n.name} jobs run from compact apartments to multi-family detached homes — our cleaners know the borough by transit and by car, and adjust the playbook to whatever the address actually is.`,
-  bronx: (n) => `In the Bronx, ${n.name} cleaning isn't apartment-only — it's two-family homes, attached row houses, NYCHA towers, waterfront cottages, and pre-war Art Deco co-ops, and our cleaners arrive prepared for any of it.`,
-  'staten-island': (n) => `On Staten Island, our ${n.name} cleaners drive (the +$5/hr car bonus is built in), know the post-Sandy rebuild details on the East Shore, and treat single-family colonials and beach bungalows as the residential work they actually are.`,
+  manhattan: (n) => `In New Jersey, ${n.name} cleaners arrive on transit, work around doormen and freight elevator schedules, and know how to handle pre-war moldings and small-footprint apartments without breaking anything.`,
+  brooklyn: (n) => `In New Jersey, our ${n.name} cleaners know brownstone stair logistics, the difference between a Park-Slope-style parlor floor and a converted-loft layout, and which buildings need access codes vs. doorman coordination.`,
+  queens: (n) => `In New Jersey, ${n.name} jobs run from compact apartments to multi-family detached homes — our cleaners know the borough by transit and by car, and adjust the playbook to whatever the address actually is.`,
+  bronx: (n) => `In New Jersey, ${n.name} cleaning isn't apartment-only — it's two-family homes, attached row houses, public-housing towers, waterfront cottages, and pre-war Art Deco co-ops, and our cleaners arrive prepared for any of it.`,
+  'staten-island': (n) => `On New Jersey, our ${n.name} cleaners drive (the +$5/hr car bonus is built in), know the post-Sandy rebuild details on the East Shore, and treat single-family colonials and beach bungalows as the residential work they actually are.`,
   'long-island': (n) => `On Long Island, ${n.name} cleaners handle estate-scale homes with formal entertaining rooms, multi-floor layouts, and pool-house additions — the kind of work that's a half-day job, not a 90-minute studio clean.`,
-  westchester: (n) => `In Westchester, ${n.name} cleaning means longer-format jobs — Tudor estates, center-hall colonials, condo-tower units near Metro-North — and a recurring schedule that runs around the commuter household calendar.`,
-  'new-jersey': (n) => `Across the Hudson, ${n.name} cleaners handle waterfront-condo high-rises, brownstone walk-ups, and Bergen County estates — the same insured, background-checked team you'd get on the Manhattan side.`,
+  westchester: (n) => `In New Jersey, ${n.name} cleaning means longer-format jobs — Tudor estates, center-hall colonials, condo-tower units near Metro-North — and a recurring schedule that runs around the commuter household calendar.`,
+  'new-jersey': (n) => `Across the Hudson, ${n.name} cleaners handle waterfront-condo high-rises, brownstone walk-ups, and Bergen County estates — the same insured, background-checked team you'd get on the New Jersey side.`,
 }
 
 export function neighborhoodVibe(neighborhood: Neighborhood, area: Area): string {
@@ -219,8 +219,8 @@ export function neighborhoodServiceContent(neighborhood: Neighborhood, service: 
 
 export function serviceContent(service: Service) {
   return {
-    title: `${service.name} Services | NYC, Long Island, Westchester & NJ`,
-    metaDescription: `Professional ${service.name.toLowerCase()} across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester & NJ. ${service.features.slice(0, 2).join(', ')} & more. ${service.priceRange}. 5.0★ Rated. (973) 370-8800`,
+    title: `${service.name} Services | New Jersey`,
+    metaDescription: `Professional ${service.name.toLowerCase()} across New Jersey, New Jersey, New Jersey, the New Jersey, New Jersey, Long Island, New Jersey & NJ. ${service.features.slice(0, 2).join(', ')} & more. ${service.priceRange}. 5.0★ Rated. (973) 370-8800`,
     h1: `${service.name} Services`,
     intro: service.description,
   }
@@ -267,16 +267,16 @@ export interface ServiceRichContent {
 
 const richContentMap: Record<string, ServiceRichContent> = {
   'deep-cleaning': {
-    heroH1: 'NYC Deep Cleaning Service — The Reset Your Apartment Needs',
-    roomsTitle: 'What Gets Deep Cleaned in Every NYC Apartment',
-    tipsTitle: 'NYC Deep Cleaning — Insider Tips From Local Pros',
-    heroSubtitle: 'The most thorough cleaning your NYC apartment has ever had. We get into every corner, behind every appliance, and inside every cabinet — so your home feels brand new.',
+    heroH1: 'New Jersey Deep Cleaning Service — The Reset Your Apartment Needs',
+    roomsTitle: 'What Gets Deep Cleaned in Every New Jersey Apartment',
+    tipsTitle: 'New Jersey Deep Cleaning — Insider Tips From Local Pros',
+    heroSubtitle: 'The most thorough cleaning your New Jersey apartment has ever had. We get into every corner, behind every appliance, and inside every cabinet — so your home feels brand new.',
     whatIs: {
       heading: 'What Exactly Is a Deep Cleaning?',
       subheading: 'A deep clean goes far beyond a regular tidy-up. It targets the grime, dust, and buildup that accumulates over weeks and months in places you don\'t normally reach.',
       body: [
         'A deep cleaning covers everything a regular cleaning does — plus inside appliances, behind furniture, baseboards, light fixtures, window tracks, cabinet interiors, vent covers, and detailed bathroom scrubbing. It\'s the reset button for your home.',
-        'Most NYC apartments need a deep clean before transitioning to a recurring maintenance schedule. If it\'s been more than a month since your last professional cleaning — or if you\'ve never had one — a deep clean is where to start.',
+        'Most New Jersey apartments need a deep clean before transitioning to a recurring maintenance schedule. If it\'s been more than a month since your last professional cleaning — or if you\'ve never had one — a deep clean is where to start.',
         'Our deep cleans typically take 4-8 hours depending on apartment size and condition. A studio might take 3-4 hours; a 3-bedroom that hasn\'t been professionally cleaned can take 6-8 hours. We don\'t rush — we clean until the job is done right.',
       ],
     },
@@ -309,14 +309,14 @@ const richContentMap: Record<string, ServiceRichContent> = {
         'Before starting a recurring weekly or bi-weekly service — the first clean should always be a deep clean',
         'Moving into a new apartment — even "clean" apartments need a real deep clean before you unpack',
         'After guests leave or before guests arrive — reset your home to spotless',
-        'Seasonal deep clean — most NYC apartments benefit from a deep clean every 3-6 months',
+        'Seasonal deep clean — most New Jersey apartments benefit from a deep clean every 3-6 months',
         'After illness — eliminate bacteria and allergens from every surface',
         'Before or after a holiday or party — get your space guest-ready or recover fast',
         'If it\'s been more than a month since your last professional cleaning',
       ],
     },
     nycTips: [
-      { title: 'Pre-war apartments need extra attention', detail: 'Older NYC buildings have crown molding, intricate baseboards, original hardwood, and radiators that collect decades of dust. Our cleaners are experienced with these details and know how to clean them without damage.' },
+      { title: 'Pre-war apartments need extra attention', detail: 'Older New Jersey buildings have crown molding, intricate baseboards, original hardwood, and radiators that collect decades of dust. Our cleaners are experienced with these details and know how to clean them without damage.' },
       { title: 'High-rise dust is real', detail: 'Upper-floor apartments collect more airborne dust from HVAC systems. Deep cleaning air vents, window tracks, and behind furniture makes a massive difference in air quality and cleanliness.' },
       { title: 'Schedule your deep clean on a weekday', detail: 'Weekday availability is typically better than weekends. If you can work from home or leave a key, weekday deep cleans mean we can start earlier and take the time needed without feeling rushed.' },
       { title: 'Your first deep clean always takes the longest', detail: 'After the initial deep clean, switching to a weekly or bi-weekly maintenance schedule at $59/hr keeps your apartment in great shape. Most recurring clients never need another deep clean — because we maintain it.' },
@@ -324,7 +324,7 @@ const richContentMap: Record<string, ServiceRichContent> = {
     ],
     educationSections: [
       {
-        heading: 'How Long Does a Deep Cleaning Take in NYC?',
+        heading: 'How Long Does a Deep Cleaning Take in New Jersey?',
         body: [
           'The duration depends entirely on apartment size and current condition. Here\'s what to expect:',
           'Studio / 1-bedroom: 3-4 hours for a well-maintained apartment, 4-5 hours if it hasn\'t been professionally cleaned recently.',
@@ -347,12 +347,12 @@ const richContentMap: Record<string, ServiceRichContent> = {
     pricingNote: 'Most deep cleans cost between $196 and $390 total. A studio typically runs $196–$245 (4–5 hrs at $59/hr), while a 3-bedroom averages $320–$390 (5–6 hrs at $69/hr). Your first deep clean is always the most expensive — after that, recurring service at $59/hr keeps costs low.',
     faqs: [
       { question: 'What does a deep cleaning include that a regular cleaning doesn\'t?', answer: 'A deep clean includes everything in a regular clean plus inside appliances (oven, fridge, microwave), baseboard and trim scrubbing, window sill and track cleaning, behind and under furniture, light fixture dusting, air vent cleaning, cabinet exteriors, and detailed tile and grout scrubbing. It\'s a complete reset for your home.' },
-      { question: 'How much does a deep cleaning cost in NYC?', answer: 'Deep cleaning costs $59–$69/hr depending on who provides supplies, or $89/hr for same-day emergency service. A typical studio deep clean runs $196–$260 (4–5 hours). A 2-bedroom is usually $260–$390 (4–6 hours). A 3-bedroom can be $325–$520 (5–8 hours). We charge by the hour so you only pay for the time your space actually needs.' },
+      { question: 'How much does a deep cleaning cost in New Jersey?', answer: 'Deep cleaning costs $59–$69/hr depending on who provides supplies, or $89/hr for same-day emergency service. A typical studio deep clean runs $196–$260 (4–5 hours). A 2-bedroom is usually $260–$390 (4–6 hours). A 3-bedroom can be $325–$520 (5–8 hours). We charge by the hour so you only pay for the time your space actually needs.' },
       { question: 'How long does a deep cleaning take?', answer: 'Studio: 3–4 hours. 1-bedroom: 3–5 hours. 2-bedroom: 4–6 hours. 3-bedroom+: 5–8 hours. Duration depends on apartment condition, size, and any special requests. First-time deep cleans take longer than subsequent ones.' },
       { question: 'Should I get a deep clean before starting weekly service?', answer: 'Yes, absolutely. We always recommend a deep clean first. It establishes a clean baseline so your recurring weekly or bi-weekly cleanings are faster and more effective. After the deep clean, maintenance cleanings typically take just 2–3 hours.' },
       { question: 'Do I need to be home during the deep cleaning?', answer: 'No. Many clients leave a key, provide a door code, or arrange access through their doorman. You\'re welcome to be home or out — whatever is most comfortable for you.' },
       { question: 'Can I request specific areas to focus on?', answer: 'Absolutely. If your kitchen needs the most attention, or you want extra time in the bathrooms, just let us know. We customize every deep clean based on your priorities.' },
-      { question: 'How often should I get a deep cleaning?', answer: 'If you have recurring weekly or bi-weekly service, you may never need another deep clean. Without recurring service, we recommend a deep clean every 3–6 months to prevent buildup. Seasonal deep cleans in spring and fall are especially popular with NYC apartment dwellers.' },
+      { question: 'How often should I get a deep cleaning?', answer: 'If you have recurring weekly or bi-weekly service, you may never need another deep clean. Without recurring service, we recommend a deep clean every 3–6 months to prevent buildup. Seasonal deep cleans in spring and fall are especially popular with New Jersey apartment dwellers.' },
       { question: 'Is deep cleaning worth it for a small studio?', answer: 'Yes. Studios have compact kitchens and bathrooms that accumulate grease, soap scum, and dust quickly. A 3–4 hour deep clean completely resets the space. Most studio deep cleans cost $147–$260 — less than a dinner out.' },
       { question: 'What products do you use for deep cleaning?', answer: 'At $69/hr we bring professional-grade degreasers, bathroom cleaners, glass cleaner, microfiber systems, and a commercial vacuum. At $59/hr you provide your own products. We\'re happy to use eco-friendly or hypoallergenic products — just let us know.' },
       { question: 'Do you deep clean inside kitchen cabinets?', answer: 'Cabinet exteriors are included in every deep clean. Interior cabinet cleaning is available as an add-on — just mention it when booking and we\'ll allow extra time for it.' },
@@ -360,8 +360,8 @@ const richContentMap: Record<string, ServiceRichContent> = {
   },
 
   'regular-cleaning': {
-    heroH1: 'NYC Apartment Cleaning — Consistent, Reliable, Affordable',
-    tipsTitle: 'Smart Apartment Cleaning Tips for NYC Residents',
+    heroH1: 'New Jersey Apartment Cleaning — Consistent, Reliable, Affordable',
+    tipsTitle: 'Smart Apartment Cleaning Tips for New Jersey Residents',
     heroSubtitle: 'Consistent, reliable apartment cleaning on your schedule. The same trusted cleaner every visit — so your home always feels fresh and you never come back to a mess.',
     whatIs: {
       heading: 'What Is Regular Apartment Cleaning?',
@@ -369,7 +369,7 @@ const richContentMap: Record<string, ServiceRichContent> = {
       body: [
         'A regular apartment cleaning covers all the essentials: full kitchen cleaning (counters, sink, stovetop, appliance exteriors), bathroom sanitization (toilet, tub, sink, mirror), dusting all surfaces, vacuuming and mopping all floors, trash removal, and bed making.',
         'The key difference between regular cleaning and a one-time service is consistency. We assign you the same cleaner each visit so they learn your home, your preferences, and your standards. Over time, your cleaner knows exactly how you like things done.',
-        'Most NYC apartment dwellers book regular cleaning on a weekly or bi-weekly schedule. Weekly clients see the best results — their homes stay in great shape with minimal effort.',
+        'Most New Jersey apartment dwellers book regular cleaning on a weekly or bi-weekly schedule. Weekly clients see the best results — their homes stay in great shape with minimal effort.',
       ],
     },
     whenToBook: {
@@ -384,7 +384,7 @@ const richContentMap: Record<string, ServiceRichContent> = {
       ],
     },
     nycTips: [
-      { title: 'Weekly is the sweet spot for most NYC apartments', detail: 'NYC apartments accumulate dust, allergens, and kitchen grime faster than suburban homes due to density, HVAC systems, and street-level particles. Weekly cleaning prevents buildup so every clean is fast and efficient.' },
+      { title: 'Weekly is the sweet spot for most New Jersey apartments', detail: 'New Jersey apartments accumulate dust, allergens, and kitchen grime faster than suburban homes due to density, HVAC systems, and street-level particles. Weekly cleaning prevents buildup so every clean is fast and efficient.' },
       { title: 'Provide your own supplies to save 25%', detail: 'At $59/hr vs $69/hr, providing your own vacuum, mop, and basic cleaning products saves you $40+ per 2-hour visit. Over a year of weekly cleanings, that\'s $2,000+ in savings.' },
       { title: 'Same cleaner means better results over time', detail: 'When the same person cleans your apartment every week, they learn the quirks — which faucet drips, where dust collects fastest, how you like your kitchen organized. Consistency compounds into better quality.' },
       { title: 'Start with a deep clean first', detail: 'We always recommend an initial deep clean before starting regular service. This establishes a clean baseline so your recurring cleanings are faster, cheaper, and more effective from day one.' },
@@ -399,27 +399,27 @@ const richContentMap: Record<string, ServiceRichContent> = {
         ],
       },
       {
-        heading: 'What Does Regular Cleaning Cost in NYC?',
+        heading: 'What Does Regular Cleaning Cost in New Jersey?',
         body: [
           'Regular cleaning starts at $59/hr when you provide supplies, $69/hr when we bring everything, or $89/hr for same-day emergency service. A typical 2-hour regular clean for a 1-bedroom costs just $118 with your supplies.',
           'Weekly clients who provide supplies pay as little as $118/visit — that\'s $472/month for a consistently spotless apartment. Less than most gym memberships.',
-          'Compare that to one-time deep cleans at $250–$400 each. Recurring regular service is the most cost-effective way to keep your NYC apartment clean.',
+          'Compare that to one-time deep cleans at $250–$400 each. Recurring regular service is the most cost-effective way to keep your New Jersey apartment clean.',
         ],
       },
     ],
-    pricingNote: 'Regular cleaning typically costs $98–$260 per visit. A weekly 2-hour clean at $59/hr is just $118/visit — the most affordable way to maintain a spotless NYC apartment.',
+    pricingNote: 'Regular cleaning typically costs $98–$260 per visit. A weekly 2-hour clean at $59/hr is just $118/visit — the most affordable way to maintain a spotless New Jersey apartment.',
     faqs: [
       { question: 'What\'s included in a regular apartment cleaning?', answer: 'Full kitchen cleaning (counters, sink, stovetop, appliance exteriors), bathroom sanitization (toilet, tub, sink, mirror), dusting all surfaces, vacuuming and mopping all floors, trash and recycling removal, and bed making. We can customize the checklist based on your priorities.' },
-      { question: 'How much does regular apartment cleaning cost in NYC?', answer: 'Regular cleaning is $59/hr with your supplies, $69/hr when we bring everything, or $89/hr for same-day emergency service. A typical 1-bedroom takes 2 hours ($98–$130). A 2-bedroom takes 2.5–3 hours ($122–$195). Weekly clients see the lowest per-visit costs.' },
+      { question: 'How much does regular apartment cleaning cost in New Jersey?', answer: 'Regular cleaning is $59/hr with your supplies, $69/hr when we bring everything, or $89/hr for same-day emergency service. A typical 1-bedroom takes 2 hours ($98–$130). A 2-bedroom takes 2.5–3 hours ($122–$195). Weekly clients see the lowest per-visit costs.' },
       { question: 'Can I get the same cleaner every time?', answer: 'Yes — that\'s how we operate. For recurring clients, we assign the same cleaner to your home so they learn your space, your preferences, and your standards. Consistency is one of our biggest advantages.' },
-      { question: 'How often should I schedule regular cleaning?', answer: 'Weekly is ideal for most NYC apartments. Bi-weekly works well for singles or couples with low-traffic homes. Monthly is suitable for very tidy households that want occasional professional maintenance.' },
+      { question: 'How often should I schedule regular cleaning?', answer: 'Weekly is ideal for most New Jersey apartments. Bi-weekly works well for singles or couples with low-traffic homes. Monthly is suitable for very tidy households that want occasional professional maintenance.' },
       { question: 'Do I need a deep clean before starting regular service?', answer: 'We strongly recommend it. A deep clean establishes a spotless baseline so your recurring regular cleanings are faster and more effective. Without it, the first few regular cleanings will take longer and cost more.' },
       { question: 'What\'s the cancellation policy for recurring cleaning?', answer: 'Recurring services require 7 days notice to reschedule. Cancellations are only permitted if discontinuing the service entirely with 7 days notice. We don\'t collect payment upfront — we hold your spot on our busy schedule, turning away other clients. Late changes directly affect our team members who depend on this income.' },
     ],
   },
 
   'weekly-cleaning': {
-    heroH1: 'NYC Weekly Maid Service — Never Come Home to a Mess Again',
+    heroH1: 'New Jersey Weekly Maid Service — Never Come Home to a Mess Again',
     tipsTitle: 'Weekly Cleaning Secrets From New Jersey\'s Top-Rated Maids',
     heroSubtitle: 'The same professional cleaner every week, maintaining your home to the highest standard. Walk in to a spotless apartment every single time — without lifting a finger.',
     whatIs: {
@@ -428,7 +428,7 @@ const richContentMap: Record<string, ServiceRichContent> = {
       body: [
         'Weekly maid service means you never have to think about cleaning again. Every week, your dedicated cleaner arrives on schedule, cleans your entire apartment to your standards, and leaves everything spotless.',
         'Because weekly service is maintenance-based, each visit is fast and efficient — typically 2–3 hours. Your cleaner isn\'t playing catch-up; they\'re maintaining an already clean home. This means lower cost per visit and better results.',
-        'Weekly clients get priority scheduling, the same cleaner every visit, and the lowest effective hourly rate at $59/hr with your supplies. It\'s the most popular service for busy NYC professionals and families.',
+        'Weekly clients get priority scheduling, the same cleaner every visit, and the lowest effective hourly rate at $59/hr with your supplies. It\'s the most popular service for busy New Jersey professionals and families.',
       ],
     },
     whenToBook: {
@@ -460,7 +460,7 @@ const richContentMap: Record<string, ServiceRichContent> = {
     ],
     pricingNote: 'Weekly maid service typically costs $98–$195 per visit. Most 1-bedroom apartments need just 2 hours ($118 at $59/hr) per weekly visit. 2-bedrooms average 2.5 hours ($122). The weekly consistency keeps each visit short and affordable.',
     faqs: [
-      { question: 'How much does weekly maid service cost in NYC?', answer: 'Weekly service is $59/hr with your supplies, $69/hr when we bring everything, or $89/hr for same-day emergency service. Most 1-bedroom weekly cleans take 2 hours ($98–$130/visit). 2-bedrooms average 2.5 hours ($122–$162/visit). It\'s the most cost-effective way to maintain a spotless home.' },
+      { question: 'How much does weekly maid service cost in New Jersey?', answer: 'Weekly service is $59/hr with your supplies, $69/hr when we bring everything, or $89/hr for same-day emergency service. Most 1-bedroom weekly cleans take 2 hours ($98–$130/visit). 2-bedrooms average 2.5 hours ($122–$162/visit). It\'s the most cost-effective way to maintain a spotless home.' },
       { question: 'Will I get the same cleaner every week?', answer: 'Yes. We specifically assign one cleaner to your home for all recurring visits. They learn your preferences, your space, and your standards. If your regular cleaner is unavailable, we\'ll notify you in advance and send a qualified replacement.' },
       { question: 'What day of the week can I schedule service?', answer: 'We offer Monday through Friday 8am–6pm and Saturday 9am–4pm. You choose your preferred day and time, and we keep that slot reserved for you every week.' },
       { question: 'What if I need to skip a week?', answer: 'Recurring services require 7 days notice to reschedule. Skipping individual appointments is treated as a cancellation — cancellations are only permitted if discontinuing the service entirely with 7 days notice. We hold your spot without taking payment upfront, turning away other clients, so late changes directly affect our team members who depend on this income.' },
@@ -468,8 +468,8 @@ const richContentMap: Record<string, ServiceRichContent> = {
   },
 
   'move-in-move-out-cleaning': {
-    heroH1: 'NYC Move-In/Move-Out Cleaning — Protect Your Deposit',
-    tipsTitle: 'NYC Moving Day Cleaning — What Every Renter Should Know',
+    heroH1: 'New Jersey Move-In/Move-Out Cleaning — Protect Your Deposit',
+    tipsTitle: 'New Jersey Moving Day Cleaning — What Every Renter Should Know',
     heroSubtitle: 'Get your full deposit back or move into a pristine home. We clean every inch of the empty space — inside cabinets, appliances, closets, and more.',
     whatIs: {
       heading: 'What Is Move-In/Move-Out Cleaning?',
@@ -495,13 +495,13 @@ const richContentMap: Record<string, ServiceRichContent> = {
       { title: 'Book before your lease ends — not the day of', detail: 'Schedule your move-out clean 2–3 days before your lease end date. This gives you a buffer in case anything needs a second pass and ensures the apartment is spotless for the landlord walkthrough.' },
       { title: 'Empty apartment = faster, cheaper clean', detail: 'Move cleaning is most efficient when the apartment is fully empty. If possible, schedule after movers leave but before your lease expires. No furniture means we can clean floors, baseboards, and walls thoroughly.' },
       { title: 'Document everything with photos', detail: 'Take photos of the clean apartment before your landlord walkthrough. This protects your security deposit claim and shows the condition you left the unit in.' },
-      { title: 'Ask your landlord what they expect', detail: 'Some NYC landlords have specific cleaning requirements for move-out. Ask beforehand so we can make sure everything on their checklist is covered.' },
+      { title: 'Ask your landlord what they expect', detail: 'Some New Jersey landlords have specific cleaning requirements for move-out. Ask beforehand so we can make sure everything on their checklist is covered.' },
     ],
     educationSections: [
       {
         heading: 'Move-Out Cleaning — Protect Your Security Deposit',
         body: [
-          'NYC security deposits are typically one month\'s rent — that\'s $2,000–$5,000+ you could lose if the apartment isn\'t returned in acceptable condition. A professional move-out clean costs $260–$520 and virtually guarantees you get your full deposit back.',
+          'New Jersey security deposits are typically one month\'s rent — that\'s $2,000–$5,000+ you could lose if the apartment isn\'t returned in acceptable condition. A professional move-out clean costs $260–$520 and virtually guarantees you get your full deposit back.',
           'We clean everything the landlord will inspect: inside oven and fridge, cabinet interiors, closet shelves and rods, bathroom tile and grout, window sills, baseboards, and all floors.',
           'It\'s the best ROI of any cleaning service — spend $300 to protect a $3,000 deposit.',
         ],
@@ -517,7 +517,7 @@ const richContentMap: Record<string, ServiceRichContent> = {
     ],
     pricingNote: 'Move-in/move-out cleaning typically costs $260–$520 depending on apartment size and condition. A 1-bedroom usually takes 4–5 hours, a 2-bedroom 5–6 hours, and a 3-bedroom 6–8 hours. The cost to clean is a fraction of the security deposit you\'re protecting.',
     faqs: [
-      { question: 'How much does move-in/move-out cleaning cost in NYC?', answer: 'Move cleaning is $59/hr with your supplies, $69/hr when we bring everything, or $89/hr for same-day emergency service. A 1-bedroom typically costs $260–$325 (4–5 hours). A 2-bedroom runs $325–$390 (5–6 hours). A 3-bedroom+ is $390–$520 (6–8 hours). The exact cost depends on apartment condition.' },
+      { question: 'How much does move-in/move-out cleaning cost in New Jersey?', answer: 'Move cleaning is $59/hr with your supplies, $69/hr when we bring everything, or $89/hr for same-day emergency service. A 1-bedroom typically costs $260–$325 (4–5 hours). A 2-bedroom runs $325–$390 (5–6 hours). A 3-bedroom+ is $390–$520 (6–8 hours). The exact cost depends on apartment condition.' },
       { question: 'Will move-out cleaning guarantee I get my deposit back?', answer: 'While we can\'t guarantee your landlord\'s decision, a professional move-out clean addresses every item landlords typically inspect. We clean inside appliances, cabinets, closets, baseboards, and all surfaces. Our clients overwhelmingly report getting their full deposits back.' },
       { question: 'Should I schedule the clean before or after moving furniture?', answer: 'After. An empty apartment is faster and cheaper to clean because we can access all floors, baseboards, walls, and corners without working around furniture. Schedule the clean after movers leave.' },
       { question: 'How far in advance should I book a move-out clean?', answer: 'Book at least 5–7 days in advance. Moving season (May–September) is our busiest time for this service, so earlier is better. We can sometimes accommodate last-minute requests but availability is limited.' },
@@ -527,14 +527,14 @@ const richContentMap: Record<string, ServiceRichContent> = {
   },
 
   'bi-weekly-cleaning': {
-    heroH1: 'NYC Bi-Weekly Cleaning — Spotless Every Two Weeks, Half the Cost',
-    tipsTitle: 'Bi-Weekly Cleaning Tips for NYC Apartment Dwellers',
+    heroH1: 'New Jersey Bi-Weekly Cleaning — Spotless Every Two Weeks, Half the Cost',
+    tipsTitle: 'Bi-Weekly Cleaning Tips for New Jersey Apartment Dwellers',
     heroSubtitle: 'The perfect balance between spotless and budget-friendly. Every two weeks, your dedicated cleaner resets your home — so it never has the chance to get out of hand.',
     whatIs: {
       heading: 'What Is Bi-Weekly Cleaning?',
       subheading: 'Bi-weekly cleaning is a recurring service every two weeks — more thorough than weekly maintenance, more affordable than scheduling every seven days.',
       body: [
-        'Bi-weekly cleaning is the most popular schedule for NYC couples, small apartments, and professionals who keep a relatively tidy home between visits. Your cleaner arrives every 14 days and performs a thorough cleaning of the entire apartment — kitchen, bathrooms, all surfaces, floors, and more.',
+        'Bi-weekly cleaning is the most popular schedule for New Jersey couples, small apartments, and professionals who keep a relatively tidy home between visits. Your cleaner arrives every 14 days and performs a thorough cleaning of the entire apartment — kitchen, bathrooms, all surfaces, floors, and more.',
         'Because two weeks of buildup accumulates between visits, each bi-weekly clean is slightly more thorough than a weekly visit. Expect each session to run 2.5–4 hours depending on apartment size. Your cleaner will give extra attention to the kitchen, bathrooms, and high-traffic areas where grime builds up fastest.',
         'Like all recurring services, you get the same assigned cleaner every visit. They learn your home, your expectations, and your cleaning priorities. Over time, bi-weekly cleanings become faster and more efficient because your cleaner knows exactly what needs attention.',
       ],
@@ -553,7 +553,7 @@ const richContentMap: Record<string, ServiceRichContent> = {
     nycTips: [
       { title: 'Bi-weekly is ideal for 1-bedroom apartments', detail: 'A 1-bedroom apartment with one or two occupants rarely needs weekly professional cleaning. Bi-weekly keeps it in excellent shape while saving you roughly $400/month compared to weekly service.' },
       { title: 'Do light maintenance between visits', detail: 'Quick tasks between bi-weekly cleanings — wiping down the kitchen counter after cooking, a fast bathroom wipe, running the vacuum — extend the "just cleaned" feeling and make your cleaner\'s job even more effective.' },
-      { title: 'Consider upgrading to weekly during summer', detail: 'NYC summers bring more dust, allergens, and AC use. Many bi-weekly clients temporarily switch to weekly June–September, then drop back to bi-weekly in the fall. We make schedule changes easy.' },
+      { title: 'Consider upgrading to weekly during summer', detail: 'New Jersey summers bring more dust, allergens, and AC use. Many bi-weekly clients temporarily switch to weekly June–September, then drop back to bi-weekly in the fall. We make schedule changes easy.' },
       { title: 'Pair with a seasonal deep clean', detail: 'Bi-weekly maintenance keeps your apartment clean, but twice a year, book a deep clean to hit the areas that regular cleaning doesn\'t cover — inside appliances, baseboards, behind furniture.' },
     ],
     educationSections: [
@@ -578,7 +578,7 @@ const richContentMap: Record<string, ServiceRichContent> = {
     ],
     pricingNote: 'Bi-weekly cleaning typically costs $120–$260 per visit. A 1-bedroom usually takes 2.5 hours ($148 at $59/hr). A 2-bedroom averages 3 hours ($177 at $59/hr). Over a year, that\'s roughly $3,200–$6,800 — about half the cost of weekly service.',
     faqs: [
-      { question: 'How much does bi-weekly cleaning cost in NYC?', answer: 'Bi-weekly cleaning is $59/hr with your supplies, $69/hr when we bring everything, or $89/hr for same-day emergency service. A 1-bedroom typically costs $122–$162 per visit (2.5 hours). A 2-bedroom runs $147–$195 (3 hours). You pay for time worked — no flat-rate markups.' },
+      { question: 'How much does bi-weekly cleaning cost in New Jersey?', answer: 'Bi-weekly cleaning is $59/hr with your supplies, $69/hr when we bring everything, or $89/hr for same-day emergency service. A 1-bedroom typically costs $122–$162 per visit (2.5 hours). A 2-bedroom runs $147–$195 (3 hours). You pay for time worked — no flat-rate markups.' },
       { question: 'Is bi-weekly enough for a 2-bedroom apartment?', answer: 'For 1–2 occupants who keep a reasonably tidy home, yes. If you have children, pets, or cook daily, weekly service may be a better fit. Many clients start bi-weekly and upgrade to weekly when they realize how much they enjoy a clean home.' },
       { question: 'Can I switch from bi-weekly to weekly later?', answer: 'Absolutely. Many clients start with bi-weekly and upgrade to weekly over time. We keep the same cleaner and simply adjust your schedule. Likewise, you can drop from weekly to bi-weekly if needed.' },
       { question: 'Do I get the same cleaner for bi-weekly service?', answer: 'Yes. All recurring clients — weekly, bi-weekly, or monthly — are assigned the same dedicated cleaner. They learn your home and your standards over time, which means better quality with every visit.' },
@@ -588,8 +588,8 @@ const richContentMap: Record<string, ServiceRichContent> = {
   },
 
   'monthly-cleaning': {
-    heroH1: 'NYC Monthly Cleaning Service — A Professional Reset Every 30 Days',
-    tipsTitle: 'Monthly Cleaning Strategies for NYC Homes & Apartments',
+    heroH1: 'New Jersey Monthly Cleaning Service — A Professional Reset Every 30 Days',
+    tipsTitle: 'Monthly Cleaning Strategies for New Jersey Homes & Apartments',
     heroSubtitle: 'A thorough monthly reset for your entire home. We go deeper than a regular clean, rotating through detailed tasks so every corner gets attention over time.',
     whatIs: {
       heading: 'What Is Monthly Cleaning Service?',
@@ -638,7 +638,7 @@ const richContentMap: Record<string, ServiceRichContent> = {
     ],
     pricingNote: 'Monthly cleaning typically costs $147–$325 per visit. A 1-bedroom takes 3 hours ($177 at $59/hr). A 2-bedroom averages 3.5–4 hours ($171–$196). Over a year, that\'s roughly $1,764–$3,900 — the most budget-friendly recurring option.',
     faqs: [
-      { question: 'How much does monthly cleaning cost in NYC?', answer: 'Monthly cleaning is $59/hr with your supplies, $69/hr when we bring everything, or $89/hr for same-day emergency service. A 1-bedroom typically costs $147–$195 (3–4 hours). A 2-bedroom runs $171–$260 (3.5–5 hours). Monthly cleans take longer than weekly because there\'s more buildup to address.' },
+      { question: 'How much does monthly cleaning cost in New Jersey?', answer: 'Monthly cleaning is $59/hr with your supplies, $69/hr when we bring everything, or $89/hr for same-day emergency service. A 1-bedroom typically costs $147–$195 (3–4 hours). A 2-bedroom runs $171–$260 (3.5–5 hours). Monthly cleans take longer than weekly because there\'s more buildup to address.' },
       { question: 'Is monthly cleaning thorough enough?', answer: 'For people who maintain their home between visits, absolutely. Monthly cleaning goes deeper than a weekly maintenance clean — your cleaner has more time to address baseboards, window sills, cabinet fronts, and other areas that weekly clients don\'t need. It\'s a hybrid between regular and deep cleaning.' },
       { question: 'Can I add extra tasks to my monthly cleaning?', answer: 'Yes. Monthly sessions are longer, which gives room for rotating deep tasks. Let us know if you want the fridge cleaned, baseboards scrubbed, or any other specific focus area for a particular visit.' },
       { question: 'Do I get the same cleaner each month?', answer: 'Yes. Like all our recurring services, monthly clients are assigned the same dedicated cleaner. They visit your home on the same day each month and learn your preferences over time.' },
@@ -648,9 +648,9 @@ const richContentMap: Record<string, ServiceRichContent> = {
   },
 
   'post-renovation-cleaning': {
-    heroH1: 'NYC Post-Construction Cleanup — Make Your Renovation Livable',
-    roomsTitle: 'What Gets Cleaned After a NYC Apartment Renovation',
-    tipsTitle: 'Post-Renovation Cleanup Tips for NYC Co-ops & Condos',
+    heroH1: 'New Jersey Post-Construction Cleanup — Make Your Renovation Livable',
+    roomsTitle: 'What Gets Cleaned After a New Jersey Apartment Renovation',
+    tipsTitle: 'Post-Renovation Cleanup Tips for New Jersey Co-ops & Condos',
     heroSubtitle: 'Construction dust doesn\'t just sit on surfaces — it gets into vents, behind walls, inside cabinets, and everywhere you can\'t see. We eliminate every particle so your renovation actually feels finished.',
     whatIs: {
       heading: 'What Is Post-Construction Cleanup?',
@@ -682,7 +682,7 @@ const richContentMap: Record<string, ServiceRichContent> = {
       { title: 'Wait 24-48 hours after construction ends', detail: 'Fine construction dust stays airborne for hours after work stops. Let it settle for 1–2 days before scheduling your cleanup. This ensures we capture the majority of settled dust in one thorough pass rather than needing a follow-up.' },
       { title: 'Expect 2 passes for major renovations', detail: 'After a gut renovation or full kitchen remodel, one cleaning pass won\'t get it all. Ultra-fine drywall and grout dust resettles over 24–48 hours. Most clients book a thorough first pass, then a follow-up detail clean 2–3 days later.' },
       { title: 'Protect HVAC during renovation if possible', detail: 'If your renovation is still in progress, cover vent returns with plastic and change your HVAC filter immediately after construction. This prevents dust from circulating through your entire apartment for weeks after the reno.' },
-      { title: 'NYC co-op and condo boards may require it', detail: 'Many NYC buildings require professional post-construction cleaning and sign-off before issuing a completion certificate. Ask your building manager about requirements — we can provide proof of service if needed.' },
+      { title: 'New Jersey co-op and condo boards may require it', detail: 'Many New Jersey buildings require professional post-construction cleaning and sign-off before issuing a completion certificate. Ask your building manager about requirements — we can provide proof of service if needed.' },
       { title: 'Don\'t use your regular vacuum on construction dust', detail: 'Construction dust is finer than household dust and will destroy a standard vacuum filter. We use commercial HEPA-filtered vacuums designed for post-construction environments.' },
     ],
     educationSections: [
@@ -707,19 +707,19 @@ const richContentMap: Record<string, ServiceRichContent> = {
     ],
     pricingNote: 'Post-construction cleanup typically costs $375–$750 depending on renovation scope and apartment size. A bathroom remodel cleanup runs $225–$375 (3–5 hrs). A kitchen remodel is $375–$525 (5–7 hrs). A full apartment gut renovation is $525–$750+ (7–10 hrs). This is a one-time cost to make your investment livable.',
     faqs: [
-      { question: 'How much does post-construction cleaning cost in NYC?', answer: 'Post-construction cleaning is $69/hr (we always bring our own commercial equipment for this service). A bathroom remodel cleanup costs $225–$375 (3–5 hours). Kitchen remodel: $375–$525 (5–7 hours). Full renovation: $525–$750+ (7–10 hours). Cost depends on renovation scope and apartment condition.' },
+      { question: 'How much does post-construction cleaning cost in New Jersey?', answer: 'Post-construction cleaning is $69/hr (we always bring our own commercial equipment for this service). A bathroom remodel cleanup costs $225–$375 (3–5 hours). Kitchen remodel: $375–$525 (5–7 hours). Full renovation: $525–$750+ (7–10 hours). Cost depends on renovation scope and apartment condition.' },
       { question: 'How soon after construction can you clean?', answer: 'We recommend waiting 24–48 hours after construction ends for dust to settle. For major renovations, we may schedule a thorough first pass, then a detail follow-up 2–3 days later to catch resettled fine dust.' },
       { question: 'Do you remove paint splatter from floors?', answer: 'Yes. We use professional-grade paint removers that are safe for hardwood, tile, and LVP flooring. For large areas of paint splatter, we\'ll address it as part of the floor cleaning phase. We cannot remove paint that has bonded into unsealed surfaces.' },
       { question: 'Can you clean while construction is still ongoing?', answer: 'We recommend waiting until all construction is complete. Cleaning during an active renovation means dust and debris will immediately re-accumulate. If you need an interim cleaning (for example, between phases), we can do that — but expect to book a final clean after all work ends.' },
       { question: 'Do you clean inside HVAC vents and ducts?', answer: 'We clean vent covers, registers, and the visible interior of duct openings. Full duct cleaning requires a specialized HVAC service. However, we strongly recommend changing your HVAC filter immediately after construction and again 30 days later.' },
       { question: 'Will one cleaning session be enough?', answer: 'For bathroom remodels and paint jobs, usually yes. For kitchen remodels and full renovations, most clients need two sessions — an initial thorough clean, then a detail pass 2–3 days later after fine dust resettles. We\'ll give you an honest assessment after the first visit.' },
-      { question: 'Is post-construction cleaning required by NYC buildings?', answer: 'Many NYC co-op and condo boards require professional cleaning before issuing a construction completion certificate or releasing your alteration deposit. Check with your building management — we can provide a receipt and proof of service.' },
+      { question: 'Is post-construction cleaning required by New Jersey buildings?', answer: 'Many New Jersey co-op and condo boards require professional cleaning before issuing a construction completion certificate or releasing your alteration deposit. Check with your building management — we can provide a receipt and proof of service.' },
     ],
   },
 
   'same-day-cleaning': {
-    heroH1: 'Same-Day Cleaning in NYC — A Pro at Your Door in Hours',
-    tipsTitle: 'Last-Minute NYC Cleaning — How to Get It Done Today',
+    heroH1: 'Same-Day Cleaning in New Jersey — A Pro at Your Door in Hours',
+    tipsTitle: 'Last-Minute New Jersey Cleaning — How to Get It Done Today',
     heroSubtitle: 'Need your apartment cleaned today? We dispatch a professional cleaner to your door within hours. No compromises on quality — just faster scheduling.',
     whatIs: {
       heading: 'What Is Same-Day Cleaning Service?',
@@ -733,7 +733,7 @@ const richContentMap: Record<string, ServiceRichContent> = {
     whenToBook: {
       title: 'When Do You Need Same-Day Cleaning?',
       items: [
-        'Unexpected guests arriving tonight — parents, in-laws, friends passing through NYC',
+        'Unexpected guests arriving tonight — parents, in-laws, friends passing through New Jersey',
         'Landlord or management company scheduling a surprise inspection',
         'Post-party cleanup — the apartment is a disaster and you need it handled today',
         'You\'re hosting dinner tonight and the apartment needs professional attention',
@@ -770,7 +770,7 @@ const richContentMap: Record<string, ServiceRichContent> = {
     ],
     pricingNote: 'Same-day cleaning is $89/hr flat. A focused 2-hour clean is $200. A thorough 3–4 hour apartment clean is $300–$400. For non-urgent needs, scheduling 2+ days ahead at $59–$69/hr saves 20–40%.',
     faqs: [
-      { question: 'How much does same-day cleaning cost in NYC?', answer: 'Same-day cleaning is $89/hr flat. A typical 2-hour focused clean costs $200. A thorough 3-hour apartment clean is $300. This premium rate compensates our cleaner for last-minute schedule changes. For non-urgent needs, scheduling in advance saves 20–40%.' },
+      { question: 'How much does same-day cleaning cost in New Jersey?', answer: 'Same-day cleaning is $89/hr flat. A typical 2-hour focused clean costs $200. A thorough 3-hour apartment clean is $300. This premium rate compensates our cleaner for last-minute schedule changes. For non-urgent needs, scheduling in advance saves 20–40%.' },
       { question: 'How quickly can you get a cleaner to my apartment?', answer: 'For morning requests (before 10am), we can typically have a cleaner at your door by early afternoon — within 3–5 hours. Afternoon requests are harder to accommodate same-day. We\'ll always give you an honest timeline when you reach out.' },
       { question: 'Is same-day cleaning the same quality as regular service?', answer: 'Identical. You\'re getting the same background-checked, insured, experienced cleaners doing the same thorough work. The only difference is the scheduling urgency and the premium rate that compensates for last-minute logistics.' },
       { question: 'What if no cleaner is available today?', answer: 'If we can\'t accommodate same-day, we\'ll offer the earliest available slot — often the next morning. We\'d rather be honest about availability than send someone who can\'t do the job properly.' },
@@ -780,7 +780,7 @@ const richContentMap: Record<string, ServiceRichContent> = {
   },
 
   'airbnb-cleaning': {
-    heroH1: 'NYC Airbnb & Short-Term Rental Cleaning — 5-Star Turnovers Guaranteed',
+    heroH1: 'New Jersey Airbnb & Short-Term Rental Cleaning — 5-Star Turnovers Guaranteed',
     tipsTitle: 'Airbnb Hosting Tips From New Jersey\'s Go-To Turnover Cleaners',
     heroSubtitle: 'Fast, reliable turnover cleaning between guests — with a strict checklist, linen change, and photo-ready staging. Protect your 5-star reviews with every single turnover.',
     whatIs: {
@@ -823,7 +823,7 @@ const richContentMap: Record<string, ServiceRichContent> = {
       {
         heading: 'How to Price Your Airbnb Cleaning Fee',
         body: [
-          'Most NYC Airbnb hosts charge a $75–$150 cleaning fee to guests, which covers (or partially covers) the turnover cost.',
+          'Most New Jersey Airbnb hosts charge a $75–$150 cleaning fee to guests, which covers (or partially covers) the turnover cost.',
           'Our turnover service costs $59–$69/hr ($89/hr same-day) — a 1-bedroom turnover at 1.5–2 hours runs $75–$130. A 2-bedroom takes 2–2.5 hours at $98–$162.',
           'Set your Airbnb cleaning fee to roughly match your actual cost. Guests expect to pay a cleaning fee — it\'s standard on the platform. Eating the cost to lower your nightly rate rarely improves bookings enough to justify it.',
           'For frequent turnovers (2+ per week), we offer scheduling consistency that ensures the same cleaner handles your unit every time. Consistency means faster turnovers and fewer mistakes.',
@@ -842,12 +842,12 @@ const richContentMap: Record<string, ServiceRichContent> = {
   },
 
   'office-cleaning': {
-    heroH1: 'NYC Office Cleaning — Keep Your Workspace Healthy & Professional',
-    tipsTitle: 'Office Cleaning Best Practices for NYC Businesses',
+    heroH1: 'New Jersey Office Cleaning — Keep Your Workspace Healthy & Professional',
+    tipsTitle: 'Office Cleaning Best Practices for New Jersey Businesses',
     heroSubtitle: 'A clean workspace isn\'t optional — it affects health, productivity, and how clients perceive your business. We keep your office spotless so you can focus on the work that matters.',
     whatIs: {
       heading: 'What Is Professional Office Cleaning?',
-      subheading: 'Office cleaning is a commercial cleaning service designed for small offices, co-working spaces, medical practices, and professional suites across NYC.',
+      subheading: 'Office cleaning is a commercial cleaning service designed for small offices, co-working spaces, medical practices, and professional suites across New Jersey.',
       body: [
         'Office cleaning goes beyond aesthetics — it\'s about health, productivity, and professional image. Shared workspaces accumulate bacteria on keyboards, phones, door handles, and common areas. Break rooms and restrooms need daily sanitization. Client-facing areas need to look polished at all times.',
         'Our office cleaning service covers desk and workstation sanitization, common area cleaning, kitchen/break room deep cleaning, restroom sanitization, trash and recycling, floor care, and high-touch surface disinfection. We can customize the scope to your office\'s specific needs.',
@@ -867,10 +867,10 @@ const richContentMap: Record<string, ServiceRichContent> = {
       ],
     },
     nycTips: [
-      { title: 'Schedule cleaning after business hours', detail: 'Most NYC offices get cleaned between 6–9pm or 6–8am. Off-hours cleaning means zero disruption to your team and no cleaners navigating around occupied desks. We\'ll work around your schedule.' },
+      { title: 'Schedule cleaning after business hours', detail: 'Most New Jersey offices get cleaned between 6–9pm or 6–8am. Off-hours cleaning means zero disruption to your team and no cleaners navigating around occupied desks. We\'ll work around your schedule.' },
       { title: 'Prioritize high-touch surfaces', detail: 'Door handles, elevator buttons, shared kitchen appliances, phone handsets, and conference tables are bacteria hotspots. Make sure these are wiped down with disinfectant at every cleaning — especially during cold and flu season.' },
       { title: 'A clean office reduces sick days', detail: 'Studies consistently show that regular professional office cleaning reduces employee sick days by 40–50%. The ROI is clear — the cost of a weekly clean is far less than the productivity lost to preventable illness.' },
-      { title: 'Ask about green cleaning products', detail: 'Many NYC offices prefer eco-friendly cleaning products, especially in close-quarters spaces. We can use plant-based, low-VOC products that are effective without the chemical smell. Just request it when booking.' },
+      { title: 'Ask about green cleaning products', detail: 'Many New Jersey offices prefer eco-friendly cleaning products, especially in close-quarters spaces. We can use plant-based, low-VOC products that are effective without the chemical smell. Just request it when booking.' },
     ],
     educationSections: [
       {
@@ -880,7 +880,7 @@ const richContentMap: Record<string, ServiceRichContent> = {
           'Daily cleaning is ideal for offices with 10+ employees, client-facing reception areas, medical practices, and any space where restrooms and kitchens see heavy use.',
           'Weekly cleaning works for small offices (2–8 people), especially those with low foot traffic and no public-facing areas.',
           'Bi-weekly is suitable for very small offices, private offices, or spaces used only part of the week.',
-          'Most NYC offices with 5+ employees benefit from at least weekly professional cleaning. The cost is modest relative to rent and the impact on team morale and health.',
+          'Most New Jersey offices with 5+ employees benefit from at least weekly professional cleaning. The cost is modest relative to rent and the impact on team morale and health.',
         ],
       },
       {
@@ -894,7 +894,7 @@ const richContentMap: Record<string, ServiceRichContent> = {
     ],
     pricingNote: 'Office cleaning costs $59–$69/hr depending on supply arrangement ($89/hr same-day). A small office (under 1,000 sqft) takes 2 hours ($98–$130/visit). A mid-size office (1,000–2,500 sqft) takes 3–4 hours ($147–$260). Larger spaces are quoted based on scope. Weekly clients get the most value.',
     faqs: [
-      { question: 'How much does office cleaning cost in NYC?', answer: 'Office cleaning is $59/hr with your supplies, $69/hr when we bring everything, or $89/hr for same-day emergency service. A small office (under 1,000 sqft) costs $98–$130 per visit. A mid-size office (1,000–2,500 sqft) runs $147–$260. Weekly service offers the best per-visit value.' },
+      { question: 'How much does office cleaning cost in New Jersey?', answer: 'Office cleaning is $59/hr with your supplies, $69/hr when we bring everything, or $89/hr for same-day emergency service. A small office (under 1,000 sqft) costs $98–$130 per visit. A mid-size office (1,000–2,500 sqft) runs $147–$260. Weekly service offers the best per-visit value.' },
       { question: 'Can you clean outside of business hours?', answer: 'Yes — most of our office clients prefer after-hours cleaning between 6–9pm or early morning 6–8am. We work around your team\'s schedule to minimize disruption.' },
       { question: 'Do you clean medical or dental offices?', answer: 'Yes. We follow enhanced sanitization protocols for medical and dental practices including EPA-registered disinfectants, proper waste handling, and attention to patient-facing areas. Let us know your specific requirements when booking.' },
       { question: 'What\'s included in a standard office cleaning?', answer: 'Trash and recycling from all workstations, kitchen/break room cleaning, restroom sanitization, desk surface wiping (when cleared), floor vacuuming and mopping, and high-touch surface disinfection (door handles, switches, shared equipment).' },
@@ -974,7 +974,7 @@ export function commonServiceFAQs(service: Service): { question: string; answer:
     { question: 'Are your cleaners background-checked?', answer: 'Yes. Every cleaner on our team undergoes a comprehensive background check before their first assignment. We also carry general liability insurance and bonding for your protection. You can trust that the person entering your home has been fully vetted.' },
     { question: 'Do I need to be home during the cleaning?', answer: 'No. Many clients leave a key, provide a door code, or arrange access through their doorman or building management. You\'re welcome to be home or away — whatever is most comfortable. We\'ll text you when we arrive and when we\'re done.' },
     { question: 'How do I book a cleaning?', answer: 'Text (973) 370-8800. Tell us your address, preferred date, and any special requests. We\'ll confirm your appointment and match you with a cleaner, usually within the hour.' },
-    { question: 'What areas do you serve?', answer: 'We serve Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island (Nassau and western Suffolk), Westchester County, and northern New Jersey (Hudson and close-in Bergen). Same rates everywhere — no travel surcharges regardless of location.' },
+    { question: 'What areas do you serve?', answer: 'We serve New Jersey, New Jersey, New Jersey, the New Jersey, New Jersey, Long Island (Nassau and western Suffolk), New Jersey County, and northern New Jersey (Hudson and close-in Bergen). Same rates everywhere — no travel surcharges regardless of location.' },
     { question: 'Do I pay before or after the cleaning?', answer: 'After. We never charge upfront or take deposits. You pay only after the cleaning is complete, before the cleaner leaves. We accept credit/debit card, Apple Pay, and Cash App through our secure online payment link, plus cash.' },
     { question: 'What if I\'m not satisfied with the cleaning?', answer: 'Let us know within 24 hours and we\'ll send a cleaner back to address any issues at no additional cost. We stand behind our work — your satisfaction is non-negotiable.' },
     { question: 'Do you bring your own cleaning supplies?', answer: 'At $69/hr, yes — we bring professional-grade products, microfiber systems, and a commercial vacuum. At $59/hr, you provide your own supplies. Either way, we\'re happy to use specific products you prefer (eco-friendly, hypoallergenic, etc.).' },
@@ -990,6 +990,6 @@ export function commonServiceFAQs(service: Service): { question: string; answer:
     { question: 'How do you handle pets during cleaning?', answer: 'We\'re pet-friendly. If you have pets, let us know when booking so we can match you with a pet-comfortable cleaner. We ask that aggressive animals be secured in a separate room during the cleaning for everyone\'s safety.' },
     { question: 'Do you offer gift certificates?', answer: 'Yes — cleaning makes a great gift. Text us at (973) 370-8800 to purchase a gift certificate in any amount. We\'ll send a digital certificate that the recipient can redeem for any service.' },
     { question: 'What happens if something is damaged during cleaning?', answer: 'We carry general liability insurance specifically for this reason. If a cleaner accidentally damages something in your home, report it within 24 hours and we\'ll work with you to resolve it through our insurance coverage.' },
-    { question: 'Do you have a referral program?', answer: 'Yes. Refer a friend and earn money every time they book a cleaning — not just the first time. Visit thenewjerseymaid.com/referral or text us for details. It\'s one of the most generous referral programs in NYC cleaning.' },
+    { question: 'Do you have a referral program?', answer: 'Yes. Refer a friend and earn money every time they book a cleaning — not just the first time. Visit thenewjerseymaid.com/referral or text us for details. It\'s one of the most generous referral programs in New Jersey cleaning.' },
   ]
 }

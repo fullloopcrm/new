@@ -37,12 +37,12 @@ export const metadata: Metadata = {
     description: pageDescription,
     images: ['https://www.thelongislandmaid.com/icon-512.png'],
   },
-  keywords: 'part time operations coordinator, part time coordinator remote, part time dispatcher, part time customer service, second job from home, side job remote, work from phone job, cleaning service coordinator, scheduling coordinator part time, payment coordinator, virtual coordinator, remote coordinator NYC, part time work from home, easy second job, side gig remote, operations coordinator cleaning company, bilingual coordinator, part time job NYC, part time job New Jersey, part time job Long Island, remote part time job, work from home part time, dispatcher part time, service coordinator part time, 10 percent commission job, per job pay, pay per job coordinator',
+  keywords: 'part time operations coordinator, part time coordinator remote, part time dispatcher, part time customer service, second job from home, side job remote, work from phone job, cleaning service coordinator, scheduling coordinator part time, payment coordinator, virtual coordinator, remote coordinator Long Island, part time work from home, easy second job, side gig remote, operations coordinator cleaning company, bilingual coordinator, part time job Long Island, part time job New Jersey, part time job Long Island, remote part time job, work from home part time, dispatcher part time, service coordinator part time, 10 percent commission job, per job pay, pay per job coordinator',
   other: {
     'geo.region': 'US-NY',
-    'geo.placename': 'New York City',
-    'geo.position': '40.7589;-73.9851',
-    'ICBM': '40.7589, -73.9851',
+    'geo.placename': 'Long Island',
+    'geo.position': '40.7370;-73.5594',
+    'ICBM': '40.7370, -73.5594',
     'revisit-after': '3 days',
     'format-detection': 'telephone=yes',
   },
@@ -122,10 +122,8 @@ function coordinatorJobPostingSchema() {
       },
       address: {
         '@type': 'PostalAddress',
-        streetAddress: '150 W 47th St',
-        addressLocality: 'New York',
+        addressLocality: 'Garden City',
         addressRegion: 'NY',
-        postalCode: '10036',
         addressCountry: 'US',
       },
     },
@@ -134,10 +132,8 @@ function coordinatorJobPostingSchema() {
       '@type': 'Place',
       address: {
         '@type': 'PostalAddress',
-        streetAddress: '150 W 47th St',
-        addressLocality: 'New York',
+        addressLocality: 'Garden City',
         addressRegion: 'NY',
-        postalCode: '10036',
         addressCountry: 'US',
       },
     },
@@ -270,13 +266,13 @@ export default function OperationsCoordinatorPage() {
           speakable: ['h1', 'h2', '.hero-description'],
           breadcrumb: [
             { name: 'Home', url: 'https://www.thelongislandmaid.com' },
-            { name: 'Careers', url: 'https://www.thelongislandmaid.com/available-nyc-maid-jobs' },
+            { name: 'Careers', url: 'https://www.thelongislandmaid.com/available-long-island-maid-jobs' },
             { name: 'Operations Admin', url: pageUrl },
           ],
         }),
         breadcrumbSchema([
           { name: 'Home', url: 'https://www.thelongislandmaid.com' },
-          { name: 'Careers', url: 'https://www.thelongislandmaid.com/available-nyc-maid-jobs' },
+          { name: 'Careers', url: 'https://www.thelongislandmaid.com/available-long-island-maid-jobs' },
           { name: 'Operations Admin', url: pageUrl },
         ]),
         coordinatorJobPostingSchema(),
@@ -299,7 +295,7 @@ export default function OperationsCoordinatorPage() {
             Operations Admin — 10% Per Job, Averaged ~$40/hr Last Month
           </h1>
           <p className="text-blue-200/80 text-lg max-w-3xl leading-relaxed mb-3">
-            The Long Island Maid &mdash; New York City | Long Island | New Jersey
+            The Long Island Maid &mdash; Long Island | Long Island | New Jersey
           </p>
           <p className="text-blue-200/60 max-w-3xl leading-relaxed mb-4">
             You own the calendar, the cleaners, and the collections. Jobs are sold and scheduled &mdash; your job is to make sure every cleaning runs, every client is happy, and every payment comes in. You get paid 10% of every completed job, same way the cleaners get paid &mdash; per job, via Stripe, within minutes of completion.
@@ -364,7 +360,7 @@ export default function OperationsCoordinatorPage() {
 
       <div className="max-w-5xl mx-auto px-4 py-12">
         <Breadcrumbs items={[
-          { name: 'Careers', href: '/available-nyc-maid-jobs' },
+          { name: 'Careers', href: '/available-long-island-maid-jobs' },
           { name: 'Operations Admin', href: '/careers/operations-coordinator' },
         ]} />
 

@@ -37,12 +37,12 @@ export const metadata: Metadata = {
     description: pageDescription,
     images: ['https://www.theconnecticutmaid.com/icon-512.png'],
   },
-  keywords: 'part time operations coordinator, part time coordinator remote, part time dispatcher, part time customer service, second job from home, side job remote, work from phone job, cleaning service coordinator, scheduling coordinator part time, payment coordinator, virtual coordinator, remote coordinator NYC, part time work from home, easy second job, side gig remote, operations coordinator cleaning company, bilingual coordinator, part time job NYC, part time job New Jersey, part time job Long Island, remote part time job, work from home part time, dispatcher part time, service coordinator part time, 10 percent commission job, per job pay, pay per job coordinator',
+  keywords: 'part time operations coordinator, part time coordinator remote, part time dispatcher, part time customer service, second job from home, side job remote, work from phone job, cleaning service coordinator, scheduling coordinator part time, payment coordinator, virtual coordinator, remote coordinator Connecticut, part time work from home, easy second job, side gig remote, operations coordinator cleaning company, bilingual coordinator, part time job Connecticut, part time job New Jersey, part time job Long Island, remote part time job, work from home part time, dispatcher part time, service coordinator part time, 10 percent commission job, per job pay, pay per job coordinator',
   other: {
-    'geo.region': 'US-NY',
-    'geo.placename': 'New York City',
-    'geo.position': '40.7589;-73.9851',
-    'ICBM': '40.7589, -73.9851',
+    'geo.region': 'US-CT',
+    'geo.placename': 'Connecticut',
+    'geo.position': '41.6032;-73.0877',
+    'ICBM': '41.6032, -73.0877',
     'revisit-after': '3 days',
     'format-detection': 'telephone=yes',
   },
@@ -122,10 +122,8 @@ function coordinatorJobPostingSchema() {
       },
       address: {
         '@type': 'PostalAddress',
-        streetAddress: '150 W 47th St',
-        addressLocality: 'New York',
-        addressRegion: 'NY',
-        postalCode: '10036',
+        addressLocality: 'Norwalk',
+        addressRegion: 'CT',
         addressCountry: 'US',
       },
     },
@@ -134,10 +132,8 @@ function coordinatorJobPostingSchema() {
       '@type': 'Place',
       address: {
         '@type': 'PostalAddress',
-        streetAddress: '150 W 47th St',
-        addressLocality: 'New York',
-        addressRegion: 'NY',
-        postalCode: '10036',
+        addressLocality: 'Norwalk',
+        addressRegion: 'CT',
         addressCountry: 'US',
       },
     },
@@ -270,13 +266,13 @@ export default function OperationsCoordinatorPage() {
           speakable: ['h1', 'h2', '.hero-description'],
           breadcrumb: [
             { name: 'Home', url: 'https://www.theconnecticutmaid.com' },
-            { name: 'Careers', url: 'https://www.theconnecticutmaid.com/available-nyc-maid-jobs' },
+            { name: 'Careers', url: 'https://www.theconnecticutmaid.com/available-connecticut-maid-jobs' },
             { name: 'Operations Admin', url: pageUrl },
           ],
         }),
         breadcrumbSchema([
           { name: 'Home', url: 'https://www.theconnecticutmaid.com' },
-          { name: 'Careers', url: 'https://www.theconnecticutmaid.com/available-nyc-maid-jobs' },
+          { name: 'Careers', url: 'https://www.theconnecticutmaid.com/available-connecticut-maid-jobs' },
           { name: 'Operations Admin', url: pageUrl },
         ]),
         coordinatorJobPostingSchema(),
@@ -299,7 +295,7 @@ export default function OperationsCoordinatorPage() {
             Operations Admin — 10% Per Job, Averaged ~$40/hr Last Month
           </h1>
           <p className="text-blue-200/80 text-lg max-w-3xl leading-relaxed mb-3">
-            The Connecticut Maid &mdash; New York City | Long Island | New Jersey
+            The Connecticut Maid &mdash; Connecticut | Long Island | New Jersey
           </p>
           <p className="text-blue-200/60 max-w-3xl leading-relaxed mb-4">
             You own the calendar, the cleaners, and the collections. Jobs are sold and scheduled &mdash; your job is to make sure every cleaning runs, every client is happy, and every payment comes in. You get paid 10% of every completed job, same way the cleaners get paid &mdash; per job, via Stripe, within minutes of completion.
@@ -364,7 +360,7 @@ export default function OperationsCoordinatorPage() {
 
       <div className="max-w-5xl mx-auto px-4 py-12">
         <Breadcrumbs items={[
-          { name: 'Careers', href: '/available-nyc-maid-jobs' },
+          { name: 'Careers', href: '/available-connecticut-maid-jobs' },
           { name: 'Operations Admin', href: '/careers/operations-coordinator' },
         ]} />
 

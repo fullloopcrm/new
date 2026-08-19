@@ -14,11 +14,10 @@ const BUSINESS = {
   logo: 'https://www.thelongislandmaid.com/icon-512.png',
   image: 'https://www.thelongislandmaid.com/icon-512.png',
   priceRange: '$$',
-  foundingDate: '2018',
   currenciesAccepted: 'USD',
   paymentAccepted: 'Cash, Credit Card, Debit Card, Apple Pay, Cash App',
-  description: 'Professional house cleaning services across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester County, and Northern New Jersey. Deep cleaning, regular apartment cleaning, move-in/move-out, post-construction cleanup, weekly maid service, same-day cleaning, Airbnb turnover, and office cleaning. Licensed, insured, and background-checked cleaners. Serving the NYC metro since 2018.',
-  slogan: "New York City's Most Trusted Cleaning Service",
+  description: 'Professional house cleaning services across Long Island. Deep cleaning, regular apartment cleaning, move-in/move-out, post-construction cleanup, weekly maid service, same-day cleaning, Airbnb turnover, and office cleaning. Licensed, insured, and background-checked cleaners.',
+  slogan: "Long Island's Trusted Cleaning Service",
   knowsLanguage: ['en', 'es'],
   numberOfEmployees: { '@type': 'QuantitativeValue' as const, minValue: 10, maxValue: 25 },
   address: {
@@ -43,8 +42,8 @@ const addressObj = {
 
 const geoObj = {
   '@type': 'GeoCoordinates' as const,
-  latitude: 40.7589,
-  longitude: -73.9851,
+  latitude: 40.7370,
+  longitude: -73.5594,
 }
 
 const logoObj = {
@@ -87,21 +86,12 @@ const contactPoints = [
 ]
 
 const fullAreaServed = [
-  { '@type': 'City' as const, name: 'New York', '@id': 'https://en.wikipedia.org/wiki/New_York_City' },
-  { '@type': 'AdministrativeArea' as const, name: 'Manhattan, New York' },
-  { '@type': 'AdministrativeArea' as const, name: 'Brooklyn, New York' },
-  { '@type': 'AdministrativeArea' as const, name: 'Queens, New York' },
-  { '@type': 'AdministrativeArea' as const, name: 'Bronx, New York' },
-  { '@type': 'AdministrativeArea' as const, name: 'Staten Island, New York' },
-  { '@type': 'AdministrativeArea' as const, name: 'Nassau County, New York' },
-  { '@type': 'AdministrativeArea' as const, name: 'Suffolk County, New York' },
-  { '@type': 'AdministrativeArea' as const, name: 'Westchester County, New York' },
-  { '@type': 'AdministrativeArea' as const, name: 'New Jersey' },
+  { '@type': 'AdministrativeArea' as const, name: 'Long Island' },
 ]
 
 const serviceAreaObj = {
   '@type': 'GeoCircle' as const,
-  geoMidpoint: { '@type': 'GeoCoordinates' as const, latitude: 40.7589, longitude: -73.9851 },
+  geoMidpoint: { '@type': 'GeoCoordinates' as const, latitude: 40.7370, longitude: -73.5594 },
   geoRadius: '80000',
 }
 
@@ -129,11 +119,6 @@ export function organizationSchema() {
     telephone: BUSINESS.phone,
     description: BUSINESS.description,
     slogan: BUSINESS.slogan,
-    foundingDate: BUSINESS.foundingDate,
-    foundingLocation: {
-      '@type': 'Place',
-      name: 'New York City, NY',
-    },
     knowsLanguage: BUSINESS.knowsLanguage,
     numberOfEmployees: BUSINESS.numberOfEmployees,
     address: addressObj,
@@ -158,7 +143,7 @@ export function organizationSchema() {
       'Maid Service',
       'Residential Cleaning',
       'Commercial Cleaning',
-      'NYC Apartment Cleaning',
+      'Recurring Maid Service',
       'Brownstone Cleaning',
       'High-Rise Cleaning',
     ],
@@ -260,7 +245,7 @@ export function localBusinessSchema(neighborhood?: Neighborhood, area?: Area) {
     ? [
         { '@type': 'Place' as const, name: `${neighborhood.name}${area ? `, ${area.name}` : ''}` },
         ...(area ? [{ '@type': 'Place' as const, name: area.name }] : []),
-        { '@type': 'City' as const, name: 'New York City' },
+        { '@type': 'AdministrativeArea' as const, name: 'Long Island' },
       ]
     : fullAreaServed
 
@@ -280,7 +265,6 @@ export function localBusinessSchema(neighborhood?: Neighborhood, area?: Area) {
     priceRange: BUSINESS.priceRange,
     currenciesAccepted: BUSINESS.currenciesAccepted,
     paymentAccepted: BUSINESS.paymentAccepted,
-    foundingDate: BUSINESS.foundingDate,
     knowsLanguage: BUSINESS.knowsLanguage,
     numberOfEmployees: BUSINESS.numberOfEmployees,
     address: addressObj,
@@ -289,7 +273,7 @@ export function localBusinessSchema(neighborhood?: Neighborhood, area?: Area) {
       latitude: neighborhood.lat,
       longitude: neighborhood.lng,
     } : geoObj,
-    hasMap: 'https://maps.google.com/?q=The+NYC+Maid+150+W+47th+St+New+York+NY+10036',
+    hasMap: 'https://maps.google.com/?q=The+Long+Island+Maid+Garden+City+NY',
     areaServed,
     serviceArea: serviceAreaObj,
     openingHoursSpecification: openingHoursObj,
@@ -375,7 +359,7 @@ export function localBusinessSchema(neighborhood?: Neighborhood, area?: Area) {
 // ================================================================
 
 export function serviceSchema(service: Service, neighborhood?: Neighborhood, area?: Area) {
-  const location = neighborhood ? `${neighborhood.name}, ${area?.name || ''}` : 'New York City'
+  const location = neighborhood ? `${neighborhood.name}, ${area?.name || ''}` : 'Long Island'
   const serviceUrl = neighborhood
     ? `${BUSINESS.url}/${neighborhood.urlSlug}/${service.slug}`
     : `${BUSINESS.url}/services/${service.urlSlug}`
@@ -685,7 +669,7 @@ export function serviceItemListSchema() {
     '@context': 'https://schema.org',
     '@type': 'ItemList',
     name: 'Cleaning Services Offered by The Long Island Maid',
-    description: 'Complete list of professional cleaning services available across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester, and New Jersey.',
+    description: 'Complete list of professional cleaning services available across Long Island.',
     numberOfItems: SERVICES.length,
     itemListElement: SERVICES.map((s, i) => ({
       '@type': 'ListItem',
@@ -716,7 +700,7 @@ export function areaItemListSchema() {
     '@context': 'https://schema.org',
     '@type': 'ItemList',
     name: 'Service Areas Covered by The Long Island Maid',
-    description: 'We serve hundreds of neighborhoods across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester, and New Jersey.',
+    description: 'We serve Long Island and the surrounding area.',
     numberOfItems: AREAS.length,
     itemListElement: AREAS.map((a, i) => ({
       '@type': 'ListItem',
@@ -737,7 +721,7 @@ export function areaItemListSchema() {
 // ================================================================
 
 export function professionalServiceSchema(service: Service, neighborhood?: Neighborhood, area?: Area) {
-  const location = neighborhood ? `${neighborhood.name}, ${area?.name || ''}` : 'NYC Metro Area'
+  const location = neighborhood ? `${neighborhood.name}, ${area?.name || ''}` : 'Long Island'
   return {
     '@context': 'https://schema.org',
     '@type': 'ProfessionalService',
@@ -765,9 +749,9 @@ const VIDEO_REVIEW_UPLOAD_DATE = '2026-02-15'
 
 export function videoReviewsSchemas() {
   const videos = [
-    { id: 'review-1', title: 'NYC Cleaning Client Review — Manhattan Apartment', description: 'Real client testimonial from a verified NYC apartment cleaning booked with The Long Island Maid.' },
-    { id: 'review-2', title: 'NYC Cleaning Client Review — Brooklyn Home', description: 'Brooklyn client shares their honest experience with professional deep cleaning from The Long Island Maid.' },
-    { id: 'review-3', title: 'NYC Cleaning Client Review — Weekly Maid Service', description: 'Weekly maid service client reviews on-camera their recurring cleaning experience in New York City.' },
+    { id: 'review-1', title: 'Cleaning Client Review — Apartment', description: 'Real client testimonial from a verified cleaning booking.' },
+    { id: 'review-2', title: 'Cleaning Client Review — Home', description: 'Client shares their honest experience with professional deep cleaning.' },
+    { id: 'review-3', title: 'Cleaning Client Review — Weekly Maid Service', description: 'Weekly maid service client reviews on-camera their recurring cleaning experience.' },
   ]
   return videos.map(v => ({
     '@context': 'https://schema.org',
@@ -908,8 +892,8 @@ export function neighborhoodServicePageSchemas(neighborhood: Neighborhood, servi
 
 export function servicePageSchemas(service: Service) {
   const url = `${BUSINESS.url}/services/${service.urlSlug}`
-  const title = `${service.name} in NYC From ${service.priceRange.split('–')[0]} | 5-Star Rated | The Long Island Maid`
-  const description = `Professional ${service.name.toLowerCase()} across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester & NJ. ${service.features.slice(0, 3).join(', ')} & more. From ${service.priceRange.split('–')[0]}. 5.0★ Rated. ${BUSINESS.phoneDisplay}`
+  const title = `${service.name} From ${service.priceRange.split('–')[0]} | 5-Star Rated | ${BUSINESS.name}`
+  const description = `Professional ${service.name.toLowerCase()} across Long Island. ${service.features.slice(0, 3).join(', ')} & more. From ${service.priceRange.split('–')[0]}. 5.0★ Rated. ${BUSINESS.phoneDisplay}`
   return [
     organizationSchema(),
     webSiteSchema(),

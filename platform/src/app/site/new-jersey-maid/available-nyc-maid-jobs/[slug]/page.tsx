@@ -50,11 +50,11 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return {
     title,
     description,
-    alternates: { canonical: `https://www.thenewjerseymaid.com/available-nyc-maid-jobs/${n.slug}` },
+    alternates: { canonical: `https://www.thenewjerseymaid.com/available-new-jersey-maid-jobs/${n.slug}` },
     openGraph: {
       title: `Cleaning Jobs in ${n.name} | The New Jersey Maid`,
       description,
-      url: `https://www.thenewjerseymaid.com/available-nyc-maid-jobs/${n.slug}`,
+      url: `https://www.thenewjerseymaid.com/available-new-jersey-maid-jobs/${n.slug}`,
     },
   }
 }
@@ -106,7 +106,7 @@ export default async function NeighborhoodJobPage({ params }: { params: Promise<
         streetAddress: n.name,
         addressLocality: n.name,
         addressRegion: stateAbbr,
-        postalCode: n.zip_codes[0] || (stateAbbr === 'NJ' ? '07102' : '10036'),
+        postalCode: n.zip_codes[0],
         addressCountry: 'US',
       },
       geo: { '@type': 'GeoCoordinates', latitude: n.lat, longitude: n.lng },
@@ -145,8 +145,8 @@ export default async function NeighborhoodJobPage({ params }: { params: Promise<
         localBusinessSchema(),
         breadcrumbSchema([
           { name: 'Home', url: 'https://www.thenewjerseymaid.com' },
-          { name: 'Careers', url: 'https://www.thenewjerseymaid.com/available-nyc-maid-jobs' },
-          { name: `Jobs in ${n.name}`, url: `https://www.thenewjerseymaid.com/available-nyc-maid-jobs/${n.slug}` },
+          { name: 'Careers', url: 'https://www.thenewjerseymaid.com/available-new-jersey-maid-jobs' },
+          { name: `Jobs in ${n.name}`, url: `https://www.thenewjerseymaid.com/available-new-jersey-maid-jobs/${n.slug}` },
         ]),
         jobSchema,
       ]} />
@@ -158,7 +158,7 @@ export default async function NeighborhoodJobPage({ params }: { params: Promise<
           <div className="flex items-center gap-3 mb-4">
             <p className="text-[#A8F0DC] text-xs font-semibold tracking-[0.2em] uppercase">Open 24/7</p>
             <span className="text-white/30">·</span>
-            <p className="text-white/60 text-xs">NYC, Long Island &amp; NJ</p>
+            <p className="text-white/60 text-xs">New Jersey, Long Island &amp; NJ</p>
           </div>
           <h1 className="font-[family-name:var(--font-bebas)] text-3xl md:text-5xl lg:text-6xl text-white tracking-wide leading-[0.95] mb-6">
             Cleaning Jobs in {n.name} — Starting $30/hr + Bonuses
@@ -227,8 +227,8 @@ export default async function NeighborhoodJobPage({ params }: { params: Promise<
 
       <div className="max-w-5xl mx-auto px-4 py-12">
         <Breadcrumbs items={[
-          { name: 'Careers', href: '/available-nyc-maid-jobs' },
-          { name: `Jobs in ${n.name}`, href: `/available-nyc-maid-jobs/${n.slug}` },
+          { name: 'Careers', href: '/available-new-jersey-maid-jobs' },
+          { name: `Jobs in ${n.name}`, href: `/available-new-jersey-maid-jobs/${n.slug}` },
         ]} />
 
         {/* About this neighborhood */}
@@ -373,7 +373,7 @@ export default async function NeighborhoodJobPage({ params }: { params: Promise<
             <h2 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide mb-4">Also Hiring Nearby / También Contratando Cerca</h2>
             <div className="flex flex-wrap gap-2">
               {nearby.map(nb => (
-                <Link key={nb.slug} href={`/available-nyc-maid-jobs/${nb.slug}`} className="px-4 py-2 bg-gray-100 rounded-full text-sm text-gray-700 hover:bg-[#A8F0DC]/20 hover:text-[#1E2A4A] transition-colors">
+                <Link key={nb.slug} href={`/available-new-jersey-maid-jobs/${nb.slug}`} className="px-4 py-2 bg-gray-100 rounded-full text-sm text-gray-700 hover:bg-[#A8F0DC]/20 hover:text-[#1E2A4A] transition-colors">
                   {nb.name}
                 </Link>
               ))}
@@ -387,7 +387,7 @@ export default async function NeighborhoodJobPage({ params }: { params: Promise<
             <h2 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide mb-4">More Jobs in {areaName} / Más Trabajos en {areaName}</h2>
             <div className="flex flex-wrap gap-2">
               {sameArea.map(nb => (
-                <Link key={nb.slug} href={`/available-nyc-maid-jobs/${nb.slug}`} className="px-3 py-1.5 bg-gray-100 rounded-full text-sm text-gray-700 hover:bg-[#A8F0DC]/20 hover:text-[#1E2A4A] transition-colors">
+                <Link key={nb.slug} href={`/available-new-jersey-maid-jobs/${nb.slug}`} className="px-3 py-1.5 bg-gray-100 rounded-full text-sm text-gray-700 hover:bg-[#A8F0DC]/20 hover:text-[#1E2A4A] transition-colors">
                   {nb.name}
                 </Link>
               ))}
@@ -396,7 +396,7 @@ export default async function NeighborhoodJobPage({ params }: { params: Promise<
         )}
 
         <div className="text-center">
-          <Link href="/available-nyc-maid-jobs" className="text-[#1E2A4A] font-semibold hover:underline">&larr; View All Positions / Ver Todas las Posiciones</Link>
+          <Link href="/available-new-jersey-maid-jobs" className="text-[#1E2A4A] font-semibold hover:underline">&larr; View All Positions / Ver Todas las Posiciones</Link>
         </div>
       </div>
     </>

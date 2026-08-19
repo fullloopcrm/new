@@ -6,7 +6,7 @@ import Breadcrumbs from '@/app/site/new-jersey-maid/_components/Breadcrumbs'
 import CTABlock from '@/app/site/new-jersey-maid/_components/CTABlock'
 
 const pricingFAQs = [
-  { question: 'How much does house cleaning cost in NYC?', answer: 'Our standard rate is $59/hr when you provide supplies (recurring: 10% off weekly, 5% off biweekly/monthly), $69/hr when we bring everything (recurring: 20% off weekly, 10% off biweekly/monthly), and $89/hr for same-day emergency service. A typical studio takes 2–3 hours. We provide free custom quotes based on your home size and cleaning needs.' },
+  { question: 'How much does house cleaning cost in New Jersey?', answer: 'Our standard rate is $59/hr when you provide supplies (recurring: 10% off weekly, 5% off biweekly/monthly), $69/hr when we bring everything (recurring: 20% off weekly, 10% off biweekly/monthly), and $89/hr for same-day emergency service. A typical studio takes 2–3 hours. We provide free custom quotes based on your home size and cleaning needs.' },
   { question: 'Do you charge a flat rate or hourly?', answer: 'We charge by the hour. The rate is the same regardless of service type or neighborhood — $59/hr with your supplies, $69/hr when we bring everything, $89/hr for same-day emergency service. No hidden fees, no surge pricing.' },
   { question: 'Is there a minimum charge?', answer: 'Our minimum is 2 hours per visit (first-time cleanings included). Bookings with 2 or more cleaners carry a 4-hour minimum and receive no discounts. Most apartments take 2–4 hours depending on size and condition.' },
   { question: 'Do I pay before or after the cleaning?', answer: 'Payment is collected about 30 minutes before the cleaner finishes. If payment is not received by then, the cleaner will wait until it is — and the wait time is billable. No deposits, no pre-charges, no money upfront.' },
@@ -38,15 +38,15 @@ const trustFAQs = [
   { question: 'What if I\'m not satisfied with the cleaning?', answer: 'We offer a satisfaction guarantee. If you\'re not happy with any part of the cleaning, contact us within 24 hours and we\'ll send a team back to address the issue at no extra charge.' },
   { question: 'Do you bring your own supplies?', answer: 'It\'s your choice. At $59/hr you provide the supplies. At $69/hr we bring everything — professional-grade cleaning products and all equipment needed. $89/hr for same-day emergency service, we bring everything.' },
   { question: 'Are there any contracts or commitments?', answer: 'No contracts. Stay because you\'re happy, not because you\'re locked in. Cancel recurring service anytime with 7 days notice.' },
-  { question: 'What areas do you serve?', answer: 'We serve Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island (Great Neck, Manhasset, Port Washington, Garden City, Roslyn, and western Suffolk through Smithtown), Westchester County (Yonkers, Bronxville, Scarsdale, White Plains, Larchmont, Rye, the Rivertowns, and beyond), and New Jersey (Hoboken, Jersey City, Weehawken, Edgewater, Fort Lee, plus close-in Bergen). Same rates everywhere.' },
+  { question: 'What areas do you serve?', answer: 'We serve New Jersey, New Jersey, New Jersey, the New Jersey, New Jersey, Long Island (Great Neck, Manhasset, Port Washington, Garden City, Roslyn, and western Suffolk through Smithtown), New Jersey County (Yonkers, Bronxville, Scarsdale, White Plains, Larchmont, Rye, the Rivertowns, and beyond), and New Jersey (Hoboken, Jersey City, Weehawken, Edgewater, Fort Lee, plus close-in Bergen). Same rates everywhere.' },
   { question: 'How long does a cleaning take?', answer: 'Regular cleaning: 2–4 hours. Deep cleaning: 2–4 hours. Move-in/out: 4–8 hours. Post-renovation: 5–10 hours. Time depends on home size and condition. All time is billed in 30-minute increments.' },
 ]
 
 const allFAQs = [...pricingFAQs, ...serviceFAQs, ...schedulingFAQs, ...trustFAQs]
 
-const pageUrl = 'https://www.thenewjerseymaid.com/nyc-cleaning-service-frequently-asked-questions-in-2025'
-const pageTitle = 'NYC Cleaning Service FAQ — Pricing, Services & Scheduling | The New Jersey Maid'
-const pageDescription = 'Answers to 24 common questions about The New Jersey Maid — pricing ($59–$89/hr) plus 20% off weekly recurring, what\'s included, scheduling, insurance, service areas, and more. Serving Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester & NJ. (973) 370-8800'
+const pageUrl = 'https://www.thenewjerseymaid.com/new-jersey-cleaning-service-frequently-asked-questions-in-2025'
+const pageTitle = 'New Jersey Cleaning Service FAQ — Pricing, Services & Scheduling | The New Jersey Maid'
+const pageDescription = 'Answers to 24 common questions about The New Jersey Maid — pricing ($59–$89/hr) plus 20% off weekly recurring, what\'s included, scheduling, insurance, service areas, and more. Serving New Jersey, New Jersey, New Jersey, the New Jersey, New Jersey, Long Island, New Jersey & NJ. (973) 370-8800'
 
 export const metadata: Metadata = {
   title: pageTitle,
@@ -67,10 +67,10 @@ export const metadata: Metadata = {
     description: pageDescription,
   },
   other: {
-    'geo.region': 'US-NY',
-    'geo.placename': 'New York City',
-    'geo.position': '40.7589;-73.9851',
-    'ICBM': '40.7589, -73.9851',
+    'geo.region': 'US-NJ',
+    'geo.placename': 'New Jersey',
+    'geo.position': '40.0583;-74.4057',
+    'ICBM': '40.0583, -74.4057',
   },
 }
 
@@ -113,7 +113,7 @@ export default function FAQPage() {
             <span className="text-blue-200/70 text-sm font-medium">5.0 Rating &middot; 50+ Reviews</span>
           </div>
           <h1 className="font-[family-name:var(--font-bebas)] text-4xl md:text-6xl lg:text-7xl text-white tracking-wide leading-[0.95] mb-6">
-            Frequently Asked Questions About NYC House Cleaning Services
+            Frequently Asked Questions About New Jersey House Cleaning Services
           </h1>
           <p className="text-blue-200/80 text-lg max-w-2xl leading-relaxed mb-10">
             Everything you need to know about pricing, services, scheduling, and how we work — answered by our team. Can&apos;t find your question? Text <a href="sms:9733708800" className="text-[#A8F0DC] underline underline-offset-2">(973) 370-8800</a>.
@@ -131,7 +131,7 @@ export default function FAQPage() {
       </section>
 
       <div className="max-w-5xl mx-auto px-4 py-12">
-        <Breadcrumbs items={[{ name: 'FAQ', href: '/nyc-cleaning-service-frequently-asked-questions-in-2025' }]} />
+        <Breadcrumbs items={[{ name: 'FAQ', href: '/new-jersey-cleaning-service-frequently-asked-questions-in-2025' }]} />
 
         {/* FAQ Sections */}
         {sections.map(section => (
@@ -176,7 +176,7 @@ export default function FAQPage() {
                 <p className="font-[family-name:var(--font-bebas)] text-4xl text-[#1E2A4A] tracking-wide">$89<span className="text-xl text-gray-300">/hr</span></p>
               </div>
             </div>
-            <Link href="/updated-nyc-maid-service-industry-pricing" className="inline-block mt-6 text-[#1E2A4A] font-semibold underline underline-offset-4 hover:no-underline">
+            <Link href="/updated-new-jersey-maid-service-industry-pricing" className="inline-block mt-6 text-[#1E2A4A] font-semibold underline underline-offset-4 hover:no-underline">
               View Full Pricing Details &rarr;
             </Link>
           </div>
@@ -197,13 +197,13 @@ export default function FAQPage() {
 
         {/* Helpful links */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-16">
-          <Link href="/nyc-maid-service-services-offered-by-the-nyc-maid" className="group border border-gray-200 rounded-xl p-6 hover:border-[#A8F0DC] transition-all">
+          <Link href="/new-jersey-maid-service-services-offered-by-the-new-jersey-maid" className="group border border-gray-200 rounded-xl p-6 hover:border-[#A8F0DC] transition-all">
             <p className="font-semibold text-[#1E2A4A] group-hover:underline underline-offset-2 mb-1">View All Services</p>
             <p className="text-gray-500 text-sm">10 cleaning services for every situation</p>
           </Link>
-          <Link href="/service-areas-served-by-the-nyc-maid" className="group border border-gray-200 rounded-xl p-6 hover:border-[#A8F0DC] transition-all">
+          <Link href="/service-areas-served-by-the-new-jersey-maid" className="group border border-gray-200 rounded-xl p-6 hover:border-[#A8F0DC] transition-all">
             <p className="font-semibold text-[#1E2A4A] group-hover:underline underline-offset-2 mb-1">Service Areas</p>
-            <p className="text-gray-500 text-sm">Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester &amp; NJ</p>
+            <p className="text-gray-500 text-sm">New Jersey, New Jersey, New Jersey, the New Jersey, New Jersey, Long Island, New Jersey &amp; NJ</p>
           </Link>
           <Link href="/reviews" className="group border border-gray-200 rounded-xl p-6 hover:border-[#A8F0DC] transition-all">
             <p className="font-semibold text-[#1E2A4A] group-hover:underline underline-offset-2 mb-1">Read Reviews</p>
@@ -212,7 +212,7 @@ export default function FAQPage() {
         </div>
       </div>
 
-      <CTABlock title="Ready to Book Your Cleaning?" subtitle="Text us — trusted by New Yorkers across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester & New Jersey." />
+      <CTABlock title="Ready to Book Your Cleaning?" subtitle="Text us — trusted by New Yorkers across New Jersey, New Jersey, New Jersey, the New Jersey, New Jersey, Long Island, New Jersey & New Jersey." />
     </>
   )
 }

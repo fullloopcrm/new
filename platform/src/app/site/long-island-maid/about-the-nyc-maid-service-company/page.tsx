@@ -8,9 +8,9 @@ import JsonLd from '@/app/site/long-island-maid/_components/JsonLd'
 import Breadcrumbs from '@/app/site/long-island-maid/_components/Breadcrumbs'
 import CTABlock from '@/app/site/long-island-maid/_components/CTABlock'
 
-const url = 'https://www.thelongislandmaid.com/about-the-nyc-maid-service-company'
-const title = 'About The Long Island Maid | Affordable, Reliable NYC Cleaning Since 2018'
-const description = 'The Long Island Maid is NYC\'s most trusted cleaning service — affordable rates from $59/hr, reliable background-checked cleaners, and consistent quality since 2018. Serving 150+ neighborhoods. 5.0★ Rated. (516) 202-5900'
+const url = 'https://www.thelongislandmaid.com/about-the-long-island-maid-service-company'
+const title = 'About The Long Island Maid | Affordable, Reliable Long Island Cleaning Since 2018'
+const description = 'The Long Island Maid is Long Island\'s most trusted cleaning service — affordable rates from $59/hr, reliable background-checked cleaners, and consistent quality since 2018. Serving 150+ neighborhoods. 5.0★ Rated. (516) 202-5900'
 
 export const metadata: Metadata = {
   title: { absolute: title },
@@ -18,15 +18,15 @@ export const metadata: Metadata = {
   alternates: { canonical: url },
   openGraph: { title, description, url, type: 'website', siteName: 'The Long Island Maid', locale: 'en_US' },
   twitter: { card: 'summary_large_image', title, description },
-  other: { 'geo.region': 'US-NY', 'geo.placename': 'New York City', 'geo.position': '40.7589;-73.9851', 'ICBM': '40.7589, -73.9851' },
+  other: { 'geo.region': 'US-NY', 'geo.placename': 'Long Island', 'geo.position': '40.7370;-73.5594', 'ICBM': '40.7589, -73.9851' },
 }
 
 const aboutFaqs = [
-  { question: 'How long has The Long Island Maid been in business?', answer: 'Since 2018. We started serving Manhattan and have expanded to Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester, and New Jersey. We\'ve completed thousands of cleanings and maintain a 5.0-star rating with 50+ verified reviews.' },
+  { question: 'How long has The Long Island Maid been in business?', answer: 'Since 2018. We started serving Long Island and have expanded to Long Island, Long Island, the Long Island, Long Island, Long Island, Long Island, and New Jersey. We\'ve completed thousands of cleanings and maintain a 5.0-star rating with 50+ verified reviews.' },
   { question: 'Are your cleaners employees or contractors?', answer: 'Our cleaners are independent professionals who work exclusively with us. Every cleaner is background-checked, trained on our quality standards, and covered by our general liability insurance while working in your home.' },
-  { question: 'How do you keep prices so affordable?', answer: 'We keep overhead low — no storefront, no middle-management layer, no expensive marketing budgets. We pass those savings to you. Our cleaners earn competitive pay while you get rates well below the NYC average.' },
-  { question: 'What makes you different from other cleaning companies?', answer: 'Three things: consistency (same cleaner every visit for recurring clients), affordability ($59/hr is among the lowest rates in NYC for licensed, insured service), and reliability (we show up on time, every time, and we don\'t cancel).' },
-  { question: 'How many neighborhoods do you serve?', answer: `We serve ${ALL_NEIGHBORHOODS.length}+ neighborhoods across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester, and New Jersey. Same rates everywhere — no travel surcharges.` },
+  { question: 'How do you keep prices so affordable?', answer: 'We keep overhead low — no storefront, no middle-management layer, no expensive marketing budgets. We pass those savings to you. Our cleaners earn competitive pay while you get rates well below the Long Island average.' },
+  { question: 'What makes you different from other cleaning companies?', answer: 'Three things: consistency (same cleaner every visit for recurring clients), affordability ($59/hr is among the lowest rates in Long Island for licensed, insured service), and reliability (we show up on time, every time, and we don\'t cancel).' },
+  { question: 'How many neighborhoods do you serve?', answer: `We serve ${ALL_NEIGHBORHOODS.length}+ neighborhoods across Long Island, Long Island, Long Island, the Long Island, Long Island, Long Island, Long Island, and New Jersey. Same rates everywhere — no travel surcharges.` },
   { question: 'Do you serve commercial spaces too?', answer: 'Yes. We clean offices, co-working spaces, medical offices, and retail spaces. Same hourly rates, same quality. Many of our residential clients also use us for their workspaces.' },
   { question: 'How do I know I can trust your cleaners?', answer: 'Every cleaner undergoes a comprehensive background check. We carry general liability insurance and bonding. We\'ve been in business since 2018 with a perfect 5.0-star rating with 50+ verified reviews and zero complaints filed with the BBB.' },
   { question: 'What languages do your cleaners speak?', answer: 'Our team is bilingual — English and Spanish. We can accommodate communication preferences for both languages.' },
@@ -62,7 +62,7 @@ export default function AboutPage() {
       </section>
 
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <Breadcrumbs items={[{ name: 'About', href: '/about-the-nyc-maid-service-company' }]} />
+        <Breadcrumbs items={[{ name: 'About', href: '/about-the-long-island-maid-service-company' }]} />
       </div>
 
       {/* Our Story — two column */}
@@ -83,7 +83,7 @@ export default function AboutPage() {
                   That approach has earned us a perfect 5.0-star rating with 50+ verified client reviews, thousands of completed cleanings, and a client base that includes everyone from studios in Astoria to brownstones in Park Slope to offices in Midtown. Many of our clients have been with us for years — and they stay because we deliver the same quality every single visit.
                 </p>
                 <p>
-                  Today we serve {ALL_NEIGHBORHOODS.length}+ neighborhoods across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester, and New Jersey. Our team is bilingual (English and Spanish), background-checked, licensed, and insured. Our pricing is straightforward — $59/hr with your supplies (recurring: 10% off weekly, 5% off biweekly/monthly), $69/hr when we bring everything (recurring: 20% off weekly, 10% off biweekly/monthly), $89/hr for same-day emergency service.
+                  Today we serve {ALL_NEIGHBORHOODS.length}+ neighborhoods across Long Island, Long Island, Long Island, the Long Island, Long Island, Long Island, Long Island, and New Jersey. Our team is bilingual (English and Spanish), background-checked, licensed, and insured. Our pricing is straightforward — $59/hr with your supplies (recurring: 10% off weekly, 5% off biweekly/monthly), $69/hr when we bring everything (recurring: 20% off weekly, 10% off biweekly/monthly), $89/hr for same-day emergency service.
                 </p>
               </div>
             </div>
@@ -149,7 +149,7 @@ export default function AboutPage() {
           <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide text-center mb-12">Why Thousands of New Yorkers Trust Us</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
-              { title: 'Truly Affordable', detail: 'Our rates start at $59/hr — well below the NYC average for licensed, insured cleaning. No surge pricing, no hidden fees, no travel charges. Manhattan to Long Island, same rate.' },
+              { title: 'Truly Affordable', detail: 'Our rates start at $59/hr — well below the Long Island average for licensed, insured cleaning. No surge pricing, no hidden fees, no travel charges. Long Island to Long Island, same rate.' },
               { title: 'Reliably On Time', detail: 'We show up when we say we will. Period. We don\'t cancel, we don\'t reschedule last-minute, and we don\'t ghost. Our cleaners are punctual and our scheduling team confirms every appointment.' },
               { title: 'Consistent Quality', detail: 'For recurring clients, we assign the same cleaner every visit. They learn your home, your preferences, and your standards. The result is consistent, reliable quality — not a different stranger every time.' },
               { title: 'Friendly People', detail: 'Our cleaners are warm, respectful, and professional. Many of our 5-star reviews mention how friendly and pleasant our team is. We hire for character first, then train for skill.' },
@@ -243,7 +243,7 @@ export default function AboutPage() {
             <p className="text-[#1E2A4A]/80 leading-relaxed">
               If you&apos;re an experienced cleaner who takes pride in their work, we&apos;d love to hear from you. Competitive pay, flexible hours, respectful management, and steady work.
             </p>
-            <Link href="/available-nyc-maid-jobs" className="inline-block mt-3 text-[#1E2A4A] font-semibold text-sm underline underline-offset-4">See open positions &rarr;</Link>
+            <Link href="/available-long-island-maid-jobs" className="inline-block mt-3 text-[#1E2A4A] font-semibold text-sm underline underline-offset-4">See open positions &rarr;</Link>
           </div>
         </div>
       </section>

@@ -6,7 +6,7 @@ import Breadcrumbs from '@/app/site/new-jersey-maid/_components/Breadcrumbs'
 
 export const metadata: Metadata = {
   title: 'Legal Information | The New Jersey Maid',
-  description: 'Legal information for The New Jersey Maid — privacy policy, terms, refund policy & data sharing. NYC cleaning from $59/hr. (973) 370-8800',
+  description: 'Legal information for The New Jersey Maid — privacy policy, terms, refund policy & data sharing. New Jersey cleaning from $59/hr. (973) 370-8800',
   alternates: { canonical: 'https://www.thenewjerseymaid.com/legal' },
 }
 

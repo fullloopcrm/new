@@ -1,30 +1,23 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { AREAS } from '@/app/site/connecticut-maid/_lib/seo/data/areas'
-import { getNeighborhoodsByArea } from '@/app/site/connecticut-maid/_lib/seo/locations'
 import { SERVICES } from '@/app/site/connecticut-maid/_lib/seo/services'
-import { organizationSchema, webSiteSchema, webPageSchema, localBusinessSchema, howToBookSchema, breadcrumbSchema, faqSchema, areaItemListSchema } from '@/app/site/connecticut-maid/_lib/seo/schema'
+import { organizationSchema, webSiteSchema, webPageSchema, localBusinessSchema, howToBookSchema, breadcrumbSchema, faqSchema } from '@/app/site/connecticut-maid/_lib/seo/schema'
 import JsonLd from '@/app/site/connecticut-maid/_components/JsonLd'
 import Breadcrumbs from '@/app/site/connecticut-maid/_components/Breadcrumbs'
 import CTABlock from '@/app/site/connecticut-maid/_components/CTABlock'
 
-const allNeighborhoods = AREAS.flatMap(a => getNeighborhoodsByArea(a.slug))
-const totalNeighborhoods = allNeighborhoods.length
-
 const areaFAQs = [
-  { question: 'What areas does The Connecticut Maid serve?', answer: `We serve ${totalNeighborhoods}+ neighborhoods across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island (Nassau and western Suffolk), Westchester County, and Northern New Jersey (Hudson and close-in Bergen). Same rates and same quality everywhere.` },
-  { question: 'Do you charge extra for certain neighborhoods?', answer: 'No. Our rates are the same regardless of neighborhood or borough — $59/hr with your supplies (recurring: 10% off weekly, 5% off biweekly/monthly), $69/hr when we bring everything (recurring: 20% off weekly, 10% off biweekly/monthly), and $89/hr for same-day emergency service. No travel fees, no surge pricing.' },
-  { question: 'Are all services available in every area?', answer: 'Yes. Every service we offer — deep cleaning, regular cleaning, move-in/out, post-renovation, Airbnb, office, same-day — is available in all neighborhoods we serve.' },
-  { question: 'Do you serve areas outside of these neighborhoods?', answer: 'We may. If you don\'t see your neighborhood listed, text (203) 491-5600 and we\'ll let you know. We\'re always expanding.' },
-  { question: 'Do I get the same cleaner in my area?', answer: 'Yes. For recurring clients, we assign a dedicated cleaner who lives near your area so they can arrive consistently and on time.' },
-  { question: 'How quickly can you schedule a cleaning in my area?', answer: 'We typically schedule within 24–48 hours for standard service. Same-day cleaning is available in most areas — text (203) 491-5600 for availability. A 2-hour minimum applies (first-time cleanings included). Bookings with 2 or more cleaners carry a 4-hour minimum and receive no discounts.' },
-  { question: 'Do your cleaners use public transit or drive?', answer: 'It depends on the area. In Manhattan, Brooklyn, Queens, and the Bronx, many of our cleaners use public transit. For Staten Island, Long Island, Westchester, and New Jersey, cleaners typically drive.' },
-  { question: 'What if I\'m on the border of two neighborhoods?', answer: 'We serve the entire area, not just specific blocks. If you\'re near any of our listed neighborhoods, we cover your location. Just give us your address and we\'ll confirm.' },
+  { question: 'What areas does The Connecticut Maid serve?', answer: 'We serve Connecticut and the surrounding area. Same rates and same quality everywhere — text (203) 491-5600 with your address and we\'ll confirm coverage.' },
+  { question: 'Do you charge extra for certain areas?', answer: 'No. Our rates are the same across our entire service area — $59/hr with your supplies (recurring: 10% off weekly, 5% off biweekly/monthly), $69/hr when we bring everything (recurring: 20% off weekly, 10% off biweekly/monthly), and $89/hr for same-day emergency service. No travel fees, no surge pricing.' },
+  { question: 'Are all services available everywhere you serve?', answer: 'Yes. Every service we offer — deep cleaning, regular cleaning, move-in/out, post-renovation, Airbnb, office, same-day — is available throughout our service area.' },
+  { question: 'Do you serve areas outside your core coverage?', answer: 'We may. Text (203) 491-5600 with your address and we\'ll let you know — we\'re always expanding.' },
+  { question: 'Do I get the same cleaner every visit?', answer: 'Yes. For recurring clients, we assign a dedicated cleaner so they can arrive consistently and on time.' },
+  { question: 'How quickly can you schedule a cleaning?', answer: 'We typically schedule within 24-48 hours for standard service. Same-day cleaning is available in most cases — text (203) 491-5600 for availability. A 2-hour minimum applies (first-time cleanings included). Bookings with 2 or more cleaners carry a 4-hour minimum and receive no discounts.' },
 ]
 
 const pageUrl = 'https://www.theconnecticutmaid.com/service-areas-served-by-the-nyc-maid'
-const pageTitle = `Service Areas — ${totalNeighborhoods}+ Neighborhoods in NYC, Long Island, Westchester & NJ | The Connecticut Maid`
-const pageDescription = `The Connecticut Maid serves ${totalNeighborhoods}+ neighborhoods across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester & NJ. Same rates everywhere — $59/hr. Find professional cleaning in your neighborhood. (203) 491-5600`
+const pageTitle = `Service Area | The Connecticut Maid`
+const pageDescription = `The Connecticut Maid serves Connecticut and the surrounding area. Same rates everywhere — $59/hr. Text (203) 491-5600 to confirm coverage for your address.`
 
 export const metadata: Metadata = {
   title: pageTitle,
@@ -45,10 +38,10 @@ export const metadata: Metadata = {
     description: pageDescription,
   },
   other: {
-    'geo.region': 'US-NY',
-    'geo.placename': 'New York City',
-    'geo.position': '40.7589;-73.9851',
-    'ICBM': '40.7589, -73.9851',
+    'geo.region': 'US-CT',
+    'geo.placename': 'Connecticut',
+    'geo.position': '41.6032;-73.0877',
+    'ICBM': '41.6032, -73.0877',
   },
 }
 
@@ -64,16 +57,15 @@ export default function AreasIndexPage() {
           description: pageDescription,
           breadcrumb: [
             { name: 'Home', url: 'https://www.theconnecticutmaid.com' },
-            { name: 'Service Areas', url: pageUrl },
+            { name: 'Service Area', url: pageUrl },
           ],
         }),
         localBusinessSchema(),
         howToBookSchema(),
         breadcrumbSchema([
           { name: 'Home', url: 'https://www.theconnecticutmaid.com' },
-          { name: 'Service Areas', url: pageUrl },
+          { name: 'Service Area', url: pageUrl },
         ]),
-        areaItemListSchema(),
         faqSchema(areaFAQs),
       ]} />
 
@@ -82,13 +74,13 @@ export default function AreasIndexPage() {
         <div className="max-w-5xl mx-auto px-4">
           <div className="flex flex-wrap items-center gap-4 mb-6">
             <span className="text-yellow-400 text-lg">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
-            <span className="text-blue-200/70 text-sm font-medium">5.0 Rating &middot; 50+ Reviews</span>
+            <span className="text-blue-200/70 text-sm font-medium">5.0 Rating &middot; Verified Reviews</span>
           </div>
           <h1 className="font-[family-name:var(--font-bebas)] text-4xl md:text-6xl lg:text-7xl text-white tracking-wide leading-[0.95] mb-6">
-            {totalNeighborhoods}+ Neighborhoods Across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester &amp; New Jersey
+            Proudly Serving Connecticut
           </h1>
           <p className="text-blue-200/80 text-lg max-w-2xl leading-relaxed mb-10">
-            Professional house cleaning from $59/hr in every neighborhood we serve. Same rates, same quality, same background-checked cleaners — whether you&apos;re in Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester, or New Jersey.
+            Professional house cleaning from $59/hr, background-checked cleaners, and the same flat rate everywhere in our service area. Text (203) 491-5600 with your address and we&apos;ll confirm coverage.
           </p>
           <div className="flex flex-wrap gap-x-6 gap-y-2">
             <span className="text-[#A8F0DC] text-sm font-medium">&#10003; From $59/hr</span>
@@ -99,60 +91,12 @@ export default function AreasIndexPage() {
         </div>
       </section>
 
-      {/* Area summary strip */}
-      <section className="bg-[#A8F0DC] py-6">
-        <div className="max-w-7xl mx-auto px-4 flex flex-wrap justify-center gap-x-10 gap-y-3">
-          {AREAS.map(area => {
-            const count = getNeighborhoodsByArea(area.slug).length
-            return (
-              <a key={area.slug} href={`#${area.slug}`} className="flex items-center gap-2 text-[#1E2A4A] hover:underline underline-offset-2">
-                <span className="font-semibold">{area.name}</span>
-                <span className="text-[#1E2A4A]/50 text-sm">({count})</span>
-              </a>
-            )
-          })}
-        </div>
-      </section>
-
       <div className="max-w-7xl mx-auto px-4 py-12">
-        <Breadcrumbs items={[{ name: 'Service Areas', href: '/service-areas-served-by-the-nyc-maid' }]} />
-
-        {/* Area sections */}
-        {AREAS.map(area => {
-          const neighborhoods = getNeighborhoodsByArea(area.slug)
-          return (
-            <section key={area.slug} id={area.slug} className="mb-16 scroll-mt-8">
-              <div className="flex items-end justify-between mb-2">
-                <Link href={`/${area.urlSlug}`} className="group">
-                  <p className="text-xs font-semibold text-gray-400 tracking-[0.2em] uppercase mb-1">{neighborhoods.length} Neighborhoods</p>
-                  <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide group-hover:underline underline-offset-4">{area.name}</h2>
-                </Link>
-                <Link href={`/${area.urlSlug}`} className="text-[#1E2A4A] text-sm font-medium hover:underline underline-offset-2 hidden md:inline">
-                  View {area.name} &rarr;
-                </Link>
-              </div>
-              <p className="text-gray-500 text-sm mb-6 max-w-2xl">{area.description}</p>
-              <div className="w-10 h-[2px] bg-[#A8F0DC] mb-6" />
-
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-                {neighborhoods.map(n => (
-                  <Link
-                    key={n.slug}
-                    href={`/${n.urlSlug}`}
-                    className="group p-4 bg-white border border-gray-200 rounded-xl hover:border-[#A8F0DC] hover:shadow-md transition-all"
-                  >
-                    <h3 className="font-semibold text-[#1E2A4A] group-hover:underline underline-offset-2 text-sm mb-1">{n.name}</h3>
-                    <p className="text-xs text-gray-400">{n.zip_codes.slice(0, 2).join(', ')}</p>
-                  </Link>
-                ))}
-              </div>
-            </section>
-          )
-        })}
+        <Breadcrumbs items={[{ name: 'Service Area', href: '/service-areas-served-by-the-nyc-maid' }]} />
 
         {/* Services available everywhere */}
         <section className="bg-gradient-to-b from-[#1E2A4A] to-[#243352] rounded-2xl p-8 md:p-14 mb-20">
-          <p className="text-[#A8F0DC] text-xs font-semibold tracking-[0.2em] uppercase mb-2">Available in Every Neighborhood</p>
+          <p className="text-[#A8F0DC] text-xs font-semibold tracking-[0.2em] uppercase mb-2">Available Everywhere We Serve</p>
           <p className="font-[family-name:var(--font-bebas)] text-3xl text-white tracking-wide mb-8">All 10 Services — Same Rate Everywhere</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {SERVICES.map(service => (
@@ -192,11 +136,11 @@ export default function AreasIndexPage() {
           </div>
         </section>
 
-        {/* Don't see your neighborhood */}
+        {/* Confirm your address */}
         <section className="bg-[#A8F0DC] rounded-2xl p-8 md:p-12 text-center mb-16">
-          <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide mb-3">Don&apos;t See Your Neighborhood?</p>
+          <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide mb-3">Not Sure If We Cover Your Address?</p>
           <p className="text-[#1E2A4A]/60 max-w-xl mx-auto mb-8">
-            We&apos;re always expanding. Text us with your address and we&apos;ll let you know if we cover your area — we probably do.
+            We&apos;re always expanding. Text us your address and we&apos;ll let you know if we cover your area — we probably do.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-5">
             <a href="/book/new" className="bg-[#1E2A4A] text-white px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
@@ -209,7 +153,7 @@ export default function AreasIndexPage() {
         </section>
       </div>
 
-      <CTABlock title="Book Your NYC Cleaning Service Today" subtitle="Text us — trusted by New Yorkers across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester & New Jersey." />
+      <CTABlock title="Book Your Connecticut Cleaning Service Today" subtitle="Text us — background-checked, insured cleaners serving Connecticut." />
     </>
   )
 }

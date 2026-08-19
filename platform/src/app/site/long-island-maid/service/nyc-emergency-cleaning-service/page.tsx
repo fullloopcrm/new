@@ -76,7 +76,7 @@ const emergencyTypes = [
       'Assess the size — if it\'s smaller than a 3×3 ft area, you can likely handle it yourself',
       'For small patches: spray with white vinegar or hydrogen peroxide, scrub with a stiff brush',
       'For larger areas: do NOT disturb it — disturbing large mold colonies releases spores into the air',
-      'Notify your landlord in writing — NYC law requires landlords to remediate mold',
+      'Notify your landlord in writing — Long Island law requires landlords to remediate mold',
       'For suspected black mold (dark green/black, musty smell), call a professional for testing',
       'Increase ventilation — run fans, open windows, use a dehumidifier',
     ],
@@ -109,7 +109,7 @@ const emergencyTypes = [
     name: 'Storm Damage Cleanup',
     icon: '⛈️',
     isEmergency: true,
-    description: 'NYC storms can cause water intrusion, window damage, and debris from flooding or wind damage. After a severe storm, move quickly to prevent secondary damage like mold growth.',
+    description: 'Long Island storms can cause water intrusion, window damage, and debris from flooding or wind damage. After a severe storm, move quickly to prevent secondary damage like mold growth.',
     whatToDo: [
       'Check for structural damage before entering — look for cracks, sagging ceilings, or gas smells',
       'Photograph all damage before touching anything (for insurance)',
@@ -134,7 +134,7 @@ const emergencyTypes = [
       'Contact your landlord about any structural damage (broken doors, windows)',
       'Document damage with photos for your insurance claim',
       'Once police release the scene, call us for cleanup',
-      'Change locks immediately (your landlord must provide this in NYC)',
+      'Change locks immediately (your landlord must provide this in Long Island)',
     ],
     whatNotToDo: [
       'Don\'t clean before police have processed the scene',
@@ -169,26 +169,26 @@ const process = [
 ]
 
 const faqData = [
-  { q: 'How fast can you respond to an emergency?', a: 'We aim to respond within 2–4 hours for emergencies in Manhattan and within 4–6 hours for outer boroughs. Response time depends on the time of day, current team availability, and your location. For true emergencies (active flooding, biohazard), we prioritize same-day response.' },
+  { q: 'How fast can you respond to an emergency?', a: 'We aim to respond within 2–4 hours for emergencies in Long Island and within 4–6 hours for outer boroughs. Response time depends on the time of day, current team availability, and your location. For true emergencies (active flooding, biohazard), we prioritize same-day response.' },
   { q: 'How much does emergency cleaning cost?', a: 'Emergency cleaning typically ranges from $500 to $2,000+ depending on the type and severity. Water damage and fire cleanup cost more due to specialized equipment. We provide upfront estimates before work begins — no surprise bills. Many situations are covered by renter\'s or homeowner\'s insurance.' },
   { q: 'Do you work with insurance companies?', a: 'Yes. We provide detailed documentation of all work performed, including before/after photos, itemized invoices, and scope-of-work reports. This documentation is formatted to support your insurance claim. Many clients get full reimbursement for professional emergency cleaning.' },
   { q: 'Is my situation actually an emergency?', a: 'If there\'s active water flow, sewage, biohazard material, or fire/smoke damage — yes, that\'s an emergency requiring immediate professional response. Mold discovery, hoarding cleanup, and vandalism aftermath are urgent but can usually wait 24–48 hours for scheduling. When in doubt, call us and we\'ll help you assess.' },
   { q: 'What should I do while waiting for your team?', a: 'For water damage: stop the water source and move valuables. For fire/smoke: ventilate if safe. For all situations: document with photos, don\'t touch biohazard materials, and keep people and pets away from the affected area. See our detailed guides above for specific situations.' },
   { q: 'Can I clean emergency situations myself?', a: 'Small surface mold patches, minor spills, and general mess — yes. But for standing water, fire/smoke damage, sewage, biohazard, or any situation covering more than a small area — professional cleaning is strongly recommended. DIY attempts often make things worse or miss hidden damage that causes problems later.' },
-  { q: 'Do you handle apartment emergencies or just houses?', a: 'We primarily serve NYC apartments — that\'s our specialty. We\'re experienced with the unique challenges of apartment emergencies: limited access, shared building systems, landlord coordination, building management communication, and the tight spaces common in NYC apartments.' },
-  { q: 'What about my landlord\'s responsibility?', a: 'In NYC, landlords are responsible for maintaining habitable conditions. Water damage from building systems (not your negligence), mold from building ventilation issues, and sewage from building plumbing are landlord responsibilities. Document everything, notify them in writing, and know your rights under NYC Housing Maintenance Code.' },
+  { q: 'Do you handle apartment emergencies or just houses?', a: 'We primarily serve Long Island apartments — that\'s our specialty. We\'re experienced with the unique challenges of apartment emergencies: limited access, shared building systems, landlord coordination, building management communication, and the tight spaces common in Long Island apartments.' },
+  { q: 'What about my landlord\'s responsibility?', a: 'In Long Island, landlords are responsible for maintaining habitable conditions. Water damage from building systems (not your negligence), mold from building ventilation issues, and sewage from building plumbing are landlord responsibilities. Document everything, notify them in writing, and know your rights under Long Island Housing Maintenance Code.' },
   { q: 'Are you available on weekends and holidays?', a: 'Yes. Emergencies don\'t wait for business hours. We have team members available 7 days a week including holidays. Weekend and holiday rates may apply for non-urgent situations, but true emergencies are always prioritized regardless of when they happen.' },
-  { q: 'What areas do you cover for emergency service?', a: 'We cover all five NYC boroughs: Manhattan, Brooklyn, Queens, the Bronx, and Staten Island, plus Long Island (Nassau and western Suffolk), Westchester County, and northern New Jersey for emergency situations. Response times are fastest in Manhattan and Brooklyn.' },
+  { q: 'What areas do you cover for emergency service?', a: 'We cover all five Long Island boroughs: Long Island, Long Island, Long Island, the Long Island, and Long Island, plus Long Island (Nassau and western Suffolk), Long Island County, and northern New Jersey for emergency situations. Response times are fastest in Long Island and Long Island.' },
 ]
 
 export const metadata: Metadata = {
-  title: 'Emergency Cleaning Service NYC — 24/7 Response | The Long Island Maid',
-  description: 'NYC emergency cleaning — water damage, fire, sewage, biohazard & mold. 24/7 rapid response with pro equipment. What to do, what not to do. Text (516) 202-5900.',
-  alternates: { canonical: 'https://www.thelongislandmaid.com/service/nyc-emergency-cleaning-service' },
+  title: 'Emergency Cleaning Service Long Island — 24/7 Response | The Long Island Maid',
+  description: 'Long Island emergency cleaning — water damage, fire, sewage, biohazard & mold. 24/7 rapid response with pro equipment. What to do, what not to do. Text (516) 202-5900.',
+  alternates: { canonical: 'https://www.thelongislandmaid.com/service/long-island-emergency-cleaning-service' },
   openGraph: {
-    title: 'Emergency Cleaning Service NYC | The Long Island Maid',
-    description: 'Rapid-response emergency cleaning across NYC. Water damage, fire, biohazard & more. Available 24/7.',
-    url: 'https://www.thelongislandmaid.com/service/nyc-emergency-cleaning-service',
+    title: 'Emergency Cleaning Service Long Island | The Long Island Maid',
+    description: 'Rapid-response emergency cleaning across Long Island. Water damage, fire, biohazard & more. Available 24/7.',
+    url: 'https://www.thelongislandmaid.com/service/long-island-emergency-cleaning-service',
   },
 }
 
@@ -207,7 +207,7 @@ export default function EmergencyCleaningPage() {
     '@context': 'https://schema.org',
     '@type': 'Service',
     name: 'Emergency Cleaning Service',
-    description: 'Professional emergency cleaning service for NYC apartments — water damage, fire, sewage, biohazard, mold, and disaster cleanup. Available 24/7.',
+    description: 'Professional emergency cleaning service for Long Island apartments — water damage, fire, sewage, biohazard, mold, and disaster cleanup. Available 24/7.',
     provider: {
       '@type': 'LocalBusiness',
       name: 'The Long Island Maid',
@@ -238,7 +238,7 @@ export default function EmergencyCleaningPage() {
     '@context': 'https://schema.org',
     '@type': 'HowTo',
     name: 'What to Do in a Cleaning Emergency',
-    description: 'Step-by-step guide for handling cleaning emergencies in NYC apartments — from water damage to biohazard situations.',
+    description: 'Step-by-step guide for handling cleaning emergencies in Long Island apartments — from water damage to biohazard situations.',
     step: emergencyTypes.filter(e => e.isEmergency).map((type, i) => ({
       '@type': 'HowToSection',
       name: type.name,
@@ -257,8 +257,8 @@ export default function EmergencyCleaningPage() {
         localBusinessSchema(),
         breadcrumbSchema([
           { name: 'Home', url: 'https://www.thelongislandmaid.com' },
-          { name: 'Services', url: 'https://www.thelongislandmaid.com/nyc-maid-service-services-offered-by-the-nyc-maid' },
-          { name: 'Emergency Cleaning', url: 'https://www.thelongislandmaid.com/service/nyc-emergency-cleaning-service' },
+          { name: 'Services', url: 'https://www.thelongislandmaid.com/long-island-maid-service-services-offered-by-the-long-island-maid' },
+          { name: 'Emergency Cleaning', url: 'https://www.thelongislandmaid.com/service/long-island-emergency-cleaning-service' },
         ]),
         faqSchema,
         serviceSchema,
@@ -269,8 +269,8 @@ export default function EmergencyCleaningPage() {
       <section className="bg-gradient-to-b from-[#1E2A4A] to-[#243352] py-16 md:py-24">
         <div className="max-w-5xl mx-auto px-4 text-center">
           <p className="text-xs font-semibold text-red-400 tracking-[0.25em] uppercase mb-4">24/7 Emergency Response</p>
-          <h1 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl lg:text-7xl text-white tracking-wide leading-[0.95] mb-6">Emergency Cleaning Service in NYC</h1>
-          <p className="text-white/60 text-lg max-w-3xl mx-auto mb-8">Flooding, fire damage, sewage, biohazard, mold — when disaster hits your apartment, you need professionals who respond fast and know what they&apos;re doing. We&apos;ve handled hundreds of emergency cleanups across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester &amp; New Jersey.</p>
+          <h1 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl lg:text-7xl text-white tracking-wide leading-[0.95] mb-6">Emergency Cleaning Service in Long Island</h1>
+          <p className="text-white/60 text-lg max-w-3xl mx-auto mb-8">Flooding, fire damage, sewage, biohazard, mold — when disaster hits your apartment, you need professionals who respond fast and know what they&apos;re doing. We&apos;ve handled hundreds of emergency cleanups across Long Island, Long Island, Long Island, the Long Island, Long Island, Long Island, Long Island &amp; New Jersey.</p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <a href="/book/new" className="bg-red-600 text-white px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-red-700 transition-colors">
               Self-book, save $10
@@ -284,8 +284,8 @@ export default function EmergencyCleaningPage() {
 
       <div className="max-w-5xl mx-auto px-4 py-12">
         <Breadcrumbs items={[
-          { name: 'Services', href: '/nyc-maid-service-services-offered-by-the-nyc-maid' },
-          { name: 'Emergency Cleaning', href: '/service/nyc-emergency-cleaning-service' },
+          { name: 'Services', href: '/long-island-maid-service-services-offered-by-the-long-island-maid' },
+          { name: 'Emergency Cleaning', href: '/service/long-island-emergency-cleaning-service' },
         ]} />
         <TrustBadges />
 
@@ -368,7 +368,7 @@ export default function EmergencyCleaningPage() {
         {/* Emergency CTA */}
         <div className="bg-red-600 rounded-xl p-8 md:p-10 mb-20 text-center">
           <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-white tracking-wide mb-2">Dealing With an Emergency Right Now?</h2>
-          <p className="text-red-100 mb-6">Don&apos;t wait. Our team is available 24/7 for emergency response across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester &amp; New Jersey.</p>
+          <p className="text-red-100 mb-6">Don&apos;t wait. Our team is available 24/7 for emergency response across Long Island, Long Island, Long Island, the Long Island, Long Island, Long Island, Long Island &amp; New Jersey.</p>
           <a href="/book/new" className="inline-block bg-white text-red-600 px-10 py-4 rounded-lg font-bold text-lg hover:bg-red-50 transition-colors">
             Self-book, save $10
           </a>
@@ -462,7 +462,7 @@ export default function EmergencyCleaningPage() {
         {/* Coverage */}
         <section className="mb-16">
           <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-6">Emergency Service Coverage</h2>
-          <p className="text-gray-600 mb-8">We cover Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester &amp; New Jersey for emergency cleaning. Response times are fastest in Manhattan and Brooklyn.</p>
+          <p className="text-gray-600 mb-8">We cover Long Island, Long Island, Long Island, the Long Island, Long Island, Long Island, Long Island &amp; New Jersey for emergency cleaning. Response times are fastest in Long Island and Long Island.</p>
           {AREAS.map(area => {
             const neighborhoods = getNeighborhoodsByArea(area.slug)
             return (

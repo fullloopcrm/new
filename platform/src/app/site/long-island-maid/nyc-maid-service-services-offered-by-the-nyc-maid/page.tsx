@@ -8,13 +8,13 @@ import ServiceGrid from '@/app/site/long-island-maid/_components/ServiceGrid'
 import CTABlock from '@/app/site/long-island-maid/_components/CTABlock'
 
 export const metadata: Metadata = {
-  title: { absolute: 'NYC Cleaning Services — Deep Clean, Maid Service, Move-In/Out & More | The Long Island Maid' },
-  description: 'All cleaning services by The Long Island Maid from $59/hr. Deep cleaning, weekly maid service, move-in/out, post-construction, Airbnb, same-day. Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester & NJ.',
-  alternates: { canonical: 'https://www.thelongislandmaid.com/nyc-maid-service-services-offered-by-the-nyc-maid' },
+  title: { absolute: 'Long Island Cleaning Services — Deep Clean, Maid Service, Move-In/Out & More | The Long Island Maid' },
+  description: 'All cleaning services by The Long Island Maid from $59/hr. Deep cleaning, weekly maid service, move-in/out, post-construction, Airbnb, same-day. Long Island, Long Island, Long Island, the Long Island, Long Island, Long Island, Long Island & NJ.',
+  alternates: { canonical: 'https://www.thelongislandmaid.com/long-island-maid-service-services-offered-by-the-long-island-maid' },
   openGraph: {
-    title: 'NYC Cleaning Services — Deep Clean, Maid Service & More | The Long Island Maid',
-    description: 'Professional cleaning services from $59/hr across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester & NJ. Licensed, insured, 5-star rated.',
-    url: 'https://www.thelongislandmaid.com/nyc-maid-service-services-offered-by-the-nyc-maid',
+    title: 'Long Island Cleaning Services — Deep Clean, Maid Service & More | The Long Island Maid',
+    description: 'Professional cleaning services from $59/hr across Long Island, Long Island, Long Island, the Long Island, Long Island, Long Island, Long Island & NJ. Licensed, insured, 5-star rated.',
+    url: 'https://www.thelongislandmaid.com/long-island-maid-service-services-offered-by-the-long-island-maid',
   },
 }
 
@@ -26,7 +26,7 @@ export default function ServicesIndexPage() {
         serviceItemListSchema(),
         breadcrumbSchema([
           { name: 'Home', url: 'https://www.thelongislandmaid.com' },
-          { name: 'Services', url: 'https://www.thelongislandmaid.com/nyc-maid-service-services-offered-by-the-nyc-maid' },
+          { name: 'Services', url: 'https://www.thelongislandmaid.com/long-island-maid-service-services-offered-by-the-long-island-maid' },
         ]),
       ]} />
 
@@ -38,10 +38,10 @@ export default function ServicesIndexPage() {
             <span className="text-blue-200/70 text-sm font-medium">5.0 Rating &middot; 50+ Reviews</span>
           </div>
           <h1 className="font-[family-name:var(--font-bebas)] text-4xl md:text-6xl lg:text-7xl text-white tracking-wide leading-[0.95] mb-6">
-            NYC House Cleaning Services — Every Type of Clean, One Trusted Team
+            Long Island House Cleaning Services — Every Type of Clean, One Trusted Team
           </h1>
           <p className="text-blue-200/70 text-lg max-w-3xl leading-relaxed mb-8">
-            From <Link href="/services/weekly-maid-service-in-nyc" className="text-[#A8F0DC] underline underline-offset-2">weekly maid service</Link> and <Link href="/services/deep-cleaning-service-in-nyc" className="text-[#A8F0DC] underline underline-offset-2">deep cleaning</Link> to <Link href="/services/move-in-move-out-cleaning-service-in-nyc" className="text-[#A8F0DC] underline underline-offset-2">move-in/move-out</Link>, <Link href="/services/post-construction-cleanup-service-in-nyc" className="text-[#A8F0DC] underline underline-offset-2">post-renovation cleanup</Link>, and <Link href="/services/same-day-cleaning-service-in-nyc" className="text-[#A8F0DC] underline underline-offset-2">same-day emergency service</Link> — our background-checked, insured cleaners handle it all across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester &amp; New Jersey.
+            From <Link href="/services/weekly-maid-service-in-long-island" className="text-[#A8F0DC] underline underline-offset-2">weekly maid service</Link> and <Link href="/services/deep-cleaning-service-in-long-island" className="text-[#A8F0DC] underline underline-offset-2">deep cleaning</Link> to <Link href="/services/move-in-move-out-cleaning-service-in-long-island" className="text-[#A8F0DC] underline underline-offset-2">move-in/move-out</Link>, <Link href="/services/post-construction-cleanup-service-in-long-island" className="text-[#A8F0DC] underline underline-offset-2">post-renovation cleanup</Link>, and <Link href="/services/same-day-cleaning-service-in-long-island" className="text-[#A8F0DC] underline underline-offset-2">same-day emergency service</Link> — our background-checked, insured cleaners handle it all across Long Island, Long Island, Long Island, the Long Island, Long Island, Long Island, Long Island &amp; New Jersey.
           </p>
           <div className="flex flex-wrap gap-x-6 gap-y-2 mb-10">
             <span className="text-[#A8F0DC] text-sm font-medium">&#10003; From $59/hr</span>
@@ -61,7 +61,7 @@ export default function ServicesIndexPage() {
       </section>
 
       <div className="max-w-7xl mx-auto px-4 py-12">
-        <Breadcrumbs items={[{ name: 'Services', href: '/nyc-maid-service-services-offered-by-the-nyc-maid' }]} />
+        <Breadcrumbs items={[{ name: 'Services', href: '/long-island-maid-service-services-offered-by-the-long-island-maid' }]} />
       </div>
 
       {/* Service cards (reuse homepage grid with icons) */}
@@ -122,7 +122,7 @@ export default function ServicesIndexPage() {
               <p className="font-[family-name:var(--font-bebas)] text-4xl text-[#1E2A4A] tracking-wide">$89<span className="text-xl text-gray-300">/hr</span></p>
             </div>
           </div>
-          <Link href="/updated-nyc-maid-service-industry-pricing" className="inline-block bg-[#1E2A4A] text-white px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
+          <Link href="/updated-long-island-maid-service-industry-pricing" className="inline-block bg-[#1E2A4A] text-white px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
             View Full Pricing Details
           </Link>
         </div>
@@ -136,10 +136,10 @@ export default function ServicesIndexPage() {
             <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide leading-tight mb-6">Same Professional Standards — Every Service, Every Visit</p>
             <div className="w-12 h-[2px] bg-[#A8F0DC] mb-6" />
             <p className="text-gray-600 leading-relaxed mb-5">
-              Whether you book a <Link href="/services/deep-cleaning-service-in-nyc" className="text-[#1E2A4A] underline underline-offset-2">deep clean</Link>, a <Link href="/services/weekly-maid-service-in-nyc" className="text-[#1E2A4A] underline underline-offset-2">weekly maid service</Link>, or a <Link href="/services/same-day-cleaning-service-in-nyc" className="text-[#1E2A4A] underline underline-offset-2">same-day emergency clean</Link> — you get the same background-checked, insured professional and the same attention to detail. We don&apos;t send different tiers of cleaners for different services.
+              Whether you book a <Link href="/services/deep-cleaning-service-in-long-island" className="text-[#1E2A4A] underline underline-offset-2">deep clean</Link>, a <Link href="/services/weekly-maid-service-in-long-island" className="text-[#1E2A4A] underline underline-offset-2">weekly maid service</Link>, or a <Link href="/services/same-day-cleaning-service-in-long-island" className="text-[#1E2A4A] underline underline-offset-2">same-day emergency clean</Link> — you get the same background-checked, insured professional and the same attention to detail. We don&apos;t send different tiers of cleaners for different services.
             </p>
             <p className="text-gray-600 leading-relaxed mb-6">
-              Our cleaners serve <Link href="/manhattan-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Manhattan</Link>, <Link href="/brooklyn-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Brooklyn</Link>, <Link href="/queens-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Queens</Link>, the <Link href="/bronx-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Bronx</Link>, <Link href="/staten-island-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Staten Island</Link>, <Link href="/long-island-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Long Island</Link>, <Link href="/westchester-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Westchester</Link>, and <Link href="/new-jersey-maid-service" className="text-[#1E2A4A] underline underline-offset-2">New Jersey</Link> — same rates, same quality, no travel fees. <Link href="/reviews" className="text-[#1E2A4A] underline underline-offset-2">Read our reviews</Link> to see what clients say.
+              Our cleaners serve <Link href="/manhattan-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Long Island</Link>, <Link href="/brooklyn-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Long Island</Link>, <Link href="/queens-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Long Island</Link>, the <Link href="/bronx-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Long Island</Link>, <Link href="/staten-island-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Long Island</Link>, <Link href="/long-island-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Long Island</Link>, <Link href="/westchester-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Long Island</Link>, and <Link href="/new-jersey-maid-service" className="text-[#1E2A4A] underline underline-offset-2">New Jersey</Link> — same rates, same quality, no travel fees. <Link href="/reviews" className="text-[#1E2A4A] underline underline-offset-2">Read our reviews</Link> to see what clients say.
             </p>
             <div className="flex flex-col sm:flex-row items-start gap-4">
               <a href="/book/new" className="inline-block bg-[#A8F0DC] text-[#1E2A4A] px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
@@ -175,13 +175,13 @@ export default function ServicesIndexPage() {
           <p className="text-gray-500 max-w-2xl mx-auto mb-8">
             Every service listed above is available in all of our coverage areas. Same rates, same quality — whether you&apos;re in the <Link href="/upper-east-side-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Upper East Side</Link>, <Link href="/williamsburg-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Williamsburg</Link>, <Link href="/astoria-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Astoria</Link>, <Link href="/great-neck-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Great Neck</Link>, or <Link href="/hoboken-maid-service" className="text-[#1E2A4A] underline underline-offset-2">Hoboken</Link>.
           </p>
-          <Link href="/service-areas-served-by-the-nyc-maid" className="inline-block bg-[#1E2A4A] text-white px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
+          <Link href="/service-areas-served-by-the-long-island-maid" className="inline-block bg-[#1E2A4A] text-white px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
             Browse All Service Areas &rarr;
           </Link>
         </div>
       </section>
 
-      <CTABlock title="Book Any Cleaning Service Today" subtitle="Text us — trusted by New Yorkers across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester & New Jersey." />
+      <CTABlock title="Book Any Cleaning Service Today" subtitle="Text us — trusted by New Yorkers across Long Island, Long Island, Long Island, the Long Island, Long Island, Long Island, Long Island & New Jersey." />
     </>
   )
 }

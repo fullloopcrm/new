@@ -6,9 +6,9 @@ import JsonLd from '@/app/site/pennsylvania-maid/_components/JsonLd'
 import Breadcrumbs from '@/app/site/pennsylvania-maid/_components/Breadcrumbs'
 import CTABlock from '@/app/site/pennsylvania-maid/_components/CTABlock'
 
-const url = 'https://www.thepennsylvaniamaid.com/updated-nyc-maid-service-industry-pricing'
+const url = 'https://www.thepennsylvaniamaid.com/updated-pennsylvania-maid-service-industry-pricing'
 const title = 'Pennsylvania Maid Service Pricing From $59/hr | Transparent Rates | The Pennsylvania Maid'
-const description = 'Transparent hourly cleaning rates across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester & NJ. $59/hr your supplies (10% off weekly, 5% biweekly/monthly), $69/hr we bring everything (20% off weekly, 10% biweekly/monthly), $89/hr same-day. No hidden fees. 5.0★ Rated. (215) 398-4500'
+const description = 'Transparent hourly cleaning rates across Pennsylvania, Pennsylvania, Pennsylvania, the Pennsylvania, Pennsylvania, Long Island, Pennsylvania & NJ. $59/hr your supplies (10% off weekly, 5% biweekly/monthly), $69/hr we bring everything (20% off weekly, 10% biweekly/monthly), $89/hr same-day. No hidden fees. 5.0★ Rated. (215) 398-4500'
 
 export const metadata: Metadata = {
   title: { absolute: title },
@@ -16,16 +16,16 @@ export const metadata: Metadata = {
   alternates: { canonical: url },
   openGraph: { title, description, url, type: 'website', siteName: 'The Pennsylvania Maid', locale: 'en_US' },
   twitter: { card: 'summary_large_image', title, description },
-  other: { 'geo.region': 'US-NY', 'geo.placename': 'New York City', 'geo.position': '40.7589;-73.9851', 'ICBM': '40.7589, -73.9851' },
+  other: { 'geo.region': 'US-PA', 'geo.placename': 'Pennsylvania', 'geo.position': '39.9526;-75.1652', 'ICBM': '40.7589, -73.9851' },
 }
 
 const pricingFaqs = [
-  { question: 'How much does house cleaning cost in NYC?', answer: 'Our rates are $59/hr when you provide supplies (recurring: 10% off weekly, 5% off biweekly/monthly), $69/hr when we bring everything (recurring: 20% off weekly, 10% off biweekly/monthly), and $89/hr for same-day emergency service. A typical NYC apartment cleaning costs $98–$414 depending on size and service type. We provide a custom quote based on your specific needs.' },
+  { question: 'How much does house cleaning cost in Pennsylvania?', answer: 'Our rates are $59/hr when you provide supplies (recurring: 10% off weekly, 5% off biweekly/monthly), $69/hr when we bring everything (recurring: 20% off weekly, 10% off biweekly/monthly), and $89/hr for same-day emergency service. A typical Pennsylvania apartment cleaning costs $98–$414 depending on size and service type. We provide a custom quote based on your specific needs.' },
   { question: 'Do you charge by the hour or by the job?', answer: 'We charge by the hour at a flat rate. $59/hr if you provide cleaning supplies, $69/hr if we bring our own professional-grade products and equipment, $89/hr for same-day emergency service. The total cost depends on how long your cleaning takes, which we estimate upfront based on your home size and service type.' },
   { question: 'Is there a minimum charge?', answer: 'Our minimum booking is 2 hours (first-time cleanings included). Bookings with 2 or more cleaners carry a 4-hour minimum and receive no discounts. For most studio and 1-bedroom regular cleanings, 2 hours is sufficient. Deep cleans and larger apartments typically require 3–6+ hours.' },
-  { question: 'Do you charge extra for travel or different neighborhoods?', answer: 'No. Every neighborhood we serve — from Manhattan to Brooklyn to Long Island — gets the same flat hourly rate. No travel surcharges, no surge pricing, no zone fees.' },
+  { question: 'Do you charge extra for travel or different neighborhoods?', answer: 'No. Every neighborhood we serve — from Pennsylvania to Pennsylvania to Long Island — gets the same flat hourly rate. No travel surcharges, no surge pricing, no zone fees.' },
   { question: 'What\'s the difference between $59/hr and $69/hr?', answer: 'At $59/hr, you provide the cleaning supplies and equipment (vacuum, mop, products). At $69/hr, we bring everything — professional-grade products, microfiber systems, and a commercial vacuum. The cleaning quality and thoroughness is identical.' },
-  { question: 'How much does a deep cleaning cost?', answer: 'Deep cleaning typically costs $196–$414 for a standard NYC apartment. Studios run $196–$245, 1-bedrooms $245–$325, and 2-3 bedrooms $325–$414+. The exact price depends on square footage, condition, and whether you want us to bring supplies.' },
+  { question: 'How much does a deep cleaning cost?', answer: 'Deep cleaning typically costs $196–$414 for a standard Pennsylvania apartment. Studios run $196–$245, 1-bedrooms $245–$325, and 2-3 bedrooms $325–$414+. The exact price depends on square footage, condition, and whether you want us to bring supplies.' },
   { question: 'How much does move-in/move-out cleaning cost?', answer: 'Move-in/move-out cleaning runs $260–$520. These take 4–8 hours because we clean inside every cabinet, drawer, closet, and appliance. Empty apartments are easier to clean but require more detail work to be deposit-ready.' },
   { question: 'Do I pay before or after the cleaning?', answer: 'Payment is collected about 30 minutes before the cleaner finishes. If payment is not received by then, the cleaner will wait until it is — and the wait time is billable. No deposits, no pre-charges, no money upfront. We accept credit/debit card, Apple Pay, and Cash App through our secure online payment link, plus cash.' },
   { question: 'How is time calculated?', answer: 'We bill in 30-minute increments — not by the minute or quarter hour. Once 10 minutes into the next half hour has passed, it counts as a full 30 billable minutes. For example, 2 hours and 10 minutes is billed as 2.5 hours.' },
@@ -136,7 +136,7 @@ export default function PricingPage() {
       </section>
 
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <Breadcrumbs items={[{ name: 'Pricing', href: '/updated-nyc-maid-service-industry-pricing' }]} />
+        <Breadcrumbs items={[{ name: 'Pricing', href: '/updated-pennsylvania-maid-service-industry-pricing' }]} />
       </div>
 
       {/* Pricing guarantees */}
@@ -147,7 +147,7 @@ export default function PricingPage() {
               { label: 'No Hidden Fees', detail: 'The quote you get is the price you pay' },
               { label: 'Pay After', detail: 'Never upfront — pay when the job is done' },
               { label: 'No Contracts', detail: 'Cancel recurring service anytime' },
-              { label: 'Same Rate Everywhere', detail: 'Manhattan to Long Island — same price' },
+              { label: 'Same Rate Everywhere', detail: 'Pennsylvania to Long Island — same price' },
             ].map(g => (
               <div key={g.label} className="bg-gray-50 border border-gray-100 rounded-xl p-5 text-center">
                 <p className="font-[family-name:var(--font-bebas)] text-lg text-[#1E2A4A] tracking-wide mb-1">{g.label}</p>

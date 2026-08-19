@@ -12,7 +12,7 @@ const en = {
   howItWorksTitle: 'Three Simple Steps',
   steps: [
     { title: 'Sign Up & Get Your Link', body: "Fill out the form — takes 30 seconds. You'll receive a unique referral link and code." },
-    { title: 'Share With Friends & Family', body: 'Send your link to anyone who needs cleaning in NYC, Long Island, or NJ. They book using your link.' },
+    { title: 'Share With Friends & Family', body: 'Send your link to anyone who needs cleaning in your area. They book using your link.' },
     { title: 'Earn 10% Every Time', body: 'You get 10% of every cleaning they book — paid after each completed visit. No cap on earnings.' },
   ],
   whyLabel: 'Why It Works',
@@ -44,7 +44,7 @@ const es = {
   howItWorksTitle: 'Tres Pasos Simples',
   steps: [
     { title: 'Regístrate y Obtén Tu Enlace', body: 'Llena el formulario — toma 30 segundos. Recibirás un enlace y código de referido único.' },
-    { title: 'Comparte con Amigos y Familia', body: 'Envía tu enlace a quien necesite limpieza en NYC, Long Island o NJ. Reservan usando tu enlace.' },
+    { title: 'Comparte con Amigos y Familia', body: 'Envía tu enlace a quien necesite limpieza en tu área. Reservan usando tu enlace.' },
     { title: 'Gana 10% Cada Vez', body: 'Obtienes el 10% de cada limpieza que reserven — pagado después de cada visita completada. Sin límite de ganancias.' },
   ],
   whyLabel: 'Por Qué Funciona',

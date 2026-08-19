@@ -47,7 +47,7 @@ export default function MarketingNav() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-center lg:justify-between h-9">
             <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] tracking-widest uppercase">
               <span className="text-white/80 font-semibold hidden sm:inline">Maid Service:</span>
-              <Link href="/service-areas-served-by-the-nyc-maid" className="hover:text-white transition-colors font-semibold text-white/80 hidden sm:inline">NYC</Link>
+              <Link href="/service-areas-served-by-the-nyc-maid" className="hover:text-white transition-colors font-semibold text-white/80 hidden sm:inline">LI</Link>
               <span className="text-white/20 hidden sm:inline">|</span>
               <Link href="/long-island-maid-service" className="hover:text-white transition-colors font-semibold text-white/80 hidden sm:inline">L.I.</Link>
               <span className="text-white/20 hidden sm:inline">|</span>

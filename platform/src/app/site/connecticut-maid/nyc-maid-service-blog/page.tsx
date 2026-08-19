@@ -7,18 +7,18 @@ import Breadcrumbs from '@/app/site/connecticut-maid/_components/Breadcrumbs'
 import CTABlock from '@/app/site/connecticut-maid/_components/CTABlock'
 
 export const metadata: Metadata = {
-  title: 'Blog | NYC Cleaning Tips & News | The Connecticut Maid',
-  description: 'The Connecticut Maid blog — cleaning tips, guides & news for NYC residents. Apartment care, eco-friendly products & pro advice. Service from $59/hr. (203) 491-5600',
-  alternates: { canonical: 'https://www.theconnecticutmaid.com/nyc-maid-service-blog' },
+  title: 'Blog | Connecticut Cleaning Tips & News | The Connecticut Maid',
+  description: 'The Connecticut Maid blog — cleaning tips, guides & news for Connecticut residents. Apartment care, eco-friendly products & pro advice. Service from $59/hr. (203) 491-5600',
+  alternates: { canonical: 'https://www.theconnecticutmaid.com/connecticut-maid-service-blog' },
   openGraph: {
     title: 'Blog | The Connecticut Maid',
-    description: 'Expert cleaning tips and guides for NYC residents.',
-    url: 'https://www.theconnecticutmaid.com/nyc-maid-service-blog',
+    description: 'Expert cleaning tips and guides for Connecticut residents.',
+    url: 'https://www.theconnecticutmaid.com/connecticut-maid-service-blog',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Blog | NYC Cleaning Tips & News | The Connecticut Maid',
-    description: 'Expert cleaning tips and guides for NYC residents.',
+    title: 'Blog | Connecticut Cleaning Tips & News | The Connecticut Maid',
+    description: 'Expert cleaning tips and guides for Connecticut residents.',
   },
 }
 
@@ -32,7 +32,7 @@ export default function BlogIndexPage() {
         localBusinessSchema(),
         breadcrumbSchema([
           { name: 'Home', url: 'https://www.theconnecticutmaid.com' },
-          { name: 'Blog', url: 'https://www.theconnecticutmaid.com/nyc-maid-service-blog' },
+          { name: 'Blog', url: 'https://www.theconnecticutmaid.com/connecticut-maid-service-blog' },
         ]),
       ]} />
 
@@ -40,15 +40,15 @@ export default function BlogIndexPage() {
         <div className="max-w-5xl mx-auto px-4 text-center">
           <p className="text-xs font-semibold text-[#A8F0DC] tracking-[0.25em] uppercase mb-4">From the Pros</p>
           <h1 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl lg:text-6xl text-white tracking-wide mb-4">The Connecticut Maid Blog</h1>
-          <p className="text-white/60 text-lg max-w-3xl mx-auto">Real cleaning advice from people who do this every day — no fluff, no stock photos, just what actually works in NYC apartments.</p>
+          <p className="text-white/60 text-lg max-w-3xl mx-auto">Real cleaning advice from people who do this every day — no fluff, no stock photos, just what actually works in Connecticut apartments.</p>
         </div>
       </section>
 
       <div className="max-w-7xl mx-auto px-4 py-12">
-        <Breadcrumbs items={[{ name: 'Blog', href: '/nyc-maid-service-blog' }]} />
+        <Breadcrumbs items={[{ name: 'Blog', href: '/connecticut-maid-service-blog' }]} />
 
         {/* Featured post */}
-        <Link href={`/nyc-maid-service-blog/${featured.slug}`} className="group block border border-gray-200 rounded-xl p-8 md:p-10 mb-12 hover:border-[#A8F0DC] hover:shadow-lg transition-all">
+        <Link href={`/connecticut-maid-service-blog/${featured.slug}`} className="group block border border-gray-200 rounded-xl p-8 md:p-10 mb-12 hover:border-[#A8F0DC] hover:shadow-lg transition-all">
           <div className="flex items-center gap-3 mb-4">
             <span className="text-xs font-semibold text-[#A8F0DC] bg-[#A8F0DC]/15 px-3 py-1 rounded-full uppercase tracking-widest">{featured.category}</span>
             <span className="text-xs text-gray-400">{new Date(featured.date + 'T12:00:00').toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'long', day: 'numeric', year: 'numeric' })}</span>
@@ -62,7 +62,7 @@ export default function BlogIndexPage() {
         {/* All posts grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
           {rest.map(post => (
-            <Link key={post.slug} href={`/nyc-maid-service-blog/${post.slug}`} className="group border border-gray-200 rounded-xl p-6 hover:border-[#A8F0DC] hover:shadow-lg transition-all">
+            <Link key={post.slug} href={`/connecticut-maid-service-blog/${post.slug}`} className="group border border-gray-200 rounded-xl p-6 hover:border-[#A8F0DC] hover:shadow-lg transition-all">
               <div className="flex items-center gap-2 mb-3">
                 <span className="text-xs font-medium text-[#1E2A4A]/60 uppercase tracking-widest">{post.category}</span>
                 <span className="text-xs text-gray-400">{new Date(post.date + 'T12:00:00').toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric' })}</span>
@@ -76,7 +76,7 @@ export default function BlogIndexPage() {
 
         <div className="text-center">
           <p className="text-gray-600">
-            Looking for practical how-tos? Check out our <Link href="/nyc-maid-and-cleaning-tips-and-advice-by-the-nyc-maid" className="text-[#1E2A4A] font-semibold hover:underline">100 cleaning tips</Link> page.
+            Looking for practical how-tos? Check out our <Link href="/connecticut-maid-and-cleaning-tips-and-advice-by-the-connecticut-maid" className="text-[#1E2A4A] font-semibold hover:underline">100 cleaning tips</Link> page.
           </p>
         </div>
       </div>

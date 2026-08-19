@@ -181,7 +181,7 @@ export default function ReviewForm() {
           </div>
           <div>
             <h2 className="text-gray-900 font-semibold text-lg">The Connecticut Maid</h2>
-            <p className="text-gray-400 text-sm">Verified Business &middot; NYC Since 2018</p>
+            <p className="text-gray-400 text-sm">Verified Business &middot; Connecticut Since 2018</p>
           </div>
         </div>
       </div>

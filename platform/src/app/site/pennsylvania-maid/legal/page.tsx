@@ -6,7 +6,7 @@ import Breadcrumbs from '@/app/site/pennsylvania-maid/_components/Breadcrumbs'
 
 export const metadata: Metadata = {
   title: 'Legal Information | The Pennsylvania Maid',
-  description: 'Legal information for The Pennsylvania Maid — privacy policy, terms, refund policy & data sharing. NYC cleaning from $59/hr. (215) 398-4500',
+  description: 'Legal information for The Pennsylvania Maid — privacy policy, terms, refund policy & data sharing. Pennsylvania cleaning from $59/hr. (215) 398-4500',
   alternates: { canonical: 'https://www.thepennsylvaniamaid.com/legal' },
 }
 

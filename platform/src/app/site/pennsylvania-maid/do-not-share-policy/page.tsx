@@ -6,7 +6,7 @@ import Breadcrumbs from '@/app/site/pennsylvania-maid/_components/Breadcrumbs'
 
 export const metadata: Metadata = {
   title: 'Do Not Share Policy | The Pennsylvania Maid',
-  description: 'The Pennsylvania Maid does not sell, share, or distribute your personal information. Your data stays with us. NYC cleaning from $59/hr. (215) 398-4500',
+  description: 'The Pennsylvania Maid does not sell, share, or distribute your personal information. Your data stays with us. Pennsylvania cleaning from $59/hr. (215) 398-4500',
   alternates: { canonical: 'https://www.thepennsylvaniamaid.com/do-not-share-policy' },
 }
 

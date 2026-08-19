@@ -6,7 +6,7 @@ import Breadcrumbs from '@/app/site/connecticut-maid/_components/Breadcrumbs'
 
 export const metadata: Metadata = {
   title: 'Do Not Share Policy | The Connecticut Maid',
-  description: 'The Connecticut Maid does not sell, share, or distribute your personal information. Your data stays with us. NYC cleaning from $59/hr. (203) 491-5600',
+  description: 'The Connecticut Maid does not sell, share, or distribute your personal information. Your data stays with us. Connecticut cleaning from $59/hr. (203) 491-5600',
   alternates: { canonical: 'https://www.theconnecticutmaid.com/do-not-share-policy' },
 }
 
