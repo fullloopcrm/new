@@ -170,7 +170,7 @@ export function Footer() {
           </p>
           <p>
             CRM by{" "}
-            <a href="https://homeservicesbusinesscrm.com/" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-white transition-colors underline">
+            <a href="https://homeservicecrm.ai/" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-white transition-colors underline">
               Full Loop CRM
             </a>
           </p>

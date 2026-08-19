@@ -163,7 +163,7 @@ export default function Footer() {
           <p className="text-[11px] text-slate-500">
             Built and managed by{" "}
             <a
-              href="https://homeservicesbusinesscrm.com/"
+              href="https://homeservicecrm.ai/"
               target="_blank"
               rel="noopener noreferrer"
               className="text-slate-400 hover:text-white"

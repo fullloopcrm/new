@@ -197,7 +197,7 @@ export default function MarketingFooter({ config }: { config: SiteConfig }) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 text-center">
           <p className="text-[11px] text-gray-500">
             CRM by{' '}
-            <a href="https://homeservicesbusinesscrm.com/" target="_blank" rel="noopener noreferrer" className="text-[rgb(var(--accent-rgb)/0.7)] hover:text-[var(--accent)] font-semibold underline underline-offset-2 decoration-[rgb(var(--accent-rgb)/0.4)]">
+            <a href="https://homeservicecrm.ai/" target="_blank" rel="noopener noreferrer" className="text-[rgb(var(--accent-rgb)/0.7)] hover:text-[var(--accent)] font-semibold underline underline-offset-2 decoration-[rgb(var(--accent-rgb)/0.4)]">
               Full Loop CRM
             </a>
           </p>

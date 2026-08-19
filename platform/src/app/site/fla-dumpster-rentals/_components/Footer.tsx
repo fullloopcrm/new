@@ -170,7 +170,7 @@ export default function Footer() {
           <p className="mt-2 text-center text-[11px] text-stone-500">
             Built and managed by{" "}
             <a
-              href="https://homeservicesbusinesscrm.com/"
+              href="https://homeservicecrm.ai/"
               target="_blank"
               rel="noopener noreferrer"
               className="text-stone-400 hover:text-white"

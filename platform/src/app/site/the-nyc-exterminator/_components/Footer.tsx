@@ -123,7 +123,7 @@ export default function Footer() {
           <p className="mt-2 text-[11px] text-zinc-700">
             Built and managed by{" "}
             <a
-              href="https://homeservicesbusinesscrm.com/"
+              href="https://homeservicecrm.ai/"
               target="_blank"
               rel="noopener noreferrer"
               className="text-zinc-500 hover:text-white"
