@@ -14,7 +14,7 @@
  */
 import type { SiteConfig } from '@/app/site/template/_config/types'
 import { industryProfile, type IndustryProfile } from '@/app/site/template/_lib/seo/industry'
-import { photographyExtraFaq } from '@/app/site/template/_lib/seo/photography-services'
+import { photographyExtraFaq, SERVICE_DESCRIPTIONS, SERVICE_DETAILS, slugifyService } from '@/app/site/template/_lib/seo/photography-services'
 
 export interface ContentSection {
   /** H2 heading for the section. */
@@ -446,6 +446,7 @@ function serviceBlock(v: Vars, name: string, hours: number): ContentSection {
 
 export function servicesContent(config: SiteConfig): LongformPage {
   const v = vars(config)
+  if (v.profile.isPhotography) return photographyServicesContent(config, v)
   const svc = v.services.length > 0 ? list(v.services) : v.noun
   const locality = v.isRemote ? 'clients across the country' : `${v.place} and the surrounding area`
   const here = v.isRemote ? 'wherever you are' : `across ${v.place}`
@@ -700,6 +701,57 @@ export function servicesContent(config: SiteConfig): LongformPage {
     metaDescription: `Full-service ${v.noun} in ${v.place}: ${v.services.length > 0 ? svc : 'everything you need'}. Transparent pricing, vetted team, satisfaction guaranteed. Text ${v.phone}.`,
     h1: `Our ${v.label} Services`,
     intro: `${v.brand} offers a complete range of ${v.noun} serving ${locality} — scoped honestly, priced up front, and delivered by a vetted team. Here's exactly what we do and what to expect.`,
+    sections,
+    faq,
+  }
+}
+
+/**
+ * Photography-vertical services index — real per-service depth pulled from
+ * SERVICE_DETAILS (the same source /services/[slug] pages use), with a real
+ * [Service Name](/services/slug) link into each detail page. The generic
+ * version had zero links to the individual service pages at all — the most
+ * important interlinking gap on the site — and used home-services voice
+ * ("crew," generic job language).
+ */
+function photographyServicesContent(config: SiteConfig, v: Vars): LongformPage {
+  const activeServices = v.services.length > 0 ? v.services : Object.keys(SERVICE_DETAILS)
+
+  const perService: ContentSection[] = activeServices.map((name) => {
+    const detail = SERVICE_DETAILS[name]
+    const slug = slugifyService(name)
+    const desc = SERVICE_DESCRIPTIONS[name] ?? `Real 35mm black and white film ${name.toLowerCase()}, shot and hand-developed by ${v.brand} — no AI, ever.`
+    const paragraphs = [`[${name}](/services/${slug}) — ${desc}`]
+    if (detail?.introExtra) paragraphs.push(detail.introExtra)
+    if (detail?.whyFilm?.[0]) paragraphs.push(detail.whyFilm[0])
+    return { heading: name, paragraphs }
+  })
+
+  const sections: ContentSection[] = [
+    {
+      heading: `Black and White Film Photography in ${v.place}`,
+      paragraphs: [
+        `${v.brand} offers a full range of black and white film photography services in ${v.place}${activeServices.length > 0 ? `, including ${list(activeServices)}` : ''} — every one of them shot on real 35mm or medium format film, hand-developed in a real darkroom, and hand-printed under a real safelight. No AI editing, no AI-generated portraits, at any step of any service.`,
+        `Each service below links to its own page with real specifics — process, pricing detail, ideal locations, and preparation tips — not a reworded copy of another service's page. If you're not sure which one fits what you need, [reach out](/contact) and we'll tell you plainly.`,
+      ],
+    },
+    ...perService,
+    {
+      heading: `How Every Service Works, Start to Finish`,
+      paragraphs: [
+        `Regardless of which service you book, the process is the same: you [reach out](/contact) and tell us what you need, we ask a few real questions and give you a clear quote, we shoot on real film at the agreed time, your roll goes into the darkroom that week, and we hand-print your selections under a real enlarger. Darkroom prints are typically ready in 5-7 business days; digital scans, if added, usually land in 2-3.`,
+        `Every service is billed at one flat, transparent hourly rate with no hidden fees — see our [pricing page](/pricing) for exact rates by session type. Self-booking online applies the standard $20 discount automatically.`,
+      ],
+    },
+  ]
+
+  const faq: FaqItem[] = photographyExtraFaq(v.place)
+
+  return {
+    title: `Black and White Film Photography Services in ${v.place} — ${v.brand}`,
+    metaDescription: `Every black and white film photography service ${v.brand} offers in ${v.place}: portraits, weddings, headshots, landscapes, darkroom prints, and more. No AI, ever.`,
+    h1: `Our Film Photography Services`,
+    intro: `${v.brand} offers a complete range of black and white film photography serving ${v.place} and the greater Bay Area — real 35mm film, hand-developed and hand-printed, priced up front. Here's exactly what we do.`,
     sections,
     faq,
   }
