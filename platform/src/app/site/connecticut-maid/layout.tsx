@@ -31,8 +31,8 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       <MarketingNav />
       <main id="main-content">{children}</main>
       <MarketingFooter />
-      <TenantAnalyticsScript slug="nycmaid" />
-      <ClientErrorMonitor slug="nycmaid" />
+      <TenantAnalyticsScript slug="connecticut-maid" />
+      <ClientErrorMonitor slug="connecticut-maid" />
       <ConsentBanner privacyHref="/privacy-policy" />
     </div>
   )

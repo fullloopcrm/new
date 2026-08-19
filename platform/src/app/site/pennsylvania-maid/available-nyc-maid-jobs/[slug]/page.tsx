@@ -85,7 +85,7 @@ export default async function NeighborhoodJobPage({ params }: { params: Promise<
     identifier: {
       '@type': 'PropertyValue',
       name: 'The Pennsylvania Maid',
-      value: `nycmaid-cleaner-${n.slug}`,
+      value: `pennsylvania-maid-cleaner-${n.slug}`,
     },
     datePosted,
     validThrough,

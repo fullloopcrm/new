@@ -67,7 +67,7 @@ export default async function NeighborhoodSalesJobPage({ params }: { params: Pro
     identifier: {
       '@type': 'PropertyValue',
       name: 'The New Jersey Maid',
-      value: `nycmaid-sales-${n.slug}`,
+      value: `new-jersey-maid-sales-${n.slug}`,
     },
     datePosted,
     validThrough,

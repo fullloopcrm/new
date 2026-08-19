@@ -168,7 +168,7 @@ function coordinatorJobPostingSchema() {
     identifier: {
       '@type': 'PropertyValue',
       name: 'The Pennsylvania Maid',
-      value: 'nycmaid-ops-coordinator-2026',
+      value: 'pennsylvania-maid-ops-coordinator-2026',
     },
 
     industry: 'Cleaning Services',

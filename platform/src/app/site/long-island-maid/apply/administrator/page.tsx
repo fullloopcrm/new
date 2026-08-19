@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 }
 
 export default function ApplyAdministratorPage() {
-  const config = getPosition('nycmaid', 'administrator')
+  const config = getPosition('long-island-maid', 'administrator')
   if (!config) return null
 
   return (

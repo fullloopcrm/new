@@ -9,28 +9,10 @@ import CTABlock from '@/app/site/new-jersey-maid/_components/CTABlock'
 
 const openings = [
   {
-    region: 'New York City',
-    locations: 'Manhattan, Brooklyn, Queens, the Bronx & Staten Island',
-    areaSlugs: ['manhattan', 'brooklyn', 'queens', 'bronx', 'staten-island'],
-    id: 'nyc',
-  },
-  {
-    region: 'Long Island',
-    locations: 'Nassau & western Suffolk County',
-    areaSlugs: ['long-island'],
-    id: 'long-island',
-  },
-  {
-    region: 'Westchester',
-    locations: 'Yonkers, Bronxville, Scarsdale, White Plains & beyond',
-    areaSlugs: ['westchester'],
-    id: 'westchester',
-  },
-  {
     region: 'New Jersey',
-    locations: 'Hudson County & close-in Bergen County',
-    areaSlugs: ['new-jersey'],
-    id: 'new-jersey',
+    locations: 'New Jersey',
+    areaSlugs: [],
+    id: 'new-jersey-maid',
   },
 ]
 
@@ -49,8 +31,8 @@ const careerFAQs = [
 
 
 const pageUrl = 'https://www.thenewjerseymaid.com/available-nyc-maid-jobs'
-const pageTitle = 'Cleaning Jobs NYC, Long Island, Westchester & NJ — Starting $30/hr + Bonuses, Open 24/7 | Trabajo de Limpieza'
-const pageDescription = 'Hiring cleaners across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester & NJ! Starting $30/hr + bonus programs. Stripe in <30 min. 100% tips. Open 24/7. English & Spanish | Contratando — desde $30/hr + bonos, propinas 100% tuyas. (973) 370-8800'
+const pageTitle = 'Cleaning Jobs New Jersey — Starting $30/hr + Bonuses, Open 24/7 | Trabajo de Limpieza'
+const pageDescription = 'Hiring cleaners across New Jersey! Starting $30/hr + bonus programs. Stripe in <30 min. 100% tips. Open 24/7. English & Spanish | Contratando — desde $30/hr + bonos. (973) 370-8800'
 
 export const metadata: Metadata = {
   title: pageTitle,
@@ -72,7 +54,7 @@ export const metadata: Metadata = {
   },
   other: {
     'geo.region': 'US-NY',
-    'geo.placename': 'New York City',
+    'geo.placename': 'New Brunswick',
     'geo.position': '40.7589;-73.9851',
     'ICBM': '40.7589, -73.9851',
   },
@@ -88,7 +70,7 @@ function jobPostingSchema(region: string, locations: string) {
     identifier: {
       '@type': 'PropertyValue',
       name: 'The New Jersey Maid',
-      value: `nycmaid-cleaner-${regionSlug}`,
+      value: `new-jersey-maid-cleaner-${regionSlug}`,
     },
     datePosted: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     validThrough: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -105,10 +87,8 @@ function jobPostingSchema(region: string, locations: string) {
       '@type': 'Place',
       address: {
         '@type': 'PostalAddress',
-        streetAddress: '150 W 47th St',
-        addressLocality: region === 'New York City' ? 'New York' : region,
-        addressRegion: region === 'New Jersey' ? 'NJ' : 'NY',
-        postalCode: region === 'New Jersey' ? '07102' : '10036',
+        addressLocality: 'New Brunswick',
+        addressRegion: 'NJ',
         addressCountry: 'US',
       },
     },
@@ -177,7 +157,7 @@ export default function CareersPage() {
           <div className="flex items-center gap-3 mb-4">
             <p className="text-[#A8F0DC] text-sm font-semibold tracking-[0.2em] uppercase">Now Hiring</p>
             <span className="text-white/30">·</span>
-            <p className="text-white/60 text-sm">NYC, Long Island &amp; NJ</p>
+            <p className="text-white/60 text-sm">New Jersey</p>
             <span className="text-white/30">·</span>
             <p className="text-white/60 text-sm">Open 24/7</p>
           </div>
@@ -185,10 +165,10 @@ export default function CareersPage() {
             Join The New Jersey Maid — Starting at $30/hr, Bonus Programs Available
           </h1>
           <p className="text-blue-200/80 text-lg max-w-2xl leading-relaxed mb-3">
-            We&apos;re hiring experienced cleaners across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester, and New Jersey. You bring your own supplies and equipment — we bring a steady stream of clients, a flexible schedule, and starting at $30/hr paid via Stripe within 30 minutes of every completed job. Bonus programs let top performers earn even more.
+            We&apos;re hiring experienced cleaners across New Jersey. You bring your own supplies and equipment — we bring a steady stream of clients, a flexible schedule, and starting at $30/hr paid via Stripe within 30 minutes of every completed job. Bonus programs let top performers earn even more.
           </p>
           <p className="text-blue-200/50 max-w-2xl leading-relaxed mb-4 italic">
-            Contratando limpiadores experimentados en NYC, Long Island y Nueva Jersey. Tú traes tus suministros — nosotros traemos clientes estables, horario flexible, y desde $30/hr pagado por Stripe en menos de 30 minutos. Programas de bonos disponibles.
+            Contratando limpiadores experimentados en New Jersey. Tú traes tus suministros — nosotros traemos clientes estables, horario flexible, y desde $30/hr pagado por Stripe en menos de 30 minutos. Programas de bonos disponibles.
           </p>
           <p className="text-blue-200/80 text-lg max-w-2xl leading-relaxed mb-3">
             Full-time cleaners take 18–20 jobs per week and earn $1,350–$1,500+. Average job is 2.5 hours. No waiting for payday — you get paid the same day, every job.
@@ -233,7 +213,7 @@ export default function CareersPage() {
             </div>
             <div>
               <p className="font-[family-name:var(--font-bebas)] text-4xl text-[#1E2A4A] tracking-wide">24/7</p>
-              <p className="text-[#1E2A4A]/60 text-sm font-medium">NYC, LI &amp; NJ</p>
+              <p className="text-[#1E2A4A]/60 text-sm font-medium">New Jersey</p>
             </div>
           </div>
         </div>
@@ -245,30 +225,23 @@ export default function CareersPage() {
         {/* Open Positions */}
         <section className="mb-20">
           <p className="text-xs font-semibold text-gray-400 tracking-[0.2em] uppercase mb-2">Open Positions / Posiciones Abiertas</p>
-          <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide mb-3">Three Regions, Same Great Pay</p>
-          <p className="text-gray-500 max-w-2xl mb-2">We&apos;re actively hiring in all three regions. Each position is the same role — professional house cleaner — starting at $30/hr with same-day Stripe payment and bonus programs.</p>
-          <p className="text-gray-400 text-sm italic max-w-2xl mb-10">Estamos contratando activamente en las tres regiones. Cada puesto es el mismo rol — limpiador profesional — desde $30/hr con pago Stripe el mismo día y programas de bonos.</p>
+          <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide mb-3">Now Hiring, Same Great Pay</p>
+          <p className="text-gray-500 max-w-2xl mb-2">We&apos;re actively hiring. This is the same role — professional house cleaner — starting at $30/hr with same-day Stripe payment and bonus programs.</p>
+          <p className="text-gray-400 text-sm italic max-w-2xl mb-10">Estamos contratando activamente. Este es el mismo rol — limpiador profesional — desde $30/hr con pago Stripe el mismo día y programas de bonos.</p>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {openings.map(opening => {
-              const neighborhoods = opening.areaSlugs.flatMap(s => getNeighborhoodsByArea(s))
               return (
                 <div key={opening.id} className="border border-gray-200 rounded-2xl overflow-hidden hover:border-[#A8F0DC] transition-all">
                   <div className="bg-gradient-to-b from-[#1E2A4A] to-[#243352] p-6">
-                    <p className="text-[#A8F0DC] text-xs font-semibold tracking-[0.2em] uppercase mb-1">Now Hiring · {neighborhoods.length} Neighborhoods</p>
+                    <p className="text-[#A8F0DC] text-xs font-semibold tracking-[0.2em] uppercase mb-1">Now Hiring</p>
                     <h2 className="font-[family-name:var(--font-bebas)] text-2xl text-white tracking-wide">{opening.region}</h2>
                     <p className="text-blue-200/60 text-sm">{opening.locations}</p>
                   </div>
                   <div className="p-6">
-                    <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center justify-between mb-6">
                       <span className="text-[#1E2A4A] font-bold text-lg">Desde $30/hr</span>
                       <span className="bg-[#A8F0DC]/20 text-[#1E2A4A] text-xs font-semibold px-3 py-1 rounded-full">Pago el Mismo Día</span>
-                    </div>
-                    <p className="text-xs font-semibold text-gray-400 tracking-[0.15em] uppercase mb-2">All Neighborhoods / Todos los Vecindarios</p>
-                    <div className="flex flex-wrap gap-1.5 mb-6">
-                      {neighborhoods.map(n => (
-                        <Link key={n.slug} href={`/available-nyc-maid-jobs/${n.slug}`} className="bg-gray-50 text-gray-600 text-xs px-2.5 py-1 rounded-full hover:bg-[#A8F0DC]/20 hover:text-[#1E2A4A] transition-colors">{n.name}</Link>
-                      ))}
                     </div>
                     <Link href="/apply" className="block text-center bg-[#1E2A4A] text-white py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
                       Apply / Aplica — {opening.region}

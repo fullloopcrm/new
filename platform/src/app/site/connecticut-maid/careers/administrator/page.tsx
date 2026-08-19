@@ -7,7 +7,7 @@ import { getPosition } from '@/lib/positions/catalog'
 
 const pageUrl = 'https://www.theconnecticutmaid.com/careers/administrator'
 const pageTitle = 'Administrator — Your Path to CEO of a Multi-Million-Dollar Company | The Connecticut Maid'
-const pageDescription = 'The Connecticut Maid went from 30 cleanings in January to nearly 200 in July — and we’re expanding to Philadelphia, Connecticut, and Florida. Backed by 20 years of home services marketing experience, we’re hiring an Administrator with a real long-term path to becoming CEO. Compensation based on experience. Remote, anywhere in the US.'
+const pageDescription = 'The Connecticut Maid is a brand-new market launch backed by the same team and platform behind The NYC Maid. We’re hiring an Administrator with a real long-term path to becoming CEO. Compensation based on experience. Remote, anywhere in the US.'
 
 export const metadata: Metadata = {
   title: pageTitle,
@@ -40,7 +40,7 @@ function administratorJobPostingSchema(config: NonNullable<ReturnType<typeof get
     employmentType: 'CONTRACTOR',
     directApply: true,
     url: pageUrl,
-    identifier: { '@type': 'PropertyValue', name: 'The Connecticut Maid', value: 'nycmaid-administrator-2026' },
+    identifier: { '@type': 'PropertyValue', name: 'The Connecticut Maid', value: 'connecticut-maid-administrator-2026' },
     industry: 'Cleaning Services',
     qualifications: 'Experience managing or operating a service business or team. Comfortable owning scheduling, client communication, payments, and hiring end to end. Willing to learn to manage and eventually help implement AI-driven systems. Bilingual (Spanish) a plus.',
     jobBenefits: config.compSummary,
@@ -122,16 +122,16 @@ const qualifyingQuestions = [
 const faqs = [
   { question: 'Is this a General Manager role?', answer: 'Functionally, yes — full ownership of the day-to-day operation. It is titled Administrator because the platform automates most of the routine work a GM would otherwise spend hours on, so the workload is lighter than a traditional GM role while the responsibility is not. It is also Stage 1 of a real progression — this role is built to grow into General Manager, and eventually into running the company.' },
   { question: 'What does the compensation structure look like?', answer: 'Compensation is based on experience and discussed directly as part of the process. Long-term, this is a real path toward becoming CEO of a multi-million-dollar company.' },
-  { question: 'Is the growth real, or is that just recruiting talk?', answer: 'It’s real, and verifiable in the operation itself: 30 cleanings in January, nearly 200 by July. This rebranded startup is 8 months old and just crossed $40,000 in monthly revenue in month 7 — on pace for $600,000 annually. The company is backed by someone with 20 years of experience in home services marketing, and that growth is the direct result of a repeatable playbook now being applied to three new markets.' },
-  { question: 'Do I need to live in NYC?', answer: 'No. This is fully remote and open to candidates anywhere in the United States. We’re expanding beyond NYC into Philadelphia, Connecticut, and Florida, so this role was built to be location-independent from the start.' },
+  { question: 'Is this a real, backed opportunity?', answer: 'The Connecticut Maid is a brand-new market launch from the same team and platform behind The NYC Maid, one of New York City’s highest-rated cleaning companies, backed by someone with 20 years of experience in home services marketing. This is a genuine ground-floor role in a new market, not an established operation with a track record yet — that’s exactly the opportunity: you’d be building it.' },
+  { question: 'Do I need to live in Connecticut?', answer: 'No. This is fully remote and open to candidates anywhere in the United States.' },
   { question: 'Will I need to know AI tools already?', answer: 'No prior AI experience required — you’ll be trained to manage and eventually help implement the AI agent that already handles voice, SMS, and web chat for the business. As we expand into new markets, this becomes one of the most important parts of the role.' },
   { question: 'Will I need to manage anyone else?', answer: 'Yes. Part of this role is training the weekend assistant administrator, who covers weekend service — so you are building a playbook someone else can run, not just running the operation yourself. As the company grows into new markets, that team-building responsibility grows with it.' },
-  { question: 'What’s the long-term path here?', answer: 'This role starts as Administrator, with a real track toward General Manager and eventually running the entire company as it expands to Philadelphia, Connecticut, and Florida. The exact milestones are worked out directly with ownership as you grow into the role — this is a genuine long-term opportunity, not a scripted ladder.' },
+  { question: 'What’s the long-term path here?', answer: 'This role starts as Administrator, with a real track toward General Manager and eventually running the operation as it grows. The exact milestones are worked out directly with ownership as you grow into the role — this is a genuine long-term opportunity, not a scripted ladder.' },
   { question: 'How do I apply?', answer: 'Submit the application at theconnecticutmaid.com/apply/administrator. It includes background questions, a few scenario questions, and a short required video introduction.' },
 ]
 
 export default function AdministratorCareersPage() {
-  const config = getPosition('nycmaid', 'administrator')
+  const config = getPosition('connecticut-maid', 'administrator')
   if (!config) return null
 
   return (
@@ -172,7 +172,7 @@ export default function AdministratorCareersPage() {
             {config.title} Today. CEO Tomorrow.
           </h1>
           <p className="font-[family-name:var(--font-bebas)] text-2xl md:text-3xl text-[#A8F0DC] tracking-wide mb-3">This is the opportunity of a lifetime.</p>
-          <p className="text-blue-200/80 text-lg max-w-2xl leading-relaxed mb-8">8 months old. Zero ad spend. 7x growth. A real seat at the top of a company that&rsquo;s just getting started.</p>
+          <p className="text-blue-200/80 text-lg max-w-2xl leading-relaxed mb-8">A brand-new market launch. A real seat at the top of a company that&rsquo;s just getting started.</p>
 
           <div className="border-y border-white/10 py-6 mb-8">
             <div className="flex flex-wrap gap-6 sm:gap-10">
@@ -227,7 +227,7 @@ export default function AdministratorCareersPage() {
         <section className="mb-16">
           <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-4">The Bigger Picture</h2>
           <p className="text-gray-600 leading-relaxed mb-3">
-            This is a real entrepreneurial opportunity — for someone who wants to jump in and be completely all-in on a startup, not manage a stable, slow-moving company. This rebranded startup is only eight months old, and it’s already on pace for $600,000 in annual revenue, having just passed $40,000 in monthly revenue in month seven. We went from 30 cleanings in January to nearly 200 in July — and we’re expanding into Philadelphia and Connecticut, with Florida about to launch. Whoever takes this role isn’t signing up to manage one city’s schedule — you’re getting in on the ground floor of a company that’s about to run in four states.
+            This is a real entrepreneurial opportunity — for someone who wants to jump in and be completely all-in on a startup, not manage a stable, slow-moving company. The Connecticut Maid is a brand-new market launch, backed by the same team and platform behind The NYC Maid, one of New York City’s highest-rated cleaning companies. Whoever takes this role isn’t signing up to manage an established operation — you’re getting in on the ground floor and building it.
           </p>
           <p className="text-gray-600 leading-relaxed mb-3">
             This company is backed by someone with 20 years of experience in home services marketing — the growth isn’t luck, it’s a repeatable playbook, and it’s about to be applied to three new markets. That’s the opportunity: not a job at a company that might grow, but a leadership seat in one that already is, this early.
@@ -369,7 +369,7 @@ export default function AdministratorCareersPage() {
             Sit with that question before you apply, because it’s one of the first things we’ll ask you — on video.
           </p>
           <p className="text-gray-600 leading-relaxed mb-3">
-            This isn’t a scheduling job. It’s the ground floor of a company that’s about to run in four states, and the person who takes it will be personally taught — by ownership — how to run the CRM, the AI, the marketing, and the finance behind all of it. Opportunities to grow into owning a real business don’t usually get offered outright. This one is, to the right person.
+            This isn’t a scheduling job. It’s the ground floor of a brand-new market, and the person who takes it will be personally taught — by ownership — how to run the CRM, the AI, the marketing, and the finance behind all of it. Opportunities to grow into owning a real business don’t usually get offered outright. This one is, to the right person.
           </p>
           <p className="text-gray-600 leading-relaxed mb-6">
             If your honest answer is closer to <em>&ldquo;I need a job&rdquo;</em> than <em>&ldquo;I want to build something real and I&rsquo;m willing to earn my way into owning it&rdquo;</em>, this probably isn&rsquo;t the right fit — and that&rsquo;s okay. If it&rsquo;s the second one, we want to hear it.
