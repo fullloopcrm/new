@@ -485,7 +485,7 @@ export async function DELETE(
       .from('bookings')
       .select('*, clients(name, phone, email), team_members!bookings_team_member_id_fkey(name, phone)')
       .eq('id', id)
-      .single()) as { data: { client_id: string | null; start_time: string; status?: string | null; service_type?: string | null; schedule_id?: string | null; clients: { name?: string | null; phone?: string | null; email?: string | null } | null } | null }
+      .single()) as { data: { client_id: string | null; start_time: string; status?: string | null; service_type?: string | null; schedule_id?: string | null; recurring_type?: string | null; clients: { name?: string | null; phone?: string | null; email?: string | null } | null } | null }
 
     if (!booking) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -540,6 +540,59 @@ export async function DELETE(
       })
 
       return NextResponse.json({ success: true, schedule_cancelled: !!cancelledSchedule, bookings_cancelled: cancelledBookings?.length || 0 })
+    }
+
+    // Legacy schedule-less recurring series (no recurring_schedules row --
+    // e.g. an old self-booked client, see /api/client/book). BookingsAdmin.tsx
+    // used to handle this case itself: N individual client-side PUT calls,
+    // one per future booking in the series. That loop is the literal
+    // mechanism behind the 2026-07-26 incident (Jeff, 2026-08-19) -- a
+    // client whose series had booked out "to infinity" got a burst of up to
+    // a dozen-plus cancellation emails seconds apart, one per booking,
+    // because PUT briefly grew a per-status-change notify branch. PUT has no
+    // such branch today, so that loop is merely silent (zero notifications)
+    // rather than spammy right now -- but that safety was never enforced
+    // anywhere, just incidental, and every other status-change branch PUT
+    // already has (booking_confirmed, team_assignment, reschedule) makes a
+    // future "add one for cancelled too" edit the single most natural change
+    // to make to that file. With schedules going back to booking a full year
+    // out instead of 4 weeks, the next series that trips it won't burst
+    // low-double-digits, it'll burst by the dozens-to-hundreds. Closing the
+    // hole structurally: same one-query/one-notify shape as the schedule_id
+    // branch above, just matched by client_id + recurring_type instead of
+    // schedule_id, so no future PUT change can ever fan this back out per
+    // booking again.
+    if (cancelSeries && !booking.schedule_id && booking.recurring_type && booking.client_id) {
+      const { data: cancelledLegacy, error: legacyErr } = await db
+        .from('bookings')
+        .update({ status: 'cancelled' })
+        .eq('client_id', booking.client_id)
+        .eq('recurring_type', booking.recurring_type)
+        .is('schedule_id', null)
+        .in('status', ['scheduled', 'pending'])
+        .gte('start_time', booking.start_time)
+        .select('id')
+
+      if (legacyErr) {
+        return NextResponse.json({ error: legacyErr.message }, { status: 500 })
+      }
+
+      await notify({
+        tenantId,
+        type: 'booking_cancelled',
+        title: 'Recurring series cancelled',
+        message: 'Your upcoming recurring appointments have been cancelled.',
+        channel: 'sms',
+        recipientType: 'client',
+        recipientId: booking.client_id,
+      }).catch((err: unknown) => console.error('cancel_series (legacy) notify failed:', err))
+
+      await audit({
+        tenantId, action: 'booking.batch_updated', entityType: 'booking', entityId: id,
+        details: { action: 'series_cancelled_legacy', client_id: booking.client_id, recurring_type: booking.recurring_type, bookings_cancelled: cancelledLegacy?.length || 0 },
+      })
+
+      return NextResponse.json({ success: true, schedule_cancelled: false, bookings_cancelled: cancelledLegacy?.length || 0 })
     }
 
     // Past this point is the real hard-delete — re-check bookings.delete

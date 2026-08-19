@@ -1188,46 +1188,23 @@ function BookingsPage() {
 
     try {
       if (scope === 'all' && (editingBooking.schedule_id || editingBooking.recurring_type)) {
-        if (editingBooking.schedule_id) {
-          // Use schedule_id for precise series cancellation (server-side)
-          const res = await fetch('/api/bookings/' + editingBooking.id + '?cancel_series=true', { method: 'DELETE' })
-          if (!res.ok) {
-            const err = await res.json().catch(() => ({ error: res.statusText }))
-            alert(`Failed to cancel series: ${err.error || 'Unknown error'}`)
-            setSaving(false)
-            return
-          }
-        } else {
-          // Legacy fallback: batch cancel by client_id + recurring_type
-          const futureBookings = bookings.filter(b =>
-            b.client_id === editingBooking.client_id &&
-            b.recurring_type === editingBooking.recurring_type &&
-            (b.status === 'scheduled' || b.status === 'pending') &&
-            b.start_time >= editingBooking.start_time
-          )
-
-          if (futureBookings.length > 0) {
-            // Soft-cancel every booking in the series via PUT status=cancelled.
-            // NEVER DELETE here: these bookings have no schedule_id, so the
-            // backend's DELETE handler can't route them through its
-            // cancel_series soft-cancel branch (that branch requires
-            // booking.schedule_id) -- a bare DELETE falls straight through to
-            // the real hard-delete path. That's exactly what silently,
-            // permanently erased Simon Dolsten's (2026-08-14) and Liza
-            // Bradburn's (2026-08-17) entire future series when this button
-            // was clicked -- "Cancel > All future" was actually deleting.
-            const results = await Promise.allSettled(
-              futureBookings.map(b => fetch('/api/bookings/' + b.id, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: 'cancelled' }),
-              }))
-            )
-            const failedCount = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.ok)).length
-            if (failedCount > 0) {
-              alert(`Cancelled ${futureBookings.length - failedCount} of ${futureBookings.length} bookings in this series. ${failedCount} could not be cancelled — check the bookings list.`)
-            }
-          }
+        // One request, whether this series has a schedule_id or is the
+        // legacy schedule-less shape -- the backend now handles both cases
+        // itself (client_id + recurring_type match when there's no
+        // schedule_id) with the same one-query-cancel / one-notification
+        // shape either way. This used to be N individual PUT calls here for
+        // the legacy case (one per future booking) -- the literal mechanism
+        // behind the 2026-07-26 per-booking-cancellation-email burst once a
+        // series had booked out far enough to have a lot of future rows.
+        // Never loop per-booking here again; if a series needs different
+        // handling, that logic belongs server-side where it can guarantee a
+        // single notification, not client-side where it can't.
+        const res = await fetch('/api/bookings/' + editingBooking.id + '?cancel_series=true', { method: 'DELETE' })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ error: res.statusText }))
+          alert(`Failed to cancel series: ${err.error || 'Unknown error'}`)
+          setSaving(false)
+          return
         }
       } else if (editingBooking.schedule_id) {
         // Single occurrence of a recurring series → record a skip exception.

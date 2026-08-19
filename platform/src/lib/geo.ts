@@ -48,6 +48,26 @@ function isPlausibleUSCoordinate(lat: number, lng: number): boolean {
   return lat >= US_MIN_LAT && lat <= US_MAX_LAT && lng >= US_MIN_LNG && lng <= US_MAX_LNG
 }
 
+// In-process cache, keyed by normalized address. A serverless function
+// instance stays warm across multiple invocations -- this is what was
+// missing entirely. Every caller (scoreTeamForBooking, suggestBookingSlots,
+// cron, backfill) shares it via the exported geocodeAddress below. A single
+// recurring-schedule creation used to geocode the same handful of addresses
+// (team member homes, that day's other clients for clustering) FRESH on every
+// one of its ~6 initial weekly dates -- zero reuse, each miss a real network
+// round-trip (measured ~500ms against Census, live). Storing the in-flight
+// Promise (not just the resolved value) also dedupes concurrent lookups for
+// the same address, so a caller that parallelizes its date loop can't fire N
+// redundant requests for one address at once. Capped to bound memory on a
+// long-lived warm instance; evicts the oldest entry (Map preserves insertion
+// order) once full -- true LRU isn't worth the complexity for this hit rate.
+const GEOCODE_CACHE_MAX = 2000
+const geocodeCache = new Map<string, Promise<{ lat: number; lng: number } | null>>()
+
+function normalizeAddressKey(address: string): string {
+  return address.trim().toLowerCase()
+}
+
 // Primary geocoder: US Census (free, no API key, fast, strong US coverage —
 // the standalone nycmaid app ran on this and never had the reliability/rate-limit
 // problems Nominatim has for production use). Falls back to Nominatim if Census
@@ -59,7 +79,7 @@ function isPlausibleUSCoordinate(lat: number, lng: number): boolean {
 // Nominatim anyway, which made map loads SLOWER, not faster. Server-side
 // callers (smart-schedule, cron, backfill) have no such restriction and get
 // the real speed/reliability win. Skip straight to Nominatim in the browser.
-export async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
+async function geocodeAddressUncached(address: string): Promise<{ lat: number; lng: number } | null> {
   if (typeof window === 'undefined') {
     const census = await geocodeCensus(address)
     if (census) return census
@@ -84,6 +104,20 @@ export async function geocodeAddress(address: string): Promise<{ lat: number; ln
   } catch {
     return null
   }
+}
+
+export function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
+  const key = normalizeAddressKey(address)
+  const cached = geocodeCache.get(key)
+  if (cached) return cached
+
+  if (geocodeCache.size >= GEOCODE_CACHE_MAX) {
+    const oldestKey = geocodeCache.keys().next().value
+    if (oldestKey !== undefined) geocodeCache.delete(oldestKey)
+  }
+  const promise = geocodeAddressUncached(address)
+  geocodeCache.set(key, promise)
+  return promise
 }
 
 // US Census Bureau onelineaddress geocoder. Returns {x: lng, y: lat} on match.

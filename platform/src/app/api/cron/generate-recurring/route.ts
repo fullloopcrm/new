@@ -27,7 +27,47 @@ async function getTeamMemberContact(tenantId: string, id: string) {
   return contact
 }
 
-// Weekly cron: auto-generate bookings 4 weeks out
+// Estimate how many raw occurrences nextOccurrenceDates needs to request to
+// reach `to` from `from` for a given cadence -- generous on purpose (the
+// caller filters the result down to `to` anyway), just needs to not
+// undershoot. daily's weeksToGenerate*7 blowup inside generateRecurringDates
+// means a `days`-sized count over-generates for daily, which is harmless
+// (filtered away) not wrong.
+function estimateOccurrenceCount(
+  recurringType: RecurringType,
+  daysOfWeek: number[] | null | undefined,
+  from: Date,
+  to: Date,
+): number {
+  const days = Math.max(1, Math.ceil((to.getTime() - from.getTime()) / (24 * 60 * 60 * 1000)))
+  switch (recurringType) {
+    case 'daily':
+      return days + 2
+    case 'weekly':
+    case 'biweekly': {
+      const cycleDays = recurringType === 'weekly' ? 7 : 14
+      const perCycle = daysOfWeek && daysOfWeek.length > 0 ? daysOfWeek.length : 1
+      return Math.ceil(days / cycleDays) * perCycle + perCycle + 2
+    }
+    case 'triweekly':
+      return Math.ceil(days / 21) + 2
+    case 'monthly_date':
+    case 'monthly_weekday':
+      return Math.ceil(days / 28) + 2
+    default:
+      return Math.ceil(days / 7) + 2
+  }
+}
+
+// Weekly cron: keeps every active schedule generated through Dec 31 of its
+// current series year -- not a rolling few-weeks window (that old behavior
+// is exactly why schedules only ever showed the next 2-3 occurrences: a
+// biweekly schedule 4 weeks out is 2 visits, monthly is 1). Once a schedule
+// is generated through Dec 31, the next run rolls it a full next year in one
+// shot (Jan 1 - Dec 31) instead of trickling out a few weeks at a time --
+// creation itself stays a fast, small initial batch (see
+// api/admin/recurring-schedules and api/client/recurring, both capped short);
+// this cron is what keeps a schedule topped up in the background afterward.
 export async function GET(request: Request) {
   const cronAuthError = verifyCronSecret(request)
   if (cronAuthError) return cronAuthError
@@ -73,8 +113,23 @@ export async function GET(request: Request) {
   const tenantStatusById = new Map((tenantStatusRows || []).map((t) => [t.id, t.status]))
 
   let totalGenerated = 0
+  let totalFailedSchedules = 0
 
   for (const schedule of schedules) {
+    // No per-schedule error isolation existed here before -- an uncaught
+    // throw anywhere in one schedule's processing (bad/unexpected data, a
+    // geocode timeout, a null the rest of this loop didn't defend against)
+    // aborted the WHOLE cron run, silently skipping every remaining
+    // schedule in the array with no signal beyond a raw 500 and whatever
+    // partial totalGenerated made it out before the throw. Never surfaced
+    // in practice while this only ever generated a handful of weeks at a
+    // time, but the year-end-refresh change means a single run can now walk
+    // every active schedule on the platform and insert a full year of
+    // catch-up bookings for whichever ones are behind -- one bad schedule
+    // taking out that entire batch (Jeff, 2026-08-19: "safely, cleanly, and
+    // stably") is exactly the failure mode this guards against. Log and move
+    // on to the next schedule instead.
+    try {
     // Not 'active' (cancelled, suspended, or the tenant row is missing
     // entirely) -- never generate new bookings for it.
     if (tenantStatusById.get(schedule.tenant_id) !== 'active') continue
@@ -100,10 +155,6 @@ export async function GET(request: Request) {
     // standing job yet, unlike every subsequent weekly top-up of a job they
     // already know about — see the notify-decision below.
     const isFirstGeneration = !latest || latest.length === 0
-    const fourWeeksOut = new Date()
-    fourWeeksOut.setDate(fourWeeksOut.getDate() + 28)
-
-    if (lastDate >= fourWeeksOut) continue // Already generated enough
 
     if (schedule.preferred_time) {
       const [h, m] = schedule.preferred_time.split(':')
@@ -116,15 +167,43 @@ export async function GET(request: Request) {
     // generated date land exactly 1 day after the real last visit instead of
     // a full interval after, and since every following date steps a fixed
     // interval off THAT one, a weekly Monday visit's refill batch kept
-    // sliding one weekday later every single time the 4-week buffer topped
-    // up. This was written and tested but never actually wired into this
-    // cron -- fixing that now.
-    const dates = nextOccurrenceDates({
+    // sliding one weekday later every single time the buffer topped up. This
+    // was written and tested but never actually wired into this cron --
+    // fixing that now.
+    //
+    // daysOfWeek was never passed here at all -- a multi-visit-per-cycle
+    // schedule (e.g. Mon+Thu weekly) got its correct INITIAL batch from
+    // generateInitialBatchDates (which does read it), then silently
+    // collapsed to single-day-only on every cron refill after that, since
+    // this call only ever read the singular day_of_week.
+    const genDates = (horizon: Date) => nextOccurrenceDates({
       recurringType: schedule.recurring_type as RecurringType,
       lastOccurrence: lastDate,
       dayOfWeek: schedule.day_of_week ?? undefined,
-      count: 8, // generous upper bound; filtered below to the real 4-week horizon
-    }).filter((d) => d <= fourWeeksOut)
+      daysOfWeek: schedule.days_of_week ?? undefined,
+      count: estimateOccurrenceCount(schedule.recurring_type as RecurringType, schedule.days_of_week, lastDate, horizon),
+    }).filter((d) => d <= horizon)
+
+    // Horizon is anchored to REAL wall-clock time, not to lastDate's own
+    // year -- an earlier version of this anchored on lastDate (try filling
+    // lastDate's own year, roll a year forward if that came back empty) and
+    // had a runaway bug: a schedule that already sits ahead of real time
+    // (e.g. leftover over-generation from before the initial-batch cap
+    // existed) would find "nothing left before Dec 31 of my own year" on
+    // EVERY run and roll ANOTHER full year forward each time, forever,
+    // regardless of what today's real date is -- accelerating without bound
+    // the more often the cron fires. Capping the horizon at Dec 31 of the
+    // REAL current year (extending to the real NEXT year's Dec 31 only once
+    // it's actually December in real life) makes that impossible: a
+    // schedule already past the real-year horizon just gets zero new
+    // bookings this run instead of being pushed further ahead, and the
+    // horizon itself can advance at most one calendar year no matter how
+    // many times this runs.
+    const now = new Date()
+    const inRolloverWindow = now.getMonth() === 11 // December — time to have next year ready
+    const horizonYear = now.getFullYear() + (inRolloverWindow ? 1 : 0)
+    const horizon = new Date(horizonYear, 11, 31, 23, 59, 59, 999)
+    const dates = genDates(horizon)
 
     if (dates.length === 0) continue
 
@@ -444,6 +523,22 @@ export async function GET(request: Request) {
         }).then(() => {}, () => {})
       }
     }
+    } catch (err) {
+      // One schedule's failure must never take the rest of the run down
+      // with it (see the comment at the top of this loop). Logged with the
+      // schedule/tenant id so it's actually actionable, not just a silent
+      // skip -- this schedule gets picked back up next run since nothing
+      // about its state (next_generate_after, latest booking) changed.
+      totalFailedSchedules++
+      console.error(`[cron:generate-recurring] schedule ${schedule.id} (tenant ${schedule.tenant_id}) failed:`, err)
+      await supabaseAdmin.from('notifications').insert({  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
+        type: 'recurring_generation_error',
+        title: 'cron:generate-recurring schedule failed',
+        message: `schedule ${schedule.id} (tenant ${schedule.tenant_id}): ${err instanceof Error ? err.message : String(err)}`,
+        channel: 'system',
+        recipient_type: 'admin',
+      }).then(() => {}, () => {})
+    }
   }
 
   // Health-monitor marker.
@@ -455,5 +550,5 @@ export async function GET(request: Request) {
     recipient_type: 'admin',
   }).then(() => {}, () => {})
 
-  return NextResponse.json({ generated: totalGenerated })
+  return NextResponse.json({ generated: totalGenerated, failed_schedules: totalFailedSchedules })
 }
