@@ -1,5 +1,7 @@
+import { dialDigits } from '@/lib/phone'
+
 export default function CTABlock({ title, subtitle, phone }: { title?: string; subtitle?: string; phone?: string }) {
-  const phoneDigits = phone?.replace(/\D/g, '') || ''
+  const phoneDigits = phone ? dialDigits(phone) : ''
   return (
     <section className="bg-[var(--brand-accent)] py-20">
       <div className="max-w-4xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-8">

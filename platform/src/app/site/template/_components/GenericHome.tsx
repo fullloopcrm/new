@@ -11,6 +11,8 @@ import HeroChatEmbed from '@/app/site/template/_components/HeroChatEmbed'
  * grid + the full homeContent() long-form body (meets the 10k word floor) + FAQ,
  * all from SiteConfig. No cleaning copy, no dead links, no per-trade forks.
  * Cleaning tenants keep their existing editorial homepage (handled in page.tsx).
+ * Photography tenants get their own bespoke PhotographyHome instead (see
+ * page.tsx dispatch) — this file stays the plain generic-trade layout.
  */
 export default function GenericHome({ config }: { config: SiteConfig }) {
   const p = industryProfile(config.industry)
@@ -74,7 +76,7 @@ export default function GenericHome({ config }: { config: SiteConfig }) {
               </h1>
               <p className="text-white/75 text-lg md:text-xl max-w-2xl mb-8">{c.intro}</p>
               <div className="flex flex-wrap gap-3">
-                <Link href={cta.href} className="inline-flex items-center bg-[var(--accent)] text-[var(--brand)] px-8 py-4 rounded-lg font-bold text-base tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
+                <Link href={cta.href} className="inline-flex items-center bg-[var(--accent)] text-[var(--accent-fg)] px-8 py-4 rounded-lg font-bold text-base tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
                   {cta.label}
                 </Link>
                 <a href={smsHref} className="inline-flex items-center bg-white/10 border border-white/30 text-white px-8 py-4 rounded-lg font-bold text-base tracking-widest uppercase hover:bg-white/20 transition-colors">
@@ -153,7 +155,7 @@ export default function GenericHome({ config }: { config: SiteConfig }) {
             <a href={smsHref} className="inline-flex items-center bg-[var(--brand)] text-white px-8 py-4 rounded-lg font-bold text-base tracking-widest uppercase hover:bg-[rgb(var(--brand-rgb)/0.9)] transition-colors">
               Text {config.contact.phone}
             </a>
-            <Link href={cta.href} className="inline-flex items-center bg-[var(--accent)] text-[var(--brand)] px-8 py-4 rounded-lg font-bold text-base tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
+            <Link href={cta.href} className="inline-flex items-center bg-[var(--accent)] text-[var(--accent-fg)] px-8 py-4 rounded-lg font-bold text-base tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
               {cta.label}
             </Link>
           </div>

@@ -14,6 +14,7 @@ import { getSiteConfig } from '@/app/site/template/_config/load'
 import { toBrand } from '@/app/site/template/_lib/seo/brand'
 import { industryProfile } from '@/app/site/template/_lib/seo/industry'
 import GenericHome from '@/app/site/template/_components/GenericHome'
+import PhotographyHome from '@/app/site/template/_components/PhotographyHome'
 import StreetwearHome from '@/app/site/template/_components/streetwear/StreetwearHome'
 import VirtualAssistantLanding from '@/app/site/template/_components/VirtualAssistantLanding'
 import HeroChatEmbed from '@/app/site/template/_components/HeroChatEmbed'
@@ -174,6 +175,14 @@ export default async function HomePage() {
     return <StreetwearHome config={siteConfig} />
   }
 
+  // Photography tenants get their own bespoke editorial homepage — same
+  // reasoning as streetwear above: reskinning GenericHome's hero+chat-split /
+  // card-grid bones hit a real ceiling, so this vertical gets a genuinely
+  // different structure instead of more CSS on top of the generic template.
+  if (profile.isPhotography) {
+    return <PhotographyHome config={siteConfig} />
+  }
+
   // The cleaning-editorial homepage below hardcodes nycmaid's OWN real
   // content — real Manhattan/Brooklyn/Long Island neighborhood names, real
   // $59/$69/$89 pricing, links into pages now gated to nycmaid only (see
@@ -232,7 +241,7 @@ export default async function HomePage() {
           <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-white tracking-wide mb-1">Book Your Cleaning</p>
           <p className="text-blue-200/70 text-sm mb-5 max-w-[75%]">One page. Quick. We&apos;ll confirm by text within 15 minutes.</p>
           <div className="flex flex-wrap gap-3">
-            <Link href="/book/new" className="inline-flex items-center gap-2 bg-[var(--accent)] text-[var(--brand)] px-8 py-4 rounded-lg font-bold text-base tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
+            <Link href="/book/new" className="inline-flex items-center gap-2 bg-[var(--accent)] text-[var(--accent-fg)] px-8 py-4 rounded-lg font-bold text-base tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
               Self Booking $10 OFF
             </Link>
             <a href={`sms:${siteConfig.contact.phoneDigits}`} className="inline-flex items-center gap-2 bg-white/10 border border-white/30 text-white px-8 py-4 rounded-lg font-bold text-base tracking-widest uppercase hover:bg-white/20 transition-colors">
@@ -258,7 +267,7 @@ export default async function HomePage() {
               {isNycmaid && <p className="text-blue-200/40 text-xs mt-1">(Weekends: ${WEEKEND_CLIENT_SUPPLIES_RATE}/hr for new clients)</p>}
             </div>
             <div className="bg-[rgb(var(--accent-rgb)/0.1)] backdrop-blur-sm border border-[rgb(var(--accent-rgb)/0.3)] rounded-2xl p-8 relative">
-              <div className="absolute -top-3 left-6 bg-[var(--accent)] text-[var(--brand)] text-xs font-bold tracking-widest uppercase px-4 py-1.5 rounded-full">Most Popular</div>
+              <div className="absolute -top-3 left-6 bg-[var(--accent)] text-[var(--accent-fg)] text-xs font-bold tracking-widest uppercase px-4 py-1.5 rounded-full">Most Popular</div>
               <p className="text-xs font-semibold text-[var(--accent)] tracking-[0.2em] uppercase mb-3">We Bring Everything</p>
               <p className="font-[family-name:var(--font-bebas)] text-5xl text-white tracking-wide">$69<span className="text-2xl text-blue-200/50">/hr</span></p>
               <p className="text-blue-200/50 text-sm mt-3">We bring all supplies and professional-grade equipment. Just open the door.</p>
@@ -321,7 +330,7 @@ export default async function HomePage() {
                 We started in 2018 with one cleaner and a commitment to doing things the right way. Today we&apos;re one of the highest-rated cleaning companies in New York — not because we&apos;re the biggest, but because we care the most. Read our <Link href="/reviews" className="text-[var(--brand)] underline underline-offset-2">customer reviews</Link> and see for yourself.
               </p>
               <div className="flex flex-wrap items-center gap-4">
-                <Link href="/book/new" className="inline-block bg-[var(--accent)] text-[var(--brand)] px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
+                <Link href="/book/new" className="inline-block bg-[var(--accent)] text-[var(--accent-fg)] px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
                   Self Booking $10 OFF
                 </Link>
                 <a href={`sms:${siteConfig.contact.phoneDigits}`} className="inline-block bg-[var(--brand)] text-white px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[rgb(var(--brand-rgb)/0.9)] transition-colors">
@@ -429,7 +438,7 @@ export default async function HomePage() {
 
             {/* Tier 2 — Most Popular */}
             <div className="bg-[var(--brand)] rounded-2xl p-8 pt-10 relative flex flex-col lg:-my-4 shadow-xl">
-              <div className="absolute -top-3.5 left-6 bg-[var(--accent)] text-[var(--brand)] text-xs font-bold tracking-widest uppercase px-5 py-1.5 rounded-full">Most Popular</div>
+              <div className="absolute -top-3.5 left-6 bg-[var(--accent)] text-[var(--accent-fg)] text-xs font-bold tracking-widest uppercase px-5 py-1.5 rounded-full">Most Popular</div>
               <p className="text-xs font-semibold text-[rgb(var(--accent-rgb)/0.7)] tracking-[0.2em] uppercase mb-3">We Bring Everything</p>
               <p className="font-[family-name:var(--font-bebas)] text-6xl sm:text-7xl lg:text-8xl text-white tracking-wide leading-none mb-1">$69<span className="text-2xl sm:text-3xl text-blue-200/40">/hr</span></p>
               {isNycmaid && <p className="text-blue-200/40 text-xs">(Weekends: ${WEEKEND_SUPPLIES_PROVIDED_RATE}/hr for new clients)</p>}
@@ -557,7 +566,7 @@ export default async function HomePage() {
               </div>
             </div>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link href="/book/new" className="inline-block bg-[var(--accent)] text-[var(--brand)] px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
+              <Link href="/book/new" className="inline-block bg-[var(--accent)] text-[var(--accent-fg)] px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
                 Self Booking $10 OFF
               </Link>
               <a href={`sms:${siteConfig.contact.phoneDigits}`} className="inline-block bg-[var(--brand)] text-white px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[rgb(var(--brand-rgb)/0.9)] transition-colors">
@@ -690,7 +699,7 @@ export default async function HomePage() {
               Every cleaner on our team is fully background-checked and insured. Whether you need a <Link href="/services/apartment-cleaning-service-in-nyc" className="text-[var(--brand)] underline underline-offset-2">regular apartment cleaning</Link> in <Link href="/manhattan-maid-service" className="text-[var(--brand)] underline underline-offset-2">Manhattan</Link>, a <Link href="/services/deep-cleaning-service-in-nyc" className="text-[var(--brand)] underline underline-offset-2">deep clean</Link> in <Link href="/brooklyn-maid-service" className="text-[var(--brand)] underline underline-offset-2">Brooklyn</Link>, or <Link href="/services/airbnb-cleaning-in-nyc" className="text-[var(--brand)] underline underline-offset-2">Airbnb turnover cleaning</Link> in <Link href="/queens-maid-service" className="text-[var(--brand)] underline underline-offset-2">Queens</Link> — we&apos;ve got you covered. <Link href="/about" className="text-[var(--brand)] underline underline-offset-2">Learn more about our company</Link>.
             </p>
             <div className="flex flex-col sm:flex-row items-start gap-4">
-              <Link href="/book/new" className="inline-block bg-[var(--accent)] text-[var(--brand)] px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
+              <Link href="/book/new" className="inline-block bg-[var(--accent)] text-[var(--accent-fg)] px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
                 Self Booking $10 OFF
               </Link>
               <a href={`sms:${siteConfig.contact.phoneDigits}`} className="inline-block bg-[var(--brand)] text-white px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[rgb(var(--brand-rgb)/0.9)] transition-colors">

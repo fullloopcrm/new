@@ -4,6 +4,7 @@ import { breadcrumbSchema } from '@/lib/seo/schema'
 import JsonLd from '@/components/marketing/JsonLd'
 import Breadcrumbs from '@/components/marketing/Breadcrumbs'
 import { getTenantFromHeaders, tenantSiteUrl } from '@/lib/tenant-site'
+import { dialDigits } from '@/lib/phone'
 
 export async function generateMetadata(): Promise<Metadata> {
   const tenant = await getTenantFromHeaders()
@@ -21,7 +22,7 @@ export default async function TermsPage() {
   const name = tenant?.name || 'Our Business'
   const email = tenant?.email || ''
   const phone = tenant?.phone || ''
-  const phoneDigits = phone.replace(/\D/g, '')
+  const phoneDigits = dialDigits(phone)
   const origin = tenantSiteUrl(tenant) || ''
   const hasLegacyLegal = !!(tenant as Record<string, unknown> | null)?.enable_legacy_seo_pages
   const acceptedMethods = Array.isArray((tenant?.selena_config as Record<string, unknown> | undefined)?.payment_methods)

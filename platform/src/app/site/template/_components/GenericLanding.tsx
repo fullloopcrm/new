@@ -53,7 +53,7 @@ export default function GenericLanding({
           <div className="flex flex-wrap gap-3">
             <Link
               href={cta.href}
-              className="inline-flex items-center bg-[var(--accent)] text-[var(--brand)] px-8 py-4 rounded-lg font-bold text-base tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors"
+              className="inline-flex items-center bg-[var(--accent)] text-[var(--accent-fg)] px-8 py-4 rounded-lg font-bold text-base tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors"
             >
               {cta.label}
             </Link>

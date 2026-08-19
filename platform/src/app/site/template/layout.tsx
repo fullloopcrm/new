@@ -1,7 +1,16 @@
-import { Bebas_Neue, Inter } from 'next/font/google'
+import { Bebas_Neue, Inter, Alfa_Slab_One, Righteous } from 'next/font/google'
 
 const bebasNeue = Bebas_Neue({ weight: '400', subsets: ['latin'], variable: '--font-bebas' })
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
+// Bold vintage slab-serif for photography tenants — old-school/retro poster
+// feel instead of Bebas Neue's neutral condensed sans. Loaded under its own
+// variable and swapped in via a --font-bebas override below (photography
+// only), so every existing font-[family-name:var(--font-bebas)] usage across
+// the codebase picks it up automatically. Every other tenant is unaffected.
+const alfaSlabOne = Alfa_Slab_One({ weight: '400', subsets: ['latin'], variable: '--font-alfa' })
+// Rounded geometric sans with an '80s disco/poster logotype feel — used only
+// for the photography tenant's nav wordmark (MarketingNav), not headlines.
+const righteous = Righteous({ weight: '400', subsets: ['latin'], variable: '--font-righteous' })
 
 import MarketingNav from '@/app/site/template/_components/MarketingNav'
 import MarketingFooter from '@/app/site/template/_components/MarketingFooter'
@@ -62,8 +71,16 @@ export async function generateMetadata() {
 export default async function MarketingLayout({ children }: { children: React.ReactNode }) {
   const config = await getSiteConfig()
   const isStreetwear = config.layoutVariant === 'streetwear-editorial'
+  const isPhotography = industryProfile(config.industry).isPhotography
   return (
-    <div className={`${bebasNeue.variable} ${inter.variable} ${anton.variable} ${plexMono.variable} font-[family-name:var(--font-inter)]`}>
+    <div
+      className={`${bebasNeue.variable} ${inter.variable} ${anton.variable} ${plexMono.variable} ${alfaSlabOne.variable} ${righteous.variable} font-[family-name:var(--font-inter)]`}
+      // Inline style always wins over the bebasNeue.variable class's own
+      // --font-bebas assignment on this SAME element — a plain :root override
+      // doesn't, because a custom property set directly on an element beats
+      // an inherited value from an ancestor regardless of source order.
+      style={isPhotography ? ({ '--font-bebas': 'var(--font-alfa)' } as React.CSSProperties) : undefined}
+    >
       {/* Per-tenant brand palette → CSS vars. One value re-themes the whole
           template; components read var(--brand)/var(--accent). */}
       <style dangerouslySetInnerHTML={{ __html: buildThemeCss(config.theme) }} />

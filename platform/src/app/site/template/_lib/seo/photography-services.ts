@@ -1,0 +1,1004 @@
+/**
+ * Shared photography-vertical service data — single source of truth for the
+ * homepage's service list AND the /services/[slug] detail pages, so the two
+ * never drift out of sync. Real content per service, not filler — each
+ * service's SERVICE_DETAILS entry is written specifically for that session
+ * type (its own process, its own SF locations where relevant, its own prep
+ * advice, its own FAQ), not a reworded copy of another service's page.
+ */
+
+export function slugifyService(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+export function findServiceValueBySlug(services: { value: string }[], slug: string): string | null {
+  const match = services.find((s) => slugifyService(s.value) === slug)
+  return match?.value ?? null
+}
+
+/** Real per-service descriptions for the Services index — SEO body copy, not filler. */
+export const SERVICE_DESCRIPTIONS: Record<string, string> = {
+  'Black & White Portrait Session': 'A one-on-one black and white film portrait session — shot on 35mm, developed by hand in a real darkroom. No AI retouching, no digital filters standing in for real light and shadow.',
+  'Black & White Headshot Session': 'Professional black and white headshots for LinkedIn, corporate teams, and personal branding — shot on real film for a look no AI headshot generator can fake.',
+  'Black & White Landscape Photography': 'Black and white film landscape work around San Francisco — the fog, the hills, the bridges — printed the way landscape photography looked before everyone had a phone in their pocket.',
+  'Couples & Engagement Session': 'A black and white 35mm film session built around a real relationship, not a posed template. Real film grain, real moments, no AI beautification.',
+  'Family Portrait Session': 'Black and white film family portraits — one negative per frame, hand-developed, printed to last. The kind of photo that still looks right in twenty years.',
+  'Wedding Photography': 'Full black and white film wedding-day coverage. A real photographer shooting real film all day — no AI batch-editing after the fact, no shortcuts on the most important day of the year.',
+  'Senior Portrait Session': 'Black and white film senior portraits with real character — not another AI-smoothed yearbook photo everyone else has too.',
+  'Analog Film Photography Session': 'True analog film photography, start to finish — not a digital filter dressed up to look like film. Real grain, real chemistry, real negative.',
+  'Fine Art Darkroom Prints': 'Hand-printed black and white darkroom prints from your session, or from your own existing negatives — museum-quality, archival paper, printed by hand under a real safelight.',
+  'Studio Session with Vintage Backdrops & Props': 'A black and white studio session with period-correct 70s/80s backdrops and props — old-school on purpose, not an AI-generated retro filter.',
+  'Digital Scans Add-On': 'High-resolution digital scans of your film negatives, delivered alongside your prints, so you can share and post without ever touching an AI editing tool.',
+  'Vintage Camera Consultation & Rental': 'One-on-one consultation on vintage 35mm film cameras, plus rental of a fully working body for your own shoot — real gear, real guidance, no AI in the loop.',
+}
+
+export interface ServiceProcessStep {
+  title: string
+  body: string
+}
+
+export interface ServiceLocation {
+  name: string
+  reason: string
+}
+
+export interface ServiceDetail {
+  intro: string
+  introExtra?: string
+  features: string[]
+  idealFor: string[]
+  process: ServiceProcessStep[]
+  whyFilm: string[]
+  locations?: ServiceLocation[]
+  preparation: string[]
+  faqs: { q: string; a: string }[]
+  pricingDetail: string[]
+  /** Only populated for the 4 services with no natural "locations" section
+   * (darkroom prints, studio session, digital scans, camera rental) — fills
+   * the same structural role with content that actually fits those services. */
+  extraSection?: { title: string; badge: string; paragraphs: string[] }
+}
+
+/** Longer-form content for each service's own detail page — real specifics, not a reworded version of the short description. */
+export const SERVICE_DETAILS: Record<string, ServiceDetail> = {
+  'Black & White Portrait Session': {
+    intro: 'A black and white portrait session built around one real subject and one real conversation — not a rapid-fire phone-camera burst hoping something works. We shoot on 35mm Kodak Tri-X or Ilford HP5, in the studio or on location around San Francisco, and every frame is composed deliberately because film doesn’t give you a second take for free. A portrait session here isn’t about volume — it’s about spending real time with you until the camera catches something true, not just flattering.',
+    introExtra: 'Most people who book this session have tried a phone portrait or an AI headshot generator first and come away unsatisfied without being able to say exactly why. Usually it’s because those tools optimize for a generic idea of "flattering" rather than for what actually makes a specific face interesting — the particular tilt of a smile, a real crease around the eyes from genuine laughter, the texture that comes from an actual life lived. A film portrait session is built to catch that instead of smoothing it away.',
+    features: [
+      'Shot on real 35mm black and white film — Kodak Tri-X 400 or Ilford HP5',
+      'Studio or on-location in San Francisco (fog, skyline, or Victorian architecture as backdrop)',
+      'Hand-developed and hand-printed in a real darkroom, no AI editing at any step',
+      'Digital scans available as an add-on for sharing online',
+    ],
+    idealFor: [
+      'Personal branding portraits that need to look like an actual person, not a generated headshot',
+      'Anyone who wants a portrait they’ll still want on the wall in twenty years',
+      'Clients tired of the same over-smoothed, AI-retouched portrait style everyone else has',
+    ],
+    process: [
+      { title: 'Booking & Consultation', body: 'You book online or by text, and we talk through what the portrait is for — a personal project, a gift, a professional need — so we can pick the right lens, film stock, and location before you show up. A five-minute conversation up front saves an hour of guessing on session day.' },
+      { title: 'The Session', body: 'Sessions typically run 60-90 minutes on 1.5 hours booked time, which sounds long for a portrait but isn’t — half of that is just talking, moving, and letting you relax in front of the camera before we start shooting seriously. Film forces patience, and patience is what makes a portrait look like you instead of a strained version of you.' },
+      { title: 'Development', body: 'Your roll goes into the darkroom the same week. Black and white chemistry is a hand process — timed development, a stop bath, a fixer, then a wash — done by feel as much as by the clock, because every roll behaves slightly differently depending on the light it was exposed to.' },
+      { title: 'Hand Printing', body: 'Once the negatives are dry, we print under a real enlarger and a real safelight, dodging and burning by hand the same way portrait photographers have for a century. No slider in an app — a print made this way has depth a screen literally cannot display.' },
+      { title: 'Delivery', body: 'Darkroom prints are ready in 5-7 business days. If you added digital scans, those usually land in your inbox in 2-3 business days so you have something to share while the physical prints are still being made.' },
+    ],
+    whyFilm: [
+      'A portrait is one of the most personal things a photographer can make — it’s a claim about who someone is, at least in that moment. AI-smoothed portraiture erases the thing that makes a face specific: the asymmetry, the real texture of skin, the particular way someone’s eyes actually look when they’re thinking rather than posing. Film doesn’t erase any of that. It just records it, honestly, on a physical negative.',
+      'There’s also a practical reason black and white film works so well for portraits specifically: removing color removes a distraction. Without color pulling your eye toward a shirt or a background, a black and white portrait forces attention onto expression, light, and shadow — the actual anatomy of a face. That’s not a stylistic trick. It’s the same reason portrait photographers have leaned on black and white for over a hundred years, long before it was a filter option.',
+      'And because it’s a physical negative, the portrait exists independently of any account, subscription, or cloud service. Twenty years from now, a print made today will still be a print — not a file that got lost in a phone upgrade or a service that shut down.',
+      'There’s also a slower, harder-to-quantify reason this matters: how a photo is made affects how the subject behaves in front of it. A phone or AI tool invites performance — people angle their face toward what they know the algorithm rewards. A film camera, held by a photographer who isn’t checking a screen after every frame, invites presence instead. The difference shows up in the final print.',
+    ],
+    pricingDetail: [
+      'A standard Black & White Portrait Session runs at the flat $300/hr rate for a typical 1.5-hour booking, which covers the full session — consultation, shooting time, and development. There’s no separate "studio fee" or hidden add-on charge layered on top; the rate you see is the rate you pay for time spent.',
+      'Darkroom prints are included as part of the session; the Digital Scans Add-On is available separately if you also want shareable digital files. Self-booking online applies the standard $20 discount automatically, no code required.',
+    ],
+    locations: [
+      { name: 'The Studio', reason: 'Full control over light and background — the default choice for a clean, classic portrait with nothing competing for attention.' },
+      { name: 'The Presidio', reason: 'Fog, trees, and old military architecture give black and white film a huge tonal range to work with — a favorite for anyone who wants a moodier, more atmospheric portrait.' },
+      { name: 'Pacific Heights', reason: 'Classic Victorian and Edwardian architecture makes a strong, elegant backdrop for a more formal or professional portrait.' },
+      { name: 'The Mission District', reason: 'Mural walls and street texture for a portrait with more character and grit than a plain studio backdrop.' },
+    ],
+    preparation: [
+      'Wear solid colors or simple patterns — busy prints translate into visual noise in black and white since there’s no color to separate them.',
+      'Mid-tone clothing (grays, blues, warm browns) tends to print with the most range on black and white film; pure white or pure black can lose detail if lighting isn’t perfectly matched.',
+      'Skip heavy foundation or matte powder if possible — film picks up texture beautifully, and a very flat, over-powdered face can read strangely without color to soften it.',
+      'If you’re nervous in front of a camera, say so before we start. A few minutes of just talking, camera down, almost always fixes it.',
+      'Arrive a few minutes early if we’re shooting on location — SF parking and Muni delays are real, and we’d rather use your booked time shooting than waiting.',
+    ],
+    faqs: [
+      { q: 'How many photos will I actually get from a portrait session?', a: 'A typical roll of 35mm holds 36 exposures, and we usually shoot one to two rolls per session — so you’re looking at roughly 36-72 total frames, with a smaller edited selection printed. Film shoots fewer frames than digital by design; every one is composed with intent instead of spray-and-pray.' },
+      { q: 'Can I choose black and white vs. having any color options?', a: 'This service is black and white film specifically — that’s the whole point of the studio. If you want color work, ask when you book and we can talk through whether that’s something we can accommodate on a case-by-case basis.' },
+      { q: 'Do you photoshop out blemishes or skin texture?', a: 'We do traditional darkroom retouching where appropriate — dodging and burning, spotting dust marks — but we don’t digitally smooth skin or reshape features. The goal is a portrait of you, not an idealized version of you.' },
+      { q: 'Is a portrait session good for a professional bio photo?', a: 'Yes, though if you specifically need something formatted for LinkedIn or a corporate site, the Black & White Headshot Session is built exactly for that use case and might be the better fit — ask us and we’ll point you the right direction.' },
+      { q: 'Can I bring a second person, like a partner or a pet?', a: 'Yes — just let us know when booking so we can plan framing and timing for more than one subject.' },
+      { q: 'What if I don’t like how a photo turned out?', a: 'Because film can’t be reshot instantly, we make sure to shoot enough variation in expression and framing during the session that you have real choices at the edit stage — not just one attempt.' },
+      { q: 'Do you offer outdoor portrait sessions if I don’t want a studio look?', a: 'Yes — on-location portrait sessions around San Francisco are just as common as studio bookings; see the Locations section above for our most-requested spots.' },
+      { q: 'How far in advance should I book a portrait session?', a: 'A week or two of notice is usually enough for a straightforward session, though popular golden-hour outdoor slots can fill faster — earlier is always safer if you have a specific date in mind.' },
+      { q: 'Can I get a print sized specifically for a gift or a specific frame I already own?', a: 'Yes — standard sizes run 5x7 to 16x20 with custom sizing available on request; mention your frame dimensions when you book.' },
+      { q: 'How does this differ from a phone portrait edited to look like film?', a: 'A phone photo run through a film filter simulates grain and tone digitally, applied uniformly across the image. Real film grain is physical and varies naturally by exposure, light, and the specific chemistry used to develop it — a difference that becomes obvious under close inspection or in a large print.' },
+      { q: 'Can I use the portrait for a book cover, album art, or other commercial project?', a: 'Yes — mention the intended commercial use when you book so we can confirm licensing and usage terms in advance.' },
+      { q: 'Do you offer sessions specifically for actors or performers needing a comp card photo?', a: 'Yes — this session works well for that use case; mention the specific format or crop requirements when booking.' },
+      { q: 'What’s the difference in cost between studio and on-location portrait sessions?', a: 'Both are billed at the same flat $300/hr rate — the only difference is where the session takes place, based on what look you’re going for.' },
+      { q: 'Can I bring a stylist or makeup artist to the session?', a: 'Yes — just coordinate timing with us in advance so we can build extra setup time into the booking if needed.' },
+      { q: 'Do you offer a portrait session as a gift certificate for someone else?', a: 'Yes — gift certificates are available for any session type; the recipient books their own time once they’re ready.' },
+      { q: 'What’s the typical age range for this session — is it just for adults?', a: 'This session works for any age; for kids or teens specifically, consider whether a Family or Senior Portrait Session might be a better structural fit depending on context.' },
+      { q: 'Can I request a specific mood or tone, like dramatic vs. soft and gentle?', a: 'Yes — tell us the mood you’re going for during booking and we’ll plan lighting and direction to match.' },
+      { q: 'Do you offer a follow-up session if my needs change after the first one?', a: 'Yes — many clients return for follow-up sessions as their needs evolve; there’s no limit on how many times you can book.' },
+      { q: 'How does this session differ from a self-portrait or a photo booth style shoot?', a: 'This is a fully attended, directed session with a real photographer working with you throughout — not an automated or self-timer setup.' },
+    ],
+  },
+
+  'Black & White Headshot Session': {
+    intro: 'A black and white headshot session shot the way corporate headshots looked before every platform started auto-smoothing skin and generating backgrounds. Real film, real studio lighting, and a real photographer directing you through natural expressions — for LinkedIn, executive bios, and team pages that need to look like a real company with real people. This is the session built specifically for professional use, where consistency across a whole team matters as much as any single photo.',
+    introExtra: 'San Francisco has more startups per capita than almost anywhere else in the country, and most of them eventually need a team page — usually assembled from whatever headshots people happened to have, in wildly inconsistent lighting, backgrounds, and quality. This session exists to fix that in one sitting: one photographer, one lighting setup, one consistent look, applied to every person on the team.',
+    features: [
+      'Individual or full-team headshot sessions, scheduled back-to-back for efficiency',
+      'Shot on black and white 35mm film for consistent, professional tone across an entire team',
+      'No AI skin-smoothing, no AI-generated backgrounds — real studio lighting and a real backdrop',
+      'Fast digital scan turnaround for LinkedIn and website use',
+    ],
+    idealFor: [
+      'Startups and small businesses in San Francisco building out a real team page',
+      'Executives and founders who want a headshot that reads as authentic, not generated',
+      'Anyone replacing an outdated or AI-generated LinkedIn photo with something real',
+    ],
+    process: [
+      { title: 'Scoping the Team', body: 'For team sessions, we start with a headcount and a rough schedule — most individuals only need 10-15 minutes in front of the camera once lighting is set, so a team of 8-10 people can usually be handled in a single studio session with tight, back-to-back scheduling.' },
+      { title: 'Setting the Look', body: 'Before anyone sits down, we set one consistent lighting setup and backdrop distance so every headshot in the batch matches — same tonal range, same framing logic — which is what actually makes a team page look cohesive rather than assembled from ten different photo sessions.' },
+      { title: 'The Sitting', body: 'Each person gets a short but real sitting — a few minutes to relax, a handful of expression variations, and direction on posture and angle. We shoot several frames per person on film specifically so there’s real choice at the edit stage, not one forced smile.' },
+      { title: 'Development & Selection', body: 'Rolls are developed in-house and contact-printed so you can review every frame per person before we commit to final prints or scans — useful for teams who want input on which expression represents them best.' },
+      { title: 'Delivery', body: 'Digital scans, which is what most teams actually need for LinkedIn and a website, typically turn around in 2-3 business days. Darkroom prints, if wanted for physical use, take 5-7 business days.' },
+    ],
+    whyFilm: [
+      'Every platform now has some version of an AI headshot generator, and they all have the same problem: the output looks like a headshot, not like the specific person who paid for it. Clients and hiring managers have gotten good at spotting the tell — skin that’s too smooth, eyes that are slightly wrong, a background that’s a little too clean. A real photo doesn’t have that problem, because it isn’t generated.',
+      'Black and white specifically matters for headshots because it removes a variable that causes real inconsistency across a team: color temperature. Different lighting, different monitors, and different skin tones can make a color headshot batch look mismatched even when it was shot in one session. Black and white sidesteps that entirely — every headshot reads as part of the same set, which is exactly what a team page needs.',
+      'And on a more basic level: in a hiring market where candidates and clients are increasingly skeptical of anything that might be AI-generated, a real photo of a real person is becoming a small but genuine trust signal, not just an aesthetic choice.',
+      'There’s a compounding effect for teams specifically: once one person on a page has an obviously AI-generated or wildly inconsistent headshot next to colleagues with real, professionally shot ones, the mismatch draws attention in exactly the wrong way. Doing the whole team in one real session removes that problem permanently, not just for the next redesign.',
+    ],
+    pricingDetail: [
+      'Individual sessions run at the flat $300/hr rate, with most people needing well under a full hour once lighting is set — sittings are typically 10-15 minutes each. Team sessions are scheduled as one continuous booking so setup time is shared across the whole group rather than repeated per person.',
+      'Digital scans are the primary deliverable most clients need for this service, since headshots are almost always used online — turnaround on scans is typically 2-3 business days. Physical darkroom prints are also available if wanted for a physical office display.',
+    ],
+    locations: [
+      { name: 'The Studio', reason: 'The default and recommended setting for headshots — controlled lighting is what makes a batch of team photos look consistent, which matters more here than in almost any other session type.' },
+      { name: 'SoMa Office Locations', reason: 'For teams that want headshots shot on-site at their own office, SoMa’s clean architecture and natural light make it workable, though studio lighting still produces more consistent results across a group.' },
+    ],
+    preparation: [
+      'Bring a couple of outfit options — solid, mid-tone colors photograph best in black and white; avoid busy patterns or logos.',
+      'For team sessions, circulate a shared time slot sign-up in advance — the session moves fast, and staggered arrivals keep it efficient for everyone.',
+      'Come with hair and grooming already done — we’re not a full styling team, just make sure you look like you on a normal good day.',
+      'If this is for a specific platform (LinkedIn banner crop, a specific website module), tell us the dimensions in advance so we can frame accordingly.',
+      'Relax your shoulders and jaw before each frame — most stiff-looking headshots come from tension, not from the camera.',
+    ],
+    faqs: [
+      { q: 'How long does a full team of 10 people take to shoot?', a: 'Budget roughly 2-2.5 hours for a team of 10, assuming back-to-back individual sittings of 10-15 minutes each plus setup time. Larger teams can be split across two sessions if needed.' },
+      { q: 'Can you match the exact crop LinkedIn or our website needs?', a: 'Yes — tell us the platform or the exact pixel dimensions when you book and we’ll frame and crop the scans to match, so there’s no resizing headache on your end.' },
+      { q: 'Do headshots come out looking too dark or too moody for corporate use?', a: 'No — corporate headshots use even, flattering studio lighting, which is a different look from the more dramatic shadow work we might use for a creative portrait. The black and white treatment reads as professional and clean, not artistic or moody.' },
+      { q: 'Can we redo one person’s headshot later if someone joins the team after the group session?', a: 'Yes — individual sessions are available any time to add a new hire’s headshot without needing to reschedule the whole team.' },
+      { q: 'Do you offer a discount for booking a full team vs. individuals?', a: 'Team sessions are scheduled as one continuous booking, which is more time-efficient for everyone — ask about team pricing when you reach out with your headcount.' },
+      { q: 'What if someone on the team is camera-shy?', a: 'It happens on almost every team shoot. A few extra minutes of direction and letting them see a couple of test frames on the contact sheet usually settles nerves fast.' },
+      { q: 'Do you shoot on-site at our office, or only in your studio?', a: 'Studio is recommended for the most consistent lighting across a team, but on-site sessions at your SF office are possible — ask when booking and we’ll assess the space for natural light.' },
+      { q: 'Can we request a specific background color or style?', a: 'Yes — our default studio backdrop is designed for consistent black and white tone, but let us know if you have specific brand or style preferences in advance.' },
+      { q: 'How should we handle scheduling for a distributed or remote team?', a: 'For teams that aren’t all in San Francisco, individual sessions can be scheduled separately over time while still matching the same lighting setup for consistency.' },
+      { q: 'Can you match the exact lighting style we used in a previous headshot session?', a: 'If we shot your previous session, yes. If it was shot elsewhere, bring a reference and we’ll get as close as the studio setup reasonably allows.' },
+      { q: 'Do you offer a package rate for a large company with 20+ employees?', a: 'Ask when you reach out with your headcount — larger team sessions are scheduled as extended continuous bookings and priced accordingly.' },
+      { q: 'Is black and white appropriate for every industry, or is it better suited to certain fields?', a: 'It works broadly well across industries — creative fields, law, finance, tech, and healthcare all use black and white headshots successfully. It reads as professional and timeless rather than tied to any one industry aesthetic.' },
+      { q: 'Can we get a mix of headshot styles — some close-up, some three-quarter body?', a: 'Yes — mention the specific crops or styles you want when booking so we can plan for variety within each sitting.' },
+      { q: 'Do you offer touch-up sessions if someone changes their appearance later (new haircut, etc.)?', a: 'Yes — individual re-sessions are available any time to update a specific person’s headshot without redoing the whole team.' },
+      { q: 'Do you provide a signed model release for commercial use of the headshots?', a: 'Ask when booking — usage terms and any needed release documentation are confirmed before the session for commercial or marketing use.' },
+      { q: 'Can you shoot headshots for a conference or event with a tight turnaround?', a: 'Yes — mention your deadline when booking and we’ll prioritize scan delivery accordingly.' },
+      { q: 'How should we prepare our office space if we want on-site headshots instead of studio?', a: 'A space with a plain wall and access to natural window light works best — we’ll assess your specific space in advance if you choose this option.' },
+      { q: 'Is there a way to preview lighting and background before the full team shows up?', a: 'Yes — we typically set up and test lighting before the first person sits, so the setup is confirmed before the team’s time is used.' },
+      { q: 'What if our company rebrands and we need updated headshots later?', a: 'Just book a new session whenever needed — there’s no restriction on how often a team refreshes its headshots.' },
+      { q: 'Do you provide any direction on posture or body language, or just facial expression?', a: 'Both — posture, shoulder angle, and overall body language are part of the direction, since they affect how a headshot reads as much as expression does.' },
+      { q: 'Can freelancers or solo consultants book this the same way a company would?', a: 'Yes — individual freelancers and consultants book this service just as often as full teams; the process is the same.' },
+      { q: 'How do you ensure headshots look consistent even if they’re shot months apart for new hires?', a: 'We keep notes on lighting setup and camera distance from your original session so later individual sittings match the same look.' },
+      { q: 'What’s the fastest turnaround you can offer for an urgent press or media request?', a: 'Reach out with your specific deadline — while standard turnaround is 2-3 business days for scans, we’ll do what we can for urgent requests.' },
+    ],
+  },
+
+  'Black & White Landscape Photography': {
+    intro: 'Black and white film landscape work around San Francisco — the fog rolling over Twin Peaks, the Golden Gate Bridge in silhouette, the hills of the Mission at golden hour — printed the way landscape photography looked before everyone carried a phone with a computational-photography HDR mode. Real long exposures, real film grain, real light. This is a service built for people who want a genuine piece of San Francisco on their wall, not a stock photo or an AI-upscaled print.',
+    introExtra: 'San Francisco is one of the most photographed cities in the world, which also means it’s one of the most over-saturated with generic, algorithmically-similar images of the same handful of landmarks. A landscape session here is built to avoid that — real film, real timing around actual weather, and a composition chosen specifically for what black and white does to San Francisco’s fog, hills, and light that a phone camera simply can’t replicate.',
+    features: [
+      'Shot on location at San Francisco’s most photogenic vantage points',
+      'Real film grain and dynamic range — not an HDR-stacked phone photo',
+      'Available as fine art darkroom prints for display, framing, or gallery submission',
+      'Scheduled around the light — golden hour, fog windows, and blue hour timing',
+    ],
+    idealFor: [
+      'Interior designers and architects who want real black and white art for a space',
+      'San Francisco residents who want a genuine, non-generic print of their city',
+      'Anyone building a print collection who wants film-original work, not a digital reproduction',
+    ],
+    process: [
+      { title: 'Planning Around Light', body: 'Landscape sessions are scheduled around conditions, not a fixed calendar slot — we track fog patterns, sunrise and sunset timing, and tide charts for coastal spots to pick the window most likely to produce real drama in the frame.' },
+      { title: 'Location Scouting', body: 'If you have a specific view or building in mind, we scout it in advance where possible — San Francisco’s light changes fast, and knowing exactly where to stand ten minutes before golden hour ends makes the difference between a good frame and a missed one.' },
+      { title: 'The Shoot', body: 'Landscape work on film often means longer exposures, a tripod, and genuine patience — waiting for fog to move, for light to hit a building at the right angle, for a boat or a person to clear the frame. It’s slower than a phone photo by design.' },
+      { title: 'Development & Proofing', body: 'Rolls are developed and contact-printed so you can review the full set of exposures from a session before choosing which frame becomes a final print — landscape work especially benefits from seeing several variations side by side.' },
+      { title: 'Fine Art Printing', body: 'Selected frames are hand-printed as fine art darkroom prints on archival paper, in the size that works for your space — this pairs directly with the Fine Art Darkroom Prints service if you want multiple sizes or additional prints from the same negative later.' },
+    ],
+    whyFilm: [
+      'Modern phone cameras don’t actually capture a landscape the way your eye sees it — they computationally blend multiple exposures to flatten contrast and boost detail everywhere at once, which is why phone landscape photos often look strangely uniform. Film does the opposite: it holds real, uneven contrast, which is exactly what makes fog, shadow, and silhouette feel dramatic instead of just bright.',
+      'Black and white in particular strips a landscape down to form, light, and texture — the actual shape of a hill, the grain of fog against a dark building, the geometry of the Golden Gate Bridge’s towers. Color can be a distraction in landscape work; removing it forces the composition itself to carry the image, which is a much higher bar and a much more durable result.',
+      'A darkroom print of a real negative also has a tonal depth a digital print or a screen simply can’t reproduce — genuine blacks, not a backlit approximation of black. For anyone hanging a large print in a home or office, that difference is visible even to someone who couldn’t explain why.',
+      'There’s also a reproducibility problem with digital and AI-assisted landscape work that film doesn’t have: an AI upscaler or HDR algorithm updates its behavior over time, so a photo processed today can look subtly different from the same tool a year from now. A film negative doesn’t change. The print made from it today is the same image that can be reprinted identically a decade from now.',
+    ],
+    pricingDetail: [
+      'Landscape sessions are billed at the flat $300/hr rate, with a typical 2-hour session covering scouting, shooting, and wait time for the right light. Because timing depends on weather and fog conditions, sessions are scheduled with some flexibility rather than a rigid fixed hour.',
+      'The final deliverable is typically a fine art darkroom print, sized for display — pricing for additional prints or different sizes from the same negative is handled through the Fine Art Darkroom Prints service afterward.',
+    ],
+    locations: [
+      { name: 'Twin Peaks', reason: 'The single best fog-watching vantage point in the city — on the right evening, the fog rolls over the hills in a way no phone HDR mode can replicate.' },
+      { name: 'Lands End', reason: 'Rugged coastline, the Marin Headlands in the distance, and the ruins of the Sutro Baths — one of the most dramatic black and white landscapes in San Francisco.' },
+      { name: 'The Golden Gate Bridge (Battery Spencer / Fort Point)', reason: 'Two very different angles on the same icon — Battery Spencer for the classic elevated silhouette, Fort Point for a dramatic low angle underneath the span.' },
+      { name: 'Bernal Heights Summit', reason: 'A 360-degree city view that captures downtown’s skyline against the hills — especially striking at blue hour.' },
+    ],
+    preparation: [
+      'Weather and fog conditions can shift a shoot by hours or days — we’ll confirm timing close to the date rather than locking a fixed hour weeks out.',
+      'Dress warmer than you think you need to — SF’s coastal and hilltop locations run noticeably colder and windier than downtown.',
+      'If you have a specific print size or wall space in mind, tell us before the shoot so we can compose with that final crop and aspect ratio in mind.',
+      'Golden hour and blue hour sessions genuinely mean early or late timing — plan around sunrise/sunset, not a standard business-hours appointment.',
+      'If you want a specific San Francisco landmark not listed here, ask — we scout new locations regularly.',
+    ],
+    faqs: [
+      { q: 'Can I request a specific San Francisco landmark not on your location list?', a: 'Yes — the locations listed are our most-requested spots, but we’re happy to scout and shoot anywhere in the city that makes sense for the light and the shot you want.' },
+      { q: 'How large can a fine art print go?', a: 'Standard sizes run 5x7 up to 16x20, with custom larger sizes available on request — ask when you book if you have a specific wall or space in mind.' },
+      { q: 'What happens if the weather doesn’t cooperate on the scheduled day?', a: 'We reschedule at no charge for weather that would ruin the shot — fog and light are the whole point of this session, so we’d rather wait for the right conditions than shoot a flat, gray afternoon.' },
+      { q: 'Can I get the same landscape shot in multiple sizes?', a: 'Yes — once a negative exists, additional prints in different sizes can be ordered later through the Fine Art Darkroom Prints service without a new shoot.' },
+      { q: 'Do you shoot landscapes outside San Francisco proper, like Marin or the Peninsula?', a: 'Yes, within the greater Bay Area — mention your target location when booking and we’ll confirm travel details.' },
+      { q: 'Is this available as a gift — like a print of someone’s neighborhood or favorite view?', a: 'Yes, this is a popular gift request — text or call to arrange a custom shoot and print as a gift.' },
+      { q: 'Do you shoot at night or only during daylight hours?', a: 'Blue hour (right after sunset) is a common request and produces strong results; true night photography is possible on a case-by-case basis — ask when booking.' },
+      { q: 'Can I be included in the landscape photo, or is this strictly scenery?', a: 'This service is primarily scenery-focused, but a single small figure in frame for scale is sometimes worked in — if you want yourself as the main subject, a Couples, Portrait, or Family session is a better fit.' },
+      { q: 'How do you decide which frame becomes the final print?', a: 'We review the full contact sheet with you after development, since landscape work often produces several strong variations from slightly different timing or framing during one session.' },
+      { q: 'Do you shoot in color as well, or only black and white for landscape work?', a: 'This service is specifically black and white — it’s what the studio specializes in and what a lot of clients specifically want for the tonal drama it produces in San Francisco’s fog and light.' },
+      { q: 'Can you shoot a series of prints from different vantage points of the same landmark?', a: 'Yes — a multi-print series is a common request, especially for something like the Golden Gate Bridge from several angles; discuss the concept when booking.' },
+      { q: 'Do you offer limited-edition or numbered prints for collectors?', a: 'Ask when you book if you’re interested in this — we can discuss options for a more formal collector-oriented print run.' },
+      { q: 'How does fog actually affect a black and white exposure?', a: 'Fog diffuses and softens light, which reduces contrast in a way that plays beautifully into black and white’s tonal range — it’s part of why San Francisco fog specifically produces such striking black and white landscape work.' },
+      { q: 'Can I commission a print of a location not on your usual list, like a specific street or building?', a: 'Yes — tell us the specific location and we’ll scout it for the right timing and angle before shooting.' },
+      { q: 'Do you offer landscape prints as part of a series for a business or hospitality space, like a hotel or restaurant?', a: 'Yes — commercial print series for hospitality and office spaces are a common request; ask about bulk sizing and pricing when you reach out.' },
+      { q: 'How long does it typically take from booking to receiving the final print?', a: 'Beyond the shoot itself, expect roughly 5-7 business days for the hand-printed darkroom print once the right light conditions have been captured.' },
+      { q: 'Can you shoot the same location in different seasons for a comparison series?', a: 'Yes — a seasonal or year-long series is a genuinely interesting project; ask about scheduling a recurring shoot across the year.' },
+      { q: 'Is a tripod always required for landscape work, or can some shots be handheld?', a: 'Most landscape work benefits from a tripod for stability and longer exposures, though some frames are shot handheld depending on the light and composition.' },
+      { q: 'Do you offer a certificate of authenticity for fine art print sales or gifting?', a: 'Ask when ordering — documentation confirming the print is an original hand-printed darkroom piece can be provided on request.' },
+      { q: 'Can this service be booked as a recurring subscription for a rotating print collection at home?', a: 'Ask about a recurring arrangement if you’re interested — some clients do book periodic new prints to rotate through their space.' },
+      { q: 'Do you shoot landscape work during rare weather events, like a heavy fog rollover or a rare snow dusting on hills?', a: 'Yes — rare weather events often make for the most striking black and white landscape work; reach out as soon as conditions look promising and we’ll try to accommodate.' },
+    ],
+  },
+
+  'Couples & Engagement Session': {
+    intro: 'A black and white 35mm film session built around a real relationship, shot the way you’d actually spend an afternoon together — not a posed, AI-beautified template. We shoot around San Francisco’s neighborhoods, from North Beach to the Presidio, following real moments rather than staging every frame. The goal is a set of photos that actually looks like the two of you, not like a stock engagement-shoot pose sequence repeated for every couple.',
+    introExtra: 'Engagement photos have become a genre with a lot of visual sameness to it — the same handful of poses, the same over-processed color grade, repeated across thousands of couples every year. A film session sidesteps that by design: fewer frames, more attention per frame, and a black and white treatment that can’t chase the same fleeting color trend everyone else is using this season.',
+    features: [
+      'Shot on location anywhere in San Francisco — your neighborhood, a favorite spot, or ours',
+      'Documentary-leaning direction — real interaction over stiff posing',
+      'Black and white 35mm film for a timeless, non-trendy look',
+      'Digital scans available for engagement announcements and save-the-dates',
+    ],
+    idealFor: [
+      'Couples who want engagement photos that still look right in ten years, not dated to a filter trend',
+      'Anyone who finds posed digital engagement shoots feel stiff or overproduced',
+      'Couples planning to book us for their wedding who want to test the collaboration first',
+    ],
+    process: [
+      { title: 'The Conversation', body: 'Before booking a location, we ask how you two actually spend time together — a coffee spot, a walk you take often, a park bench you always end up on. The best engagement photos come from real habits, not a generic "romantic city backdrop."' },
+      { title: 'Location & Timing', body: 'We pick timing around light (golden hour is a favorite for outdoor sessions) and a route through one or two neighborhoods rather than a single static backdrop, so the set has real variety by the end.' },
+      { title: 'The Session', body: 'Sessions run roughly 90 minutes, split between a few directed frames (so you have at least a handful of "posed" options for a save-the-date) and a lot of walking, talking, and just being shot candidly as you move through the location.' },
+      { title: 'Development', body: 'Rolls go into the darkroom that week — black and white development is a hand process, and every roll is developed with attention to how that day’s light actually exposed the film.' },
+      { title: 'Delivery', body: 'Digital scans, most useful for save-the-dates and social announcements, typically arrive in 2-3 business days. Darkroom prints for framing or an album take 5-7 business days.' },
+    ],
+    whyFilm: [
+      'Engagement photos have a strange half-life problem in digital photography — a heavily filtered or trend-driven edit style can date a photo to a specific year almost immediately, which is a strange thing to happen to a photo meant to mark the start of a marriage. Black and white film sidesteps that entirely. It looked timeless in 1965 and it looks timeless now, because it was never chasing a trend to begin with.',
+      'There’s also something about being photographed on film that changes how people behave in front of a camera. Because we’re not chimping the back of a screen after every frame, couples tend to relax into the moment instead of performing for an immediate digital preview — which is exactly the kind of real, unguarded interaction that makes engagement photos actually good.',
+      'And for couples who plan to book us for the wedding itself, an engagement session on film is a genuine test run — you get to see exactly how a real film session feels and looks before the one day you don’t get a redo on.',
+      'Black and white also removes a strange pressure that color engagement photos can create — coordinating outfit colors, worrying about a background clashing with a chosen palette. Without color to manage, the session can focus entirely on how you two actually interact, which is what these photos are supposed to capture in the first place.',
+    ],
+    pricingDetail: [
+      'Engagement sessions run at the flat $300/hr rate for a typical 90-minute booking, covering one to two nearby locations. Self-booking online applies the standard $20 discount automatically.',
+      'Most couples add the Digital Scans Add-On to this session specifically, since save-the-dates and wedding websites need shareable digital files quickly — scans typically arrive in 2-3 business days.',
+    ],
+    locations: [
+      { name: 'North Beach', reason: 'Old-world Italian-American charm, café culture, and narrow streets — a favorite for a relaxed, walk-and-talk session.' },
+      { name: 'The Presidio', reason: 'Forest, fog, and open lawns with Golden Gate Bridge views in the background — great range within one shoot.' },
+      { name: 'Palace of Fine Arts', reason: 'Classical architecture and a lagoon setting that photographs dramatically in black and white, especially in soft morning light.' },
+      { name: 'Lands End', reason: 'Rugged coastal trails for a more adventurous, less traditional engagement shoot.' },
+    ],
+    preparation: [
+      'Wear complementary (not identical) outfits — solid colors and simple textures work best in black and white; save the busy patterns for another day.',
+      'Pick a location that actually means something to you two, even if it’s not the most "photogenic" spot in the city — the story behind it comes through in the photos.',
+      'Plan for some walking — most sessions cover more than one spot within a neighborhood, so wear shoes you can move in.',
+      'Don’t over-plan poses — the best frames usually happen in the unplanned moment between two posed shots.',
+      'If you get cold easily, bring a jacket you don’t mind being photographed in — SF weather changes fast, especially near the coast.',
+    ],
+    faqs: [
+      { q: 'Can we use these photos for a save-the-date or wedding website?', a: 'Yes — the Digital Scans Add-On is specifically useful here since it gets you shareable digital files quickly alongside the physical prints.' },
+      { q: 'Do you also shoot proposals?', a: 'If you’re planning a proposal and want it documented, reach out in advance to discuss timing and discretion — this is a special case we handle carefully.' },
+      { q: 'How many locations can we visit in one session?', a: 'Most sessions comfortably cover one to two nearby spots within the booked time — trying to cram in more than that usually means less time actually shooting at each.' },
+      { q: 'What if it rains on our scheduled day?', a: 'We reschedule at no charge for weather that would ruin an outdoor session — no penalty for something outside anyone’s control.' },
+      { q: 'Can we bring our dog?', a: 'Yes — just mention it when booking so we can plan framing and timing accordingly.' },
+      { q: 'Is this the same as your wedding photography service?', a: 'No — this is specifically the engagement/couples session. Full wedding-day coverage is its own service with a different scope and pricing structure.' },
+      { q: 'We’re not engaged, just a couple who wants photos together — is this still the right service?', a: 'Yes — this session works for any couple, engaged or not, who wants real photos of their relationship together.' },
+      { q: 'Can we get a mix of posed and candid shots in one session?', a: 'Yes — sessions typically include a handful of directed frames alongside more candid, walk-and-talk photography, giving you both styles from one booking.' },
+      { q: 'How should we choose between North Beach, the Presidio, and other locations?', a: 'Pick whichever actually reflects your relationship — a favorite neighborhood, where you had a first date, or just a location whose light and setting you like. We’ll help you decide during booking if you’re not sure.' },
+      { q: 'Can we do the session at sunrise instead of sunset?', a: 'Yes — sunrise sessions are less commonly requested but produce beautiful, quieter light with fewer crowds at popular locations; ask when booking.' },
+      { q: 'Is this session appropriate for a same-sex couple or non-traditional relationship?', a: 'Yes, absolutely — this session is built around your actual relationship, whatever that looks like.' },
+      { q: 'Can we include a proposal ring or specific detail shot as part of the session?', a: 'Yes — mention any specific detail shots you want (a ring, a meaningful object) when booking.' },
+      { q: 'How soon after the session can we expect to see any preview images?', a: 'Because this is film, there’s no same-day digital preview — the full set becomes available once development is complete, following the standard turnaround timelines.' },
+      { q: 'Do you offer a shorter, more affordable mini-session option?', a: 'Session length is flexible and billed by the hour — ask about a shorter booking if a full 90-minute session isn’t what you need.' },
+      { q: 'Can we get matching digital and print versions of the same favorite images?', a: 'Yes — pair this session with the Digital Scans Add-On and you’ll have both a physical print and a digital file for your top images.' },
+      { q: 'What if we’re a long-distance couple visiting San Francisco just for this session?', a: 'That’s a common situation — mention your travel dates when booking so we can plan the tightest possible timeline around your visit.' },
+      { q: 'Do you offer any styling or posing guidance if we’ve never done a photo session before?', a: 'Yes — direction and guidance throughout the session is part of the experience; you don’t need prior modeling experience.' },
+      { q: 'Can the same photographer who shoots our engagement also shoot our wedding?', a: 'In most cases yes — many couples specifically book the same photographer for continuity between their engagement and wedding coverage.' },
+      { q: 'Do you offer a package that includes both an engagement session and a smaller print album?', a: 'Ask about combining the session with the Fine Art Darkroom Prints service for a curated small album of your favorite frames.' },
+      { q: 'What if we want photos with our extended families included, not just the two of us?', a: 'Mention this when booking — a portion of the session can be planned for group frames with family if timing allows.' },
+      { q: 'Can this session double as an anniversary shoot instead of a pre-wedding engagement session?', a: 'Yes — this session works for any couple at any stage of a relationship, not only pre-wedding engagements.' },
+      { q: 'Do you offer any guidance on what to say to a partner who’s nervous about being photographed?', a: 'A little reassurance goes a long way — we build in warm-up time specifically so nervous partners have a chance to relax before the more directed portion of the session begins.' },
+      { q: 'Can we request specific songs or a particular vibe to set the mood during the shoot?', a: 'Yes — feel free to bring music or set the tone you want; a relaxed, comfortable atmosphere makes for better, more natural photos.' },
+      { q: 'What if one of us is significantly more comfortable in front of a camera than the other?', a: 'This is extremely common, and part of what a real photographer directing the session does well — balancing attention and direction so both partners come across naturally, not just the more photogenic one.' },
+      { q: 'Can we schedule the session around a specific weekday if weekends don’t work for our schedules?', a: 'Yes — weekday bookings are available and often mean quieter, less crowded locations around the city.' },
+      { q: 'How much walking should we expect during a typical outdoor session?', a: 'Usually a moderate amount within one or two nearby spots — comfortable shoes are recommended, but it’s not a strenuous hike.' },
+      { q: 'Can we request a specific number of final prints versus just the digital scans?', a: 'Yes — tell us how many physical prints you want when booking, separate from any digital scans you also order.' },
+      { q: 'Is there flexibility on session length if things are going really well and we want more time?', a: 'We’ll always try to accommodate, schedule permitting — just ask during the session and we’ll see what’s possible.' },
+    ],
+  },
+
+  'Family Portrait Session': {
+    intro: 'Black and white film family portraits — one negative per frame, hand-developed, printed to last. The kind of photo that still looks right on a wall in twenty years, not a digital file buried in a phone’s camera roll that nobody prints anymore. Whether it’s a family of three or a full multi-generational group, this session is built to produce one real, lasting print, not a folder of five hundred nearly-identical digital shots.',
+    introExtra: 'Most families already have thousands of digital photos and almost none of them printed — a genuine, unusual gap between how many photos get taken and how many actually get displayed anywhere. This session is built specifically to close that gap: one deliberate session that produces a real, physical portrait meant to actually hang somewhere, not join the pile.',
+    features: [
+      'Sessions for families of any size, indoors or on location around San Francisco',
+      'Real film grain gives every family member equal, honest treatment — no AI face-smoothing bias',
+      'Archival darkroom prints, sized for framing',
+      'Relaxed, real direction — not a rigid, forced-smile studio lineup',
+    ],
+    idealFor: [
+      'Families who want one real print worth keeping, instead of hundreds of digital photos nobody looks at',
+      'Multi-generational family portraits meant to become an actual heirloom',
+      'Parents who want a portrait style that won’t look dated in a decade',
+    ],
+    process: [
+      { title: 'Planning Around the Family', body: 'Before the session, we talk through the group — how many people, any small kids who need a shorter, more flexible timeline, and whether it’s indoor/studio or on location. Larger or multi-generational groups get extra time built in.' },
+      { title: 'Warm-Up', body: 'The first few minutes are unstructured — letting kids move around, letting everyone get comfortable being near a camera — because a family portrait where everyone looks tense defeats the purpose.' },
+      { title: 'The Session', body: 'We shoot a mix of directed group frames and more candid, in-between moments — a parent laughing at something a kid did, a grandparent’s hand on a shoulder — because those in-between frames often end up being the ones a family loves most.' },
+      { title: 'Development', body: 'Rolls are developed by hand that week — group portraits get extra attention during development since even exposure across a wider frame with more people takes more careful handling than a single-subject portrait.' },
+      { title: 'Delivery', body: 'Darkroom prints, ready for framing, typically take 5-7 business days. Digital scans are available as an add-on if you want to share the portrait with family who couldn’t be there.' },
+    ],
+    whyFilm: [
+      'A family portrait is one of the few photos most people actually intend to keep for decades — on a wall, in a frame, passed down. Digital files don’t hold up well to that intention: phones get replaced, cloud accounts lapse, formats change. A physical film negative and a printed photograph don’t have any of those failure points.',
+      'Black and white also does something specific and useful for group portraits: it treats every person in the frame with the same honest, unfiltered attention. There’s no algorithm quietly smoothing one person’s skin more than another’s, no inconsistent auto-enhancement across different faces in the same frame — just even, real light on everyone.',
+      'And for multi-generational families especially, there’s something fitting about using the same physical process — film, chemistry, a hand-printed photograph — that produced the family photos already hanging in a grandparent’s house. It’s not nostalgia for its own sake; it’s continuity.',
+      'There’s a practical durability argument too: phones get lost, cracked, replaced, and cloud accounts occasionally get locked out or deleted by accident. A physical negative and a printed photograph don’t depend on a password, a subscription, or a working device to still exist in twenty years.',
+    ],
+    pricingDetail: [
+      'Family sessions run at the flat $300/hr rate, typically booked for 2 hours to allow time for a larger or more active group. Larger multi-generational families may need slightly more time — mention group size when booking so we can plan accordingly.',
+      'Darkroom prints, sized for framing, are the primary deliverable for this service; the Digital Scans Add-On is available if you also want to share the portrait digitally with extended family.',
+    ],
+    locations: [
+      { name: 'Golden Gate Park', reason: 'Wide-open lawns, gardens, and trees give kids room to move naturally instead of being confined to a tight studio frame.' },
+      { name: 'Dolores Park', reason: 'Classic SF skyline backdrop with palm trees — a relaxed, sunny setting families often already know well.' },
+      { name: 'Noe Valley', reason: 'Quiet Victorian residential streets, ideal for a more intimate, less crowded location than a major park.' },
+      { name: 'The Studio', reason: 'Full lighting control, especially useful for very young kids or larger groups where consistent light matters more than a scenic backdrop.' },
+    ],
+    preparation: [
+      'Coordinate outfits loosely (similar tones, not matching outfits) — solid mid-tones photograph best in black and white.',
+      'For families with young kids, schedule the session around nap time, not against it — a well-rested toddler makes a huge difference.',
+      'Bring a favorite small toy or snack as a distraction tool for younger kids — we’ll work it into the session naturally.',
+      'Arrive with hair and outfits mostly set — we have some time for small touch-ups but aren’t a full styling team.',
+      'Let extended family know the schedule in advance if it’s a larger group — punctuality matters more with more people to coordinate.',
+    ],
+    faqs: [
+      { q: 'How many people can you fit in one family portrait?', a: 'We can accommodate larger multi-generational groups — just note the group size when you book so we can plan the right amount of time and, if needed, a location with enough space.' },
+      { q: 'What if a young kid won’t cooperate during the shoot?', a: 'It happens on nearly every family session with small kids. We build in extra time and shoot candidly through the chaos — some of the best frames come from an unposed, real moment, not a forced smile.' },
+      { q: 'Can we do an outdoor and indoor session in the same booking?', a: 'For most groups, one location works best within the booked time — ask when scheduling if you want to split time between two settings.' },
+      { q: 'Do you offer a print large enough for a big family wall display?', a: 'Yes, up to 16x20 as a standard size, with custom larger sizes available on request through the Fine Art Darkroom Prints service.' },
+      { q: 'Can grandparents or extended family order their own copies of the print?', a: 'Yes — additional prints from the same negative can be ordered later without a new shoot.' },
+      { q: 'Is this good for a holiday card photo?', a: 'Yes, with enough lead time before the season — book early if you need prints or scans back before a specific mailing deadline.' },
+      { q: 'Do you photograph pets as part of a family session?', a: 'Yes — pets are welcome as part of the family group, just let us know in advance so we can plan timing and patience accordingly.' },
+      { q: 'What if some family members can only make part of the session?', a: 'We can plan a schedule around partial attendance and shoot different groupings at different times within the booking, if arranged in advance.' },
+      { q: 'Do you do maternity or newborn-inclusive family sessions?', a: 'Yes — mention the specific occasion when booking so we can plan appropriate timing, especially for sessions involving a very young baby.' },
+      { q: 'Can we schedule a family session to become an annual tradition?', a: 'Yes — many families book an annual session; reach out ahead of your preferred time of year to lock in a date.' },
+      { q: 'What if one family member really dislikes being photographed?', a: 'It’s more common than you’d think. We take extra time to help reluctant subjects relax, and candid, in-motion frames often work better for them than posed ones.' },
+      { q: 'Do you photograph blended or non-traditional family structures?', a: 'Yes — every family looks different, and this session is built around documenting your actual family, however it’s structured.' },
+      { q: 'Can grandparents be photographed separately as well as with the whole group?', a: 'Yes — mention this when booking so we can plan time for both group and smaller subset groupings.' },
+      { q: 'How do you handle family sessions with a wide age range of kids, from toddlers to teens?', a: 'We plan pacing around the youngest kids’ attention span first, then work in more directed frames with older kids and adults once the group is warmed up.' },
+      { q: 'Can we schedule a family portrait around a specific milestone, like a new baby or an anniversary?', a: 'Yes — mention the occasion when booking so we can plan framing and timing around what the session is meant to mark.' },
+      { q: 'Do you offer any options for families who want a more candid, documentary-style session over posed portraits?', a: 'Yes — while we always shoot some directed frames, the overall approach can lean more candid or more traditional depending on what you prefer; let us know when booking.' },
+      { q: 'What if the weather changes our plans for an outdoor family session?', a: 'We reschedule at no charge for weather that would ruin an outdoor session, or can move to a studio session if that works better for your schedule.' },
+      { q: 'Can extended family members order their own prints separately after the session?', a: 'Yes — additional prints from the same session negatives can be ordered individually by any family member afterward.' },
+      { q: 'Do you offer sessions specifically to document a family through a big move or life transition?', a: 'Yes — this is a meaningful, less common request, and we’re glad to plan a session around a specific life transition.' },
+      { q: 'Can we bring a family pet along even if it’s not the main focus of the shoot?', a: 'Yes — pets can be included in a portion of the session even if the main focus is the family.' },
+      { q: 'What’s the best time of year for an outdoor family session in San Francisco?', a: 'Fall tends to have the clearest, most consistent light, though every season has its own character — we can help you decide based on your preferred setting.' },
+      { q: 'Can a family session be planned around a specific pet, like a family dog that’s aging or unwell?', a: 'Yes — sessions built specifically around documenting a beloved pet with the family are a meaningful, common request; mention any special considerations when booking.' },
+      { q: 'Do you offer any specific advice for coordinating outfits across a large multi-generational group?', a: 'Aim for a shared color palette rather than identical outfits — a mix of solid, complementary mid-tones photographs far better in black and white than an exact match across everyone.' },
+      { q: 'Can a family session include a special one-on-one portrait pairing, like just the siblings together?', a: 'Yes — smaller sub-groupings within the larger family session are common; mention which specific pairings matter to you when booking.' },
+      { q: 'Is a weekday session an option for families with school-age kids, or only weekends?', a: 'Weekend sessions are most common for school-age families, though weekday afternoon or evening slots are available if that fits your schedule better.' },
+      { q: 'Do you offer sessions during school breaks or holidays when families are more available?', a: 'Yes — breaks and holidays are popular booking windows for family sessions; book early since these dates fill quickly.' },
+      { q: 'Can we request the session start a little later if morning routines with young kids are unpredictable?', a: 'Yes — timing can be adjusted around what actually works for your family; let us know when booking.' },
+      { q: 'Do you offer a brief planning call before the session for larger or more complex family groups?', a: 'Yes — for larger multi-generational groups, a short planning conversation beforehand can help the day run smoothly.' },
+    ],
+  },
+
+  'Wedding Photography': {
+    intro: 'Full black and white film wedding-day coverage. A real photographer shooting real film all day — no AI batch-editing after the fact, no shortcuts on the most important day of the year. Every roll is developed and printed by hand, so what you get back is exactly what was actually captured, not an algorithm’s interpretation of it. From getting-ready shots through the last dance, this is full-day coverage built around one irreplaceable day, treated with the seriousness it deserves.',
+    introExtra: 'Wedding photography has arguably been hit harder by AI editing shortcuts than almost any other genre — batch-processed color grades, AI-smoothed skin applied identically across hundreds of couples, all optimizing for the same trending look rather than for the actual people and day being documented. This coverage exists as the direct alternative: one photographer, present the whole day, shooting real film that can’t be batch-processed into sameness.',
+    features: [
+      'Full-day black and white 35mm film coverage, from getting-ready through reception',
+      'A real photographer present and shooting all day — no second-shooter AI editing pass',
+      'Hand-developed film, hand-printed proofs — no AI touch-ups anywhere in the process',
+      'Digital Scans Add-On available for sharing and printing beyond the darkroom prints',
+      'Partial-day coverage and elopement packages also available',
+    ],
+    idealFor: [
+      'Couples who want their wedding day to look timeless, not tied to a specific year’s editing trend',
+      'Anyone planning a smaller wedding, elopement, or city hall ceremony who still wants real film coverage',
+      'Couples who specifically don’t want their wedding photos touched by AI at any stage',
+    ],
+    process: [
+      { title: 'Planning Meeting', body: 'A few weeks before the wedding, we go through the full day’s timeline together — getting-ready location, ceremony time, key family groupings, reception details — so nothing gets missed on the day itself.' },
+      { title: 'Getting Ready', body: 'Coverage typically starts with getting-ready shots — candid, documentary-style frames of the morning-of energy, not staged detail flat-lays.' },
+      { title: 'Ceremony & Portraits', body: 'We shoot the ceremony itself on film, then move into a tighter, more directed portrait block afterward for the couple and family — usually the one part of the day we ask for a little extra patience, since good portraits take a few minutes to get right.' },
+      { title: 'Reception', body: 'Coverage continues through toasts, dancing, and the natural chaos of a reception — this is where black and white film’s honest, unfiltered character does the most work, capturing real joy instead of a phone-flash-lit approximation of it.' },
+      { title: 'Development & Delivery', body: 'Every roll from the day is developed by hand in the week after the wedding. Darkroom proofs take 5-7 business days; if you added digital scans, those typically arrive in 2-3 business days so you have something to share right away.' },
+    ],
+    whyFilm: [
+      'A wedding is one of the only days most people will ever have professionally documented from start to finish, and it’s the single worst possible place to let an algorithm quietly decide what a moment "should" look like. AI batch-editing tends toward a homogenized look — skin smoothed the same way across every couple, colors pushed toward the same trending palette. A wedding deserves to look like your actual wedding, not a template.',
+      'Shooting on film all day also changes the pace of the day itself, in a way most couples end up genuinely grateful for. There’s no photographer stopping every few minutes to check a screen — the day moves at its own pace, and the camera just documents it, which tends to produce calmer, more natural photos of everyone involved, including the couple.',
+      'And unlike a digital wedding album that lives on a hard drive or a cloud account, black and white film negatives and hand-printed photographs are a physical archive. Twenty, thirty, fifty years from now, a printed photograph doesn’t need a working device, an active subscription, or a file format that hasn’t become obsolete.',
+      'There’s also something to be said for the pacing film imposes on a wedding day itself. A photographer who isn’t reviewing a screen after every frame tends to shoot more purposefully and interrupt the day’s flow less — which usually means guests and family relax into the day instead of performing for a camera that’s constantly checking its own output.',
+    ],
+    pricingDetail: [
+      'Full-day wedding coverage is billed at the flat $300/hr rate across the booked hours — typically an 8-hour day from getting-ready through reception, though partial-day and elopement coverage is available at a shorter, adjusted scope.',
+      'A deposit secures your date, with the balance due at or before the wedding — exact terms are confirmed during the planning meeting. The Digital Scans Add-On is commonly paired with wedding coverage so you have both physical prints and shareable digital files.',
+    ],
+    locations: [
+      { name: 'San Francisco City Hall', reason: 'One of the most photographed wedding venues in the country — the rotunda’s architecture is dramatic in black and white, especially with natural light through the windows.' },
+      { name: 'The Presidio', reason: 'Forest, coastline, and Golden Gate Bridge views within one park — a favorite for outdoor ceremonies and portraits.' },
+      { name: 'Palace of Fine Arts', reason: 'Classical rotunda and lagoon setting, a longtime favorite for both ceremonies and portrait sessions.' },
+      { name: 'Your Venue', reason: 'Whatever venue you’ve booked — we’ll do a walkthrough in advance if it’s not one we’ve shot before, to plan light and angles ahead of the day.' },
+    ],
+    preparation: [
+      'Share your full day timeline as early as possible — ceremony time, key family groupings for portraits, and any must-have shots.',
+      'Assign a point person (a planner, a family member) who can help wrangle family groups quickly during the portrait block — this alone saves significant time on the day.',
+      'Let us know about any specific traditions, cultural elements, or moments that matter to you so we make sure to document them intentionally.',
+      'If timing is tight, build a little buffer around the portrait block — good portraits benefit from not feeling rushed.',
+      'Trust the process during the ceremony and reception — the goal is to document the day as it actually happens, not stage-manage it.',
+    ],
+    faqs: [
+      { q: 'Do you offer packages shorter than a full day, like just the ceremony and portraits?', a: 'Yes — partial-day coverage and elopement packages are available in addition to full-day coverage. Ask about scope when you reach out.' },
+      { q: 'How many photos do we get from a full wedding day?', a: 'This varies by day length and how many rolls are shot, but expect several hundred frames across getting-ready, ceremony, portraits, and reception — all reviewed and a curated selection printed and/or scanned.' },
+      { q: 'Can we get digital files in addition to physical prints?', a: 'Yes — the Digital Scans Add-On pairs with wedding coverage so you have both physical prints and digital files for sharing.' },
+      { q: 'What happens if it rains on our wedding day?', a: 'For outdoor ceremonies or portraits, we plan a backup location or timing in advance during the planning meeting — weather is discussed ahead of time, not left to chance.' },
+      { q: 'Do you shoot second weddings, elopements, or smaller ceremonies?', a: 'Yes — partial-day and elopement coverage exists specifically for smaller-scale weddings that don’t need a full 8-hour day.' },
+      { q: 'How far in advance should we book?', a: 'As early as possible once your date is set — wedding dates fill a calendar quickly, especially in peak season.' },
+      { q: 'Do you require a deposit to hold our date?', a: 'Yes, a deposit secures your date; the balance is due at or before the wedding. Exact terms are confirmed when you book.' },
+      { q: 'Can family members request specific portrait groupings?', a: 'Yes — send us a shot list of specific groupings in advance and we’ll build it into the portrait block timing.' },
+      { q: 'Do you provide a second shooter for larger weddings?', a: 'Coverage is built around a single dedicated photographer shooting real film all day; ask about specific needs for very large weddings when you inquire.' },
+      { q: 'Can we see sample work from a previous wedding before booking?', a: 'Yes — ask when you reach out and we can share examples of previous black and white film wedding coverage.' },
+      { q: 'How does black and white coverage work for details like the dress, rings, and flowers?', a: 'Black and white handles fine detail and texture extremely well — lace, ring engraving, flower petals all read with real depth and contrast, often more strikingly than in color.' },
+      { q: 'Do you coordinate with our other wedding vendors, like the planner or videographer?', a: 'Yes — during the planning meeting we’ll go over how coverage fits alongside other vendors so the day runs smoothly for everyone.' },
+      { q: 'Can guests also get physical prints from the wedding as favors or keepsakes?', a: 'Additional prints from the wedding can be ordered afterward through the Fine Art Darkroom Prints service; ask about options for a larger favor order.' },
+      { q: 'What happens to the negatives after the wedding — do we keep them?', a: 'This is discussed and confirmed during booking — ask about negative ownership and archiving terms when you inquire.' },
+      { q: 'Do you offer engagement session and wedding coverage as a bundled package?', a: 'Yes — many couples book both the Couples & Engagement Session and full wedding coverage together; ask about combined scheduling when you reach out.' },
+      { q: 'How do you handle low-light conditions, like an evening reception?', a: 'Black and white film handles a wide dynamic range well, and we plan film stock and camera settings around the venue’s actual lighting conditions discussed during the planning meeting.' },
+      { q: 'Do you offer a same-day preview or sneak peek before the full gallery is ready?', a: 'Because this is film, there’s no same-day digital preview the way there would be with digital coverage — the full set becomes available once development is complete, following the standard timeline.' },
+      { q: 'Can we request an album or physical book, not just individual prints?', a: 'Ask when you book — album and book options can be discussed as part of your final deliverables.' },
+      { q: 'How do you handle a wedding with a large guest list and complex family dynamics?', a: 'The planning meeting exists specifically to map out complex family groupings and timing in advance, so nothing gets missed on the day itself.' },
+      { q: 'Do you travel outside San Francisco for a Bay Area wedding venue?', a: 'Yes, within the greater Bay Area — mention your venue location when inquiring and we’ll confirm travel details.' },
+      { q: 'Can we request specific black and white film stocks for different parts of the day, like faster film for the reception?', a: 'Yes — film stock can be planned around different lighting conditions across the day; this is discussed during the planning meeting.' },
+      { q: 'Do you offer any options for a multi-day wedding celebration, like a rehearsal dinner or brunch?', a: 'Yes — coverage can be scoped across multiple wedding-related events; discuss the full schedule when you inquire.' },
+      { q: 'How does black and white wedding coverage handle a wedding party with a wide range of formal wear colors?', a: 'Black and white removes any color-clash concern entirely — different colored dresses and suits within a wedding party all read as cohesive tonal variation rather than a mismatched palette.' },
+      { q: 'Can we request specific candid moments to be prioritized over posed shots throughout the day?', a: 'Yes — tell us your priorities during the planning meeting, and we’ll weight coverage toward what matters most to you.' },
+      { q: 'How do you handle photographing a wedding with cultural or religious traditions unfamiliar to the photographer?', a: 'We ask about specific traditions during the planning meeting so we understand what to expect and can document each moment with appropriate context and respect.' },
+    ],
+  },
+
+  'Senior Portrait Session': {
+    intro: 'Black and white film senior portraits with real character — not another AI-smoothed yearbook photo everyone else in the graduating class already has. Shot on location around San Francisco or in studio, built around who the senior actually is rather than a generic pose template. This is a session meant to mark a real transition — the end of high school or college — with photos that actually reflect the person, not a copy-paste class-wide template.',
+    introExtra: 'A lot of school-issued yearbook photo packages now run through some form of automated retouching or AI enhancement, applied identically across an entire graduating class — which means a huge number of seniors end up with photos that look more like each other than like themselves. This session is the deliberate alternative: real film, real individual direction, and a photo that actually looks like the specific person graduating.',
+    features: [
+      'On-location or studio sessions, shot on black and white 35mm film',
+      'Real, individual direction — not a copy-paste yearbook pose set',
+      'Fast turnaround available for yearbook submission deadlines',
+      'Digital scans included for easy sharing alongside darkroom prints',
+    ],
+    idealFor: [
+      'High school and college seniors who want a portrait that actually looks like them',
+      'Parents who want a print worth framing, not just a digital yearbook submission',
+      'Anyone who wants to stand out from a class full of identical AI-retouched senior photos',
+    ],
+    process: [
+      { title: 'The Conversation', body: 'Before the shoot, we ask what the senior actually cares about — a sport, an instrument, a favorite spot in the city — so the session can reflect their actual interests instead of a generic pose list.' },
+      { title: 'Location or Studio Choice', body: 'Depending on what fits, we shoot on location somewhere meaningful (a school, a favorite park, a neighborhood) or in studio for a cleaner, more traditional look — sometimes both within one session.' },
+      { title: 'The Session', body: 'We shoot a mix of a few required "traditional" frames (useful for yearbook submission requirements) and a larger set of more personal, individually directed shots that actually show personality.' },
+      { title: 'Development', body: 'Rolls are developed by hand that week — for seniors on a yearbook deadline, we prioritize turnaround and can flag rush timing when you book.' },
+      { title: 'Delivery', body: 'Digital scans are included specifically because most yearbook and social submissions need a digital file — those typically arrive in 2-3 business days, with darkroom prints for framing following in 5-7 business days.' },
+    ],
+    whyFilm: [
+      'Senior year is one of the last times a lot of people get professionally photographed before adulthood absorbs that habit into occasional phone selfies. It’s worth doing once, properly — with a photo that actually looks like the specific person, not a smoothed, algorithm-averaged version of "attractive teenager" that half the graduating class ends up with from an AI-touched photo package.',
+      'Black and white also does something useful here that color often doesn’t: it ages well. A senior portrait shot in a trendy color-grade style from a specific year can look dated embarrassingly fast — parents flipping through old senior photos from the 90s and 2000s know this. Black and white sidesteps that entirely.',
+      'And there’s a simple, real value in a physical print here too — this is a portrait a lot of families frame and keep for decades, sometimes displayed right alongside their own senior portrait from a generation earlier.',
+      'There’s also a version of this that matters specifically for the senior being photographed, not just the parents: a portrait made with real attention and direction, rather than run through a factory pipeline, tends to actually feel meaningful to sit for — a genuine milestone marked properly, not just another task checked off a graduation to-do list.',
+    ],
+    pricingDetail: [
+      'Senior sessions are billed at the flat $300/hr rate for a typical 1.5-hour session, covering both traditional and more personal, individually directed frames within one booking.',
+      'Digital scans are included in this service specifically because most yearbook and social submissions need a digital file — turnaround is typically 2-3 business days, faster than the darkroom print timeline for families who also want a framed physical portrait.',
+    ],
+    locations: [
+      { name: 'The Studio', reason: 'A clean, traditional option — useful for the required "standard" yearbook-style frames.' },
+      { name: 'Golden Gate Park', reason: 'Natural light and varied backdrops — gardens, open lawns, wooded paths — for a more personal, less formal set of images.' },
+      { name: 'The Mission District', reason: 'Mural walls and street energy for seniors who want a more urban, personality-driven set of photos.' },
+      { name: 'Your School or Neighborhood', reason: 'For seniors who want a location tied to a real memory — we’ll shoot wherever makes sense.' },
+    ],
+    preparation: [
+      'Bring a couple of outfit changes if you want variety between "traditional" and more personal shots.',
+      'If this is for a yearbook, confirm the submission deadline with us in advance so we can prioritize scan turnaround.',
+      'Think about one or two personal props or items (an instrument, sports gear, a favorite jacket) that actually represent you.',
+      'Solid, mid-tone clothing photographs best in black and white — save busy patterns or logos for a different kind of shoot.',
+      'Come with a rough idea of 2-3 spots or looks you want, but stay open — some of the best frames happen when you relax and stop performing for the camera.',
+    ],
+    faqs: [
+      { q: 'Can you meet a specific yearbook submission deadline?', a: 'Yes — tell us your deadline when you book and we’ll prioritize scan turnaround accordingly. Digital scans typically take 2-3 business days once the roll is developed.' },
+      { q: 'Do we need to book studio or on-location — can we do both?', a: 'Both is possible within one session if timing allows — mention it when booking so we can plan a route between locations.' },
+      { q: 'What should I wear if I want both traditional and personal-style photos?', a: 'Bring one more formal outfit and one that reflects your personal style — solid colors work best for both.' },
+      { q: 'Can parents or siblings be included in a few frames?', a: 'Yes — just mention it when booking so we can plan a few minutes for that within the session.' },
+      { q: 'How far in advance should we book for spring/graduation season?', a: 'As early as possible — senior portrait season books up quickly, especially close to yearbook deadlines.' },
+      { q: 'Do you offer a rush option if we’re close to a deadline?', a: 'Reach out with your specific deadline and we’ll do what we can to accommodate it — earlier booking always gives more flexibility.' },
+      { q: 'Can we do the session in cap and gown as well as regular clothes?', a: 'Yes — bringing both is common; we can plan a few frames in cap and gown alongside the more personal, casual set.' },
+      { q: 'Do you shoot senior portraits for college seniors, not just high school?', a: 'Yes — this service works for any senior year milestone, high school or college.' },
+      { q: 'What’s the difference between this and a standard Black & White Portrait Session?', a: 'This session is specifically built around senior-year milestone content — yearbook-ready frames plus personal shots — while the standard portrait session is more general-purpose.' },
+      { q: 'Can we include siblings or friends in some of the frames?', a: 'Yes — mention this when booking so we can plan a portion of the session for group shots alongside the individual senior portraits.' },
+      { q: 'Do you offer packages that include multiple print sizes for family and grandparents?', a: 'Additional prints in various sizes can be ordered from the same negatives after the session — ask about a multi-print package when booking.' },
+      { q: 'Is there a difference in approach for a more introverted or camera-shy senior?', a: 'Yes — we adjust pacing and direction based on comfort level, often starting with lower-pressure candid shots before moving to more directed frames.' },
+      { q: 'Can we shoot at a specific milestone location, like where the senior plans to attend college?', a: 'If it’s within the Bay Area, yes — mention the specific location when booking.' },
+      { q: 'How do you handle senior sessions during busy spring booking season?', a: 'We recommend booking as early as possible — spring is our busiest season for this service, especially close to yearbook deadlines.' },
+      { q: 'Can we combine a senior portrait session with a family portrait during the same visit?', a: 'Ask when booking — combining session types in one longer visit may be possible depending on scheduling and what each part needs.' },
+      { q: 'Do you offer any options tailored to specific extracurriculars, like sports or music?', a: 'Yes — bringing sports gear, an instrument, or other activity-related props is common and helps the portrait reflect real interests.' },
+      { q: 'What if the senior wants a completely different look from what their friends are doing?', a: 'That’s exactly what this session is built for — individual direction based on who the senior actually is, not a shared class template.' },
+      { q: 'Can parents see proofs before finalizing which prints to order?', a: 'Yes — rolls are developed and contact-printed so the full set can be reviewed together before committing to final prints.' },
+      { q: 'Do you offer any options specifically for military or ROTC seniors who need a specific uniform portrait?', a: 'Yes — bring uniform or specific dress requirements and we’ll plan the session around those needs.' },
+      { q: 'Can we schedule this session around a specific milestone event, like a last home game or a recital?', a: 'Yes — timing the session around a specific milestone is common; mention the event when booking.' },
+      { q: 'How does this session help with applications, like college portfolios that want a personal photo?', a: 'A real, individually directed portrait works well for this — mention the specific application requirements when booking so we can plan an appropriate frame.' },
+      { q: 'Is there flexibility to reschedule if a senior has last-minute schedule conflicts, common during a busy final year?', a: 'Yes, with reasonable notice — reach out as soon as you know and we’ll find a new date that works.' },
+      { q: 'Do you offer group senior sessions for close friend groups wanting to be photographed together?', a: 'Yes — friend-group senior sessions are a popular request; mention the group size when booking so we can plan appropriate time.' },
+      { q: 'Can we combine a traditional cap-and-gown look with a completely different personal-style outfit in one booking?', a: 'Yes — most sessions comfortably cover both a traditional look and a more personal set within the booked time.' },
+      { q: 'Do you offer any options for a senior with a very unique personal style, like a specific subculture or interest?', a: 'Yes — this session is built specifically around individual direction, so a distinctive personal style is exactly what we want to capture, not something to smooth over.' },
+      { q: 'Can two seniors from different schools book a joint session if they’re close friends?', a: 'Yes — mixed-school friend sessions are welcome; mention both schedules when booking so we can find a time that works.' },
+      { q: 'Does the session length change if we want both studio and on-location photos?', a: 'Yes — combining both typically requires a longer booking; mention this when scheduling so we can plan enough time for both settings.' },
+      { q: 'Can a parent or guardian request a private conversation about pacing before the session, separate from the senior?', a: 'Yes — reach out ahead of time if you want to discuss anything privately before the session day.' },
+      { q: 'What’s the typical age range you photograph for this service — strictly graduating seniors only?', a: 'This service is built around the senior-year milestone specifically, whether that’s a high school or college senior — reach out if your situation is a bit different and we’ll advise.' },
+    ],
+  },
+
+  'Analog Film Photography Session': {
+    intro: 'True analog film photography, start to finish — not a digital filter dressed up to look like film. This is the general-purpose session for any project that needs real 35mm black and white film work without fitting neatly into a portrait, wedding, or headshot category: creative projects, personal work, editorial concepts, or anything in between. If you have a photography idea that doesn’t map onto a standard package, this is the service built to scope it properly.',
+    introExtra: 'Not every photography idea fits a named package, and forcing a creative concept into the wrong category usually produces a worse result for everyone. This service exists specifically for that gap — a real consultation, a custom plan, and genuine 35mm film execution for whatever the project actually needs, rather than a compromise built around whichever standard service happens to be closest.',
+    features: [
+      'Fully custom scope — creative, editorial, or personal film photography projects',
+      'Shot on real 35mm black and white stock, hand-developed in-house',
+      'Flexible location — studio, on-location around San Francisco, or both',
+      'Consultation included to scope the project before the session',
+    ],
+    idealFor: [
+      'Creative projects, editorial concepts, or personal work that needs real film, not a filter',
+      'Artists and small brands wanting authentic black and white film photography for a campaign',
+      'Anyone with a photography idea that doesn’t fit a standard category',
+    ],
+    process: [
+      { title: 'Consultation', body: 'Because this is custom-scoped, we start with a real conversation about what you’re trying to make — a personal art project, an editorial concept, a small brand campaign — so we can plan the right approach, film stock, and timeline before anything is shot.' },
+      { title: 'Planning', body: 'Depending on the project, this might mean scouting a location, sourcing props or styling, or just settling on a shot list — the planning phase varies more here than in any other service because the projects themselves vary so much.' },
+      { title: 'The Shoot', body: 'Session length and structure are built around the project’s actual needs rather than a fixed time slot — some projects need one focused hour, others need a full day across multiple locations.' },
+      { title: 'Development', body: 'All film is developed by hand in-house — for larger or multi-roll projects, we can develop and proof in batches so you can review progress before the full project wraps.' },
+      { title: 'Delivery', body: 'Deliverables are scoped to the project — anything from a handful of fine art prints to a full set of digital scans for an editorial or campaign use, discussed and agreed on during the initial consultation.' },
+    ],
+    whyFilm: [
+      'A lot of creative and editorial work today reaches for a "film look" through a digital preset or an AI filter, which produces something that resembles film at a glance but falls apart under any real scrutiny — the grain pattern is wrong, the highlight rolloff doesn’t behave like actual film, and the whole thing reads as an imitation to anyone who’s actually shot or worked with real film. Shooting on real 35mm stock means the final result is the genuine article, not a simulation of one.',
+      'For editorial and creative work specifically, there’s also a practical benefit to film’s constraint: it forces real intentionality. You can’t machine-gun a thousand frames hoping AI-assisted culling finds something usable later. Every frame has to be considered, which tends to produce more deliberate, more considered final images — a real asset for creative work that’s trying to say something specific.',
+      'And for personal or artistic projects, there’s something that matters beyond craft: authenticity. A project built on real film, real chemistry, and real hands in a darkroom carries a different kind of integrity than one assembled through digital tools and AI assistance — especially in a moment where audiences are increasingly attuned to spotting the difference.',
+      'There’s also a simple creative-freedom argument for this service: because it isn’t constrained by a fixed package structure, it can accommodate ideas that genuinely wouldn’t work anywhere else — a multi-location concept, an unusual subject, a format that doesn’t map onto a standard portrait or event shoot. The consultation step exists specifically to make sure that flexibility gets used well, not wasted.',
+    ],
+    pricingDetail: [
+      'This service follows the same flat $300/hr rate as every other session — the difference is that duration and scope are custom-planned during the consultation rather than fixed in advance, so total cost depends on the project’s actual needs.',
+      'Deliverables (prints, scans, or both) are agreed on during the consultation based on the project’s intended final use — a personal print, an editorial submission, or campaign-ready digital files.',
+    ],
+    locations: [
+      { name: 'The Studio', reason: 'Full lighting control for controlled creative or editorial concepts.' },
+      { name: 'Anywhere in San Francisco', reason: 'Because this service is scoped per project, location is determined by what the concept actually needs — we’ll scout with you.' },
+    ],
+    preparation: [
+      'Come to the initial consultation with reference images or a rough concept, even a loose one — it gives us something concrete to plan around.',
+      'Think about final use in advance (a print, a digital campaign, a personal archive) since it affects how we scope development and delivery.',
+      'If the project needs specific props, styling, or wardrobe, flag that early so there’s time to plan or source it.',
+      'Be realistic about timeline — film development takes real time, so build that into any deadline-driven project.',
+      'Stay flexible on exact shot count — film sessions are scoped by time and concept, not a guaranteed number of final images.',
+    ],
+    faqs: [
+      { q: 'What kind of projects have you done through this service?', a: 'This service covers a wide range — personal art projects, editorial concepts, small brand or product work, and anything that needs real film photography outside a standard portrait or event category. Bring your idea and we’ll scope it.' },
+      { q: 'Do you charge differently for this than other services?', a: 'Pricing follows the same flat hourly rate as every other service — the difference here is that scope and duration are custom-planned during the consultation rather than fixed in advance.' },
+      { q: 'Can this be used for a small business or brand shoot?', a: 'Yes — small brands and artists use this service for authentic black and white film content specifically because it can’t be replicated with an AI filter.' },
+      { q: 'Do I need to know exactly what I want before booking?', a: 'No — the consultation exists specifically to help shape a loose idea into a real, shootable plan.' },
+      { q: 'Can this include multiple sessions for one larger project?', a: 'Yes — larger projects can be scoped across multiple sessions, discussed and planned during the initial consultation.' },
+      { q: 'Is this good for building a personal portfolio?', a: 'Yes — this is one of the most common uses of this service, for photographers, artists, and creatives building out authentic analog work.' },
+      { q: 'Can I collaborate with your photographer creatively, or do I need my own fully-formed concept?', a: 'Both work — the consultation exists specifically to develop a concept together if you don’t already have one fully formed.' },
+      { q: 'Do you shoot experimental or non-traditional film techniques, like double exposures?', a: 'Ask during the consultation — depending on the concept, experimental techniques can be planned into the session.' },
+      { q: 'Is this available for a multi-day or ongoing project rather than a single session?', a: 'Yes — larger projects can be scoped across multiple sessions, planned during the initial consultation.' },
+      { q: 'Can small businesses use this for authentic product or brand photography?', a: 'Yes — this is a common use case for brands wanting genuine black and white film content rather than AI-generated or heavily filtered marketing imagery.' },
+      { q: 'What happens if the project scope changes partway through?', a: 'Reach out and we’ll revisit the plan together — custom projects sometimes evolve, and we’d rather adjust than force an outdated plan.' },
+      { q: 'Do you work with agencies or creative directors on larger campaigns?', a: 'Yes — reach out with the scope and timeline and we’ll discuss whether it fits within a single session or needs to be planned across multiple.' },
+      { q: 'Can this session include both stills and a written concept brief beforehand?', a: 'Yes — for more involved creative projects, we’re glad to develop a written shot concept together during the consultation phase before shooting anything.' },
+      { q: 'Is there a minimum or maximum project size for this service?', a: 'No fixed minimum or maximum — the consultation exists specifically to scope whatever size project you bring, from a single roll to a multi-day production.' },
+      { q: 'Do you provide contact sheets for larger multi-roll projects?', a: 'Yes — for projects involving multiple rolls, contact sheets are provided so you can review and select frames methodically rather than working from loose negatives.' },
+      { q: 'Can this service be used to document a real event, like a gallery opening or performance?', a: 'Yes — event documentation on real film is a common use of this service; discuss timing and coverage needs during the consultation.' },
+      { q: 'How do you price a multi-day custom project compared to a single session?', a: 'The same flat $300/hr rate applies across however many hours the project actually needs — a multi-day project is simply billed for the total time across all sessions.' },
+      { q: 'Do you shoot fashion or lookbook-style projects on real film?', a: 'Yes — fashion and lookbook concepts are a common use of this service; discuss wardrobe, styling, and location needs during the consultation.' },
+      { q: 'Can this be used for a music project, like an album cover or press photos?', a: 'Yes — musicians and bands frequently use this service for authentic black and white promotional imagery.' },
+      { q: 'What if I want a specific vintage camera or unusual film stock used for a particular effect?', a: 'Ask during the consultation — specific camera or film stock requests can be planned for if they fit the project and are available.' },
+      { q: 'Can you shoot a documentary-style project following a real process over time, like an artist working in their studio?', a: 'Yes — longer-form documentary projects are a good fit for this service; the consultation is where we’d plan realistic scope and timeline for something like that.' },
+      { q: 'Do you offer any discount for students or emerging artists on a tight budget?', a: 'Ask when you inquire about your project — we’re glad to discuss scope and timing that fits within different budget constraints.' },
+      { q: 'Can this service produce work suitable for a gallery show or exhibition submission?', a: 'Yes — the hand-printed, archival process is well-suited to exhibition-quality work; mention that goal during the consultation so we can plan sizing and printing accordingly.' },
+      { q: 'Can I book a shorter, exploratory session just to test whether film fits my creative style before a bigger project?', a: 'Yes — a shorter exploratory session is a reasonable way to start; mention that during the consultation and we’ll scope accordingly.' },
+      { q: 'Do you provide any creative direction, or is the concept entirely up to me?', a: 'Both are available — bring a fully formed concept and we’ll execute it, or come with a loose idea and we’ll help shape it together during the consultation.' },
+      { q: 'Can this service be used for a personal project with no specific end goal, just creative exploration?', a: 'Yes — open-ended creative exploration is a completely valid reason to book this session; not every project needs a defined commercial or portfolio purpose.' },
+    ],
+  },
+
+  'Fine Art Darkroom Prints': {
+    intro: 'Hand-printed black and white darkroom prints from your session, or from your own existing negatives — museum-quality, archival paper, printed by hand under a real safelight. If you already have film negatives sitting in a drawer, this service turns them into real, printed, wall-worthy art. This is a flat-fee, per-print service, not an hourly session — it’s built for anyone who already has the image and just needs it made into a real, physical print.',
+    introExtra: 'A remarkable number of real, meaningful negatives exist in shoeboxes, envelopes, and old camera bags across the Bay Area — family history that was properly shot on film decades ago but never actually printed the way it deserved, or printed once on paper that’s since yellowed and faded. This service exists specifically to give those negatives a real, archival print — not a scan, not a digital reproduction, an actual hand-printed photograph.',
+    features: [
+      'Hand-printed under a real safelight, on archival photo paper',
+      'Prints available from 5x7 up to 16x20, with custom sizes on request',
+      'Accepts your own existing negatives, not just negatives shot with us',
+      'Museum-quality process meant for framing, display, or gallery submission',
+    ],
+    idealFor: [
+      'Anyone with old family negatives who wants real prints made, not a digital scan',
+      'Collectors and interior designers sourcing genuine black and white fine art prints',
+      'Photographers who shoot their own film but don’t have darkroom access',
+    ],
+    process: [
+      { title: 'Bring or Send Negatives', body: 'You can drop off negatives in person or arrange shipping for negatives you already have — anything from a single frame you love to a full roll you want fully printed.' },
+      { title: 'Consultation on Selection & Size', body: 'For a full roll, we’ll help you review and select the strongest frames if you don’t already know which ones you want printed, and talk through sizing based on how the print will be displayed.' },
+      { title: 'Test Print', body: 'For an important or larger print, we typically make a smaller test print first to confirm exposure, contrast, and cropping before committing to the final full-size print — this avoids wasting archival paper on a print you’re not happy with.' },
+      { title: 'Final Printing', body: 'Once approved, the final print is made by hand under the enlarger — dodging and burning specific areas as needed, the same technique darkroom printers have used for decades to bring out detail in shadows and highlights that a flat digital print can’t replicate.' },
+      { title: 'Delivery', body: 'Standard turnaround is 5-7 business days for hand-printed darkroom prints, ready for framing.' },
+    ],
+    whyFilm: [
+      'A huge number of real, meaningful family and personal negatives exist in drawers, boxes, and old albums — never actually printed properly, or printed decades ago on paper that’s degraded. This service exists specifically because a digital scan of an old negative, while useful for sharing, isn’t the same object as a real archival print — and for photos that matter, the physical print is usually what people actually want on a wall.',
+      'The dodging-and-burning process used in hand darkroom printing is also something no consumer inkjet printer or digital lab replicates the same way — a skilled printer can selectively lighten or darken specific parts of an image during exposure, pulling detail out of a dark shadow or holding back a blown-out sky, in a way that produces a genuinely different tonal result than a flat automated print.',
+      'And archival paper matters more than most people realize — a properly processed and stored archival print can last well over a century without significant fading, versus consumer photo paper that can visibly degrade within just a few decades.',
+      'There’s also something worth naming plainly: a digital scan of an old negative is genuinely useful for sharing, but it isn’t the same object as the negative itself deserves. A negative that survived decades in a drawer represents real, irreplaceable history — printing it properly, by hand, on paper built to last, treats it with the weight it actually has.',
+    ],
+    pricingDetail: [
+      'This is a flat-fee, per-print service rather than an hourly session — pricing depends on print size and quantity, discussed and confirmed once we’ve reviewed your negatives together.',
+      'A smaller test print is typically made first for an important negative to confirm exposure and contrast before committing to the final full-size print, so cost and expectations are aligned before final printing.',
+    ],
+    extraSection: {
+      title: 'Care & Handling of Your Negatives',
+      badge: 'Archival Care',
+      paragraphs: [
+        'Old negatives are more resilient than most people assume, but they do deserve careful handling. We store and handle every negative brought in by clean edges only, using cotton gloves for older or more fragile film, and never touch the emulsion side directly — fingerprints and oils can etch into film over time and are effectively permanent once they do.',
+        'Negatives are returned to you after printing along with the finished print, stored in an acid-free sleeve if they didn’t already come in one. If a negative shows visible dust, minor scratches, or age-related wear, we address what we can during the printing process — careful dodging and burning can often compensate for minor imperfections that a flat digital scan would show plainly.',
+        'For negatives with more significant physical damage — torn sprocket holes, mold damage, or heavy curling from improper storage — we’ll assess and discuss what’s realistically achievable before printing, rather than promising a result the negative’s condition can’t support.',
+      ],
+    },
+    preparation: [
+      'If you’re bringing existing negatives, handle them by the edges only — oils from fingers can damage the emulsion over time.',
+      'Bring negatives in a protective sleeve or envelope if you have one, to avoid scratches in transit.',
+      'If you already know the exact size you want, tell us up front; if not, we’ll help you decide based on the image and its intended display.',
+      'For a gift or a specific deadline, mention it when you book so we can plan turnaround accordingly.',
+      'If you’re unsure which frames from a roll are worth printing, bring the whole roll — we’re glad to help you pick.',
+    ],
+    faqs: [
+      { q: 'Do you print from negatives I already have, not just ones you shot?', a: 'Yes — this service explicitly accepts your own existing negatives, whether they’re from a recent roll or decades-old family film.' },
+      { q: 'What if my negatives are old or slightly damaged?', a: 'Bring them in and we’ll assess condition — even negatives with minor scratches or dust can often still produce a strong print with careful handling and printing technique.' },
+      { q: 'Can I get the same negative printed in multiple sizes?', a: 'Yes — once we have your negative, additional prints in different sizes can be ordered at any time without needing to re-shoot anything.' },
+      { q: 'Do you also provide a digital scan alongside the print?', a: 'Yes, as an add-on — the Digital Scans Add-On can be paired with this service if you want both a physical print and a digital file.' },
+      { q: 'What paper do you print on?', a: 'Museum-quality archival photo paper, chosen specifically for longevity and tonal range in hand darkroom printing.' },
+      { q: 'Can this be a gift for a family member?', a: 'Yes — this is a common and meaningful gift request, especially for old family negatives. Mention any deadline when you book.' },
+      { q: 'Do you accept negatives in formats other than 35mm?', a: 'Ask when you bring your negatives in — while 35mm is our primary focus, we can assess other film formats on a case-by-case basis.' },
+      { q: 'Can you restore or repair damaged negatives before printing?', a: 'We can compensate for minor wear and imperfections during printing through careful dodging and burning; for more significant physical damage, we’ll assess and discuss realistic options with you first.' },
+      { q: 'How many prints can I order from a single negative over time?', a: 'As many as you want, whenever you want — the negative doesn’t degrade from repeated printing, so additional prints can be ordered years later with the same quality.' },
+      { q: 'Can you print negatives that aren’t black and white, like color film?', a: 'This studio specializes in black and white darkroom printing — ask when you bring color negatives in and we’ll discuss whether it’s something we can accommodate.' },
+      { q: 'What’s the difference between a darkroom print and a print made from a digital scan?', a: 'A darkroom print is exposed directly from the negative through an enlarger onto photo paper — no digital step in between. A print made from a scan goes through a digital printer, which is a genuinely different process with a different tonal result.' },
+      { q: 'Can I bring in negatives from a different photographer, not just my own?', a: 'Yes — as long as you have the physical negatives and the right to reproduce them, we can print from any negative brought in.' },
+      { q: 'Do you offer a consultation before committing to a large or expensive print order?', a: 'Yes — for larger orders, a preliminary conversation about sizing and selection is standard practice before committing to final printing.' },
+      { q: 'Can prints be matted or framed as part of this service?', a: 'We focus on the print itself; ask when you book if you need a recommendation for local framing or matting services.' },
+      { q: 'What is the general turnaround time if I need prints by a specific date, like a holiday or event?', a: 'Standard turnaround is 5-7 business days — mention your deadline when booking and we’ll flag it as a priority if timing is tight.' },
+      { q: 'Do you offer a discount for printing a large batch of negatives from the same family archive?', a: 'Ask when you bring in a larger batch — pricing for volume orders is discussed directly based on the number of prints involved.' },
+      { q: 'Can you tell how old a negative is just by looking at it?', a: 'Often, yes — film stock, sprocket hole patterns, and general condition give useful clues, though we’ll rely on whatever family history you can share too.' },
+      { q: 'What’s the best way to store negatives at home between print orders?', a: 'A cool, dry, dark place in an acid-free sleeve or envelope is ideal — avoid attics, basements, and direct sunlight, which accelerate degradation over time.' },
+      { q: 'Can you print a negative larger than 16x20 for a statement piece?', a: 'Custom larger sizes are available on request — ask about specific dimensions and we’ll confirm what the negative can support at that scale.' },
+      { q: 'Do you offer proof prints before committing to the final archival print?', a: 'Yes — a smaller test print is typically made first for an important negative to confirm exposure and contrast before the final full-size print.' },
+      { q: 'Can you print a very small negative format, like a half-frame camera’s exposures, at a larger size?', a: 'Ask when you bring in negatives — smaller or unusual formats can often still be enlarged successfully, though results depend on the negative’s original quality.' },
+      { q: 'Do you offer a rush service for prints needed for an unexpected occasion, like a memorial?', a: 'Reach out with your specific timeline — we understand some print requests are time-sensitive and will do what we can to accommodate.' },
+      { q: 'Is there a limit to how old or fragile a negative can be before it can’t be printed anymore?', a: 'Most negatives, even quite old ones, can still produce a usable print — we’ll always assess condition honestly before you commit to an order.' },
+      { q: 'Can I schedule an in-person consultation before deciding to bring in negatives, just to ask questions?', a: 'Yes — feel free to reach out with questions before committing to bringing negatives in.' },
+      { q: 'Are archival prints resistant to normal light exposure if displayed on a wall?', a: 'Yes, properly processed archival prints are designed to resist significant fading under normal indoor display conditions for many decades.' },
+    ],
+  },
+
+  'Studio Session with Vintage Backdrops & Props': {
+    intro: 'A black and white studio session with period-correct 70s/80s backdrops and props — old-school on purpose, not an AI-generated retro filter slapped over a modern photo. Real vintage set pieces, real period styling, shot on real film for a look that couldn’t be faked digitally even if someone tried. This is a studio-only, fully controlled session built specifically for a genuine period aesthetic, not a stylistic approximation of one.',
+    introExtra: '"Vintage-style" content has become extremely common online, almost all of it produced with a digital filter or an AI tool rather than anything actually period-accurate. This session exists as the genuine version of that idea — real props sourced for accuracy, real film grain that isn’t simulated, and a studio setup built specifically to make the whole thing hold up under real scrutiny, not just look right at thumbnail size.',
+    features: [
+      'Period-correct 70s/80s backdrops, props, and set styling',
+      'Shot entirely on black and white 35mm film — no digital retro filter',
+      'Studio session, fully controlled lighting',
+      'Great for creative concepts, editorial work, or just a genuinely fun session',
+    ],
+    idealFor: [
+      'Anyone who wants an authentic vintage-styled portrait, not a phone filter imitation',
+      'Creative shoots, album covers, or editorial concepts needing a real period look',
+      'Groups wanting a genuinely different, memorable session experience',
+    ],
+    process: [
+      { title: 'Choosing a Set', body: 'We keep a rotating set of period-correct backdrops and props on hand — before the session, we talk through which set pieces and styling direction fit what you’re going for, whether that’s a specific decade’s look or a more general vintage feel.' },
+      { title: 'Styling', body: 'Depending on the concept, we can advise on wardrobe and prop choices in advance so everything on set — clothing, backdrop, props — reads as period-consistent rather than mismatched.' },
+      { title: 'The Session', body: 'Sessions run in the controlled studio environment, which means consistent lighting and full creative control over the set — we shoot a range of framing and prop combinations within the booked time.' },
+      { title: 'Development', body: 'Film is developed by hand that week — the deliberate grain and tonal character of black and white film is what actually sells the vintage effect, in a way no digital filter genuinely replicates.' },
+      { title: 'Delivery', body: 'Darkroom prints take 5-7 business days; digital scans, if added, typically arrive in 2-3 business days for sharing.' },
+    ],
+    whyFilm: [
+      'AI and digital filters have gotten reasonably good at approximating a vintage aesthetic at a glance — a grain overlay, a contrast curve, a slightly yellowed tone. But approximation is the operative word: a trained eye, or even just a careful comparison, can usually tell the difference between a real period-shot photograph and a digital imitation of one. Shooting this session on genuine black and white film with real vintage set pieces closes that gap entirely, because there’s no gap to close — it’s the real process, not a simulation of it.',
+      'There’s also a deeper reason period photography benefits from actual film: the physical constraints of film photography — its grain structure, its tonal rolloff, the way light behaves on the emulsion — are inseparable from what "vintage photography" actually looked like in the first place. A digital filter can copy the visual signature, but it can’t replicate the underlying physical process that produced that signature originally.',
+      'And beyond the technical case, there’s something genuinely fun and different about this session compared to a standard portrait — full creative control over a themed set, real props, real styling, producing images that stand out from the visually similar AI-and-filter-driven content that fills most social feeds today.',
+      'There’s also a durability argument specific to this kind of content: a digitally-filtered "vintage" photo tends to look dated to whatever filter trend produced it, sometimes within a year or two, once the filter style itself falls out of fashion. A real film photograph shot with real period props doesn’t have that expiration date, because it was never chasing a trend — it was made the actual way period photography was made.',
+    ],
+    pricingDetail: [
+      'Studio sessions with vintage backdrops run at the flat $300/hr rate, typically booked for 2 hours to allow time for prop and setup changes within one session.',
+      'Darkroom prints are included as part of the session; the Digital Scans Add-On is available separately for anyone who wants shareable digital files of the finished set.',
+    ],
+    extraSection: {
+      title: 'What’s in the Studio',
+      badge: 'The Set',
+      paragraphs: [
+        'Our vintage set collection is genuinely period-sourced, not manufactured to look old — backdrops, furniture, and small props gathered specifically for 70s and 80s accuracy rather than a generic "retro" approximation. That distinction matters more under real film grain than it does in a quick digital filter, since film reveals texture and detail a filter would just paper over.',
+        'Set pieces rotate periodically, so if you have a specific look in mind, it’s worth asking in advance to confirm exactly what’s currently available — some props and backdrops are one-of-a-kind pieces we can’t guarantee are always on hand.',
+        'Lighting is fully controlled in the studio environment, which lets us commit to a period-accurate lighting style too — the harder shadows and specific contrast common to 70s and 80s studio photography, rather than modern, flat, evenly-lit portrait lighting layered awkwardly over vintage props.',
+      ],
+    },
+    preparation: [
+      'Think about a specific decade or aesthetic in advance (70s, 80s, disco, punk, etc.) — the more specific your reference, the more we can tailor styling and props.',
+      'Bring your own period-appropriate wardrobe if you have it, or ask us about what set pieces and props are available to pair with a more neutral outfit.',
+      'This works well for groups — coordinate with friends or family in advance if you want a themed group session.',
+      'Come with reference images if you have a specific look in mind — it helps translate an idea into a real, shootable set.',
+      'Leave extra time if you want hair or styling touch-ups between different prop or backdrop setups within the session.',
+    ],
+    faqs: [
+      { q: 'What decades or styles do your backdrops and props cover?', a: 'Our rotating set is primarily 70s and 80s-focused — ask about specific available pieces when you book so we can confirm fit for your concept.' },
+      { q: 'Is this good for a group or just individuals?', a: 'Both — groups get a genuinely fun, memorable shared session experience, and individuals get full creative attention on one themed set.' },
+      { q: 'Can I bring my own props or backdrop ideas?', a: 'Yes — if you have a specific vintage prop or concept in mind, mention it when booking and we’ll see how it fits with the existing studio setup.' },
+      { q: 'Is this only for personal use, or can it be used for something like an album cover?', a: 'Both — this service is popular for personal creative projects as well as things like album covers, editorial concepts, and brand content needing an authentic period look.' },
+      { q: 'How is this different from the Analog Film Photography Session?', a: 'This service is specifically studio-based with our existing vintage backdrops and props. The Analog Film Photography Session is a more open-ended, custom-scoped service for projects that don’t fit a themed studio set.' },
+      { q: 'Do you offer hair or makeup styling for the period look?', a: 'We’re not a full styling team, but we can advise on wardrobe and prop direction in advance to help the overall look come together.' },
+      { q: 'How many different backdrop or prop setups can we use in one session?', a: 'Most sessions comfortably cover two to three different setups within the booked time, depending on how much wardrobe or prop change is involved.' },
+      { q: 'Is this suitable for a themed birthday or bachelorette shoot?', a: 'Yes — themed group sessions are a popular use of this service; mention your group size and concept when booking.' },
+      { q: 'Can I request a specific prop I don’t see mentioned?', a: 'Ask when you book — if we don’t already have it, we may be able to source it, or suggest something from the existing collection that fits your concept.' },
+      { q: 'Is this suitable for a professional creative project, like an album cover shoot?', a: 'Yes — this session is popular for professional creative use as well as personal sessions; discuss usage rights and licensing when booking for commercial work.' },
+      { q: 'Do you have specific backdrop colors, or only the vintage prop sets?', a: 'The studio’s backdrops are specifically chosen for period accuracy; ask about available options when booking to confirm what fits your concept.' },
+      { q: 'Can this session be combined with a standard portrait session in one booking?', a: 'Ask when booking — combining session types within one longer booking may be possible depending on scheduling.' },
+      { q: 'How far in advance should I book to guarantee a specific prop or backdrop is available?', a: 'As early as possible, especially for one-of-a-kind pieces — availability is confirmed at time of booking.' },
+      { q: 'Is the studio space large enough for a group session with multiple setups?', a: 'Yes — the studio is designed to accommodate group sessions with room for prop and backdrop changes within the booking.' },
+      { q: 'What’s the best way to prepare if I want a very specific decade look, like disco versus punk?', a: 'Bring reference images and be specific about the exact sub-era or subculture you want — 70s disco and late-70s punk look very different even within the same decade, and specificity helps us pull the right props.' },
+      { q: 'Can I get both black and white and a slightly different processed look from the same set?', a: 'This session is specifically black and white film; if you want a different processing style, discuss it during booking to see what’s achievable.' },
+      { q: 'Is this session appropriate for professional headshots with a creative twist?', a: 'It can work for a more creative professional portrait, though the standard Black & White Headshot Session is better suited for traditional corporate use.' },
+      { q: 'Do returning clients get priority access to newly added vintage props or backdrops?', a: 'Ask when booking — we’re happy to let returning clients know what’s newly available in the collection.' },
+      { q: 'Can I book this session as a fun activity for a bachelor or bachelorette party?', a: 'Yes — themed group sessions like this are a popular choice for celebrations; mention your group size and vision when booking.' },
+      { q: 'Is the vintage theme limited to portraits, or can it include full-body or action-style shots?', a: 'Both are possible within the studio setup — mention what kind of framing you want when booking so we can plan the set accordingly.' },
+      { q: 'Can I bring my own vintage vehicle or larger prop that wouldn’t normally fit in a studio?', a: 'Ask when booking — larger or unusual personal props can sometimes be accommodated depending on studio space and setup requirements.' },
+      { q: 'Do you offer any lighting styles beyond the standard period-accurate look, like a more modern take on a vintage set?', a: 'Yes — while period-accurate lighting is the default, a more contemporary lighting approach on the same vintage set can be discussed if that’s the look you want.' },
+      { q: 'Is this session available for kids or is it strictly an adult session?', a: 'Kids and family-friendly themed sessions are welcome — mention ages when booking so we can plan appropriate pacing and props.' },
+      { q: 'Can I preview the available props and backdrops before booking, like photos of the studio setup?', a: 'Ask when you reach out — we’re glad to describe or share references for currently available set pieces before you book.' },
+      { q: 'Do you offer this session as a gift for someone who loves vintage or retro style?', a: 'Yes — gift certificates are available for any session type, including this one.' },
+    ],
+  },
+
+  'Digital Scans Add-On': {
+    intro: 'High-resolution digital scans of your film negatives, delivered alongside your darkroom prints, so you can share and post online without ever touching an AI editing tool. This add-on pairs with any session — you keep the physical prints and negative, and get a clean digital file for anything that needs to live online. It exists specifically because film photography and needing to share something on Instagram or LinkedIn aren’t mutually exclusive.',
+    introExtra: 'Choosing real film doesn’t mean opting out of the internet — most clients still need something digital eventually, whether that’s a LinkedIn headshot, a wedding photo for a shared album, or a family portrait sent to relatives who couldn’t make it. This add-on exists specifically so that need doesn’t force a compromise on the "no AI, real film" standard anywhere in the process.',
+    features: [
+      'High-resolution scans of your actual film negatives, not a re-photograph of the print',
+      'Delivered digitally alongside your physical darkroom prints',
+      'No AI upscaling or enhancement — the scan reflects exactly what’s on the negative',
+      'Pairs with any other service on this list',
+    ],
+    idealFor: [
+      'Anyone who wants both a physical print and a digital file for social media or a website',
+      'Clients who need to share photos quickly without waiting on physical prints alone',
+      'Businesses that need a corporate headshot both printed and available as a digital file',
+    ],
+    process: [
+      { title: 'Add It to Any Booking', body: 'This isn’t a standalone session — it’s added to any other service on booking, whether that’s a portrait, wedding, headshot, or any other session type.' },
+      { title: 'Negative Scanning', body: 'Once your film is developed, negatives are scanned at high resolution using dedicated film-scanning equipment — a direct capture of what’s actually on the negative, not a photo of a print.' },
+      { title: 'Quality Check', body: 'Each scan is checked for proper exposure and color/tone accuracy relative to the negative before delivery — the goal is a scan that reflects exactly what the film captured, not an enhanced or altered version of it.' },
+      { title: 'Delivery', body: 'Scans are typically delivered within 2-3 business days of development — faster than the 5-7 business days for hand-printed darkroom prints, since scanning doesn’t require the same hand-printing process.' },
+    ],
+    whyFilm: [
+      'It might seem like digital scans and a "no AI" film photography brand are in tension — but they’re not. A scan is a direct, mechanical capture of exactly what exists on the physical negative. It’s not generated, not upscaled by a model guessing at detail that isn’t there, not "enhanced" by an algorithm deciding what the image should look like. It’s the same honest, unaltered image as the print — just in a digital format for practical sharing.',
+      'This distinction matters more than it might seem. Plenty of "film-look" content online is actually a digital photo run through an AI filter that fakes grain and tonal characteristics. A scan of a real negative has none of that — the grain is real because the film is real; the tonal range is real because it was actually exposed that way.',
+      'Practically, this add-on exists because most people today do need something shareable online, even when they specifically want real film photography — a LinkedIn headshot, a wedding photo for social media, a family portrait to send to relatives who couldn’t be there. This service bridges that gap without compromising the "real film, no AI" standard anywhere in the process.',
+      'It’s also worth being explicit about what this add-on is not: it’s not a way to "fix" a photo digitally after the fact. There’s no digital retouching layer applied during scanning — what you get is a faithful digital copy of the same physical negative your darkroom print comes from, sharing the same honest, unaltered character.',
+    ],
+    pricingDetail: [
+      'This is an add-on to any other service, not a standalone hourly booking — pricing is added to whichever primary session you’re scheduling, confirmed when you book.',
+      'Scans are typically delivered within 2-3 business days of development, faster than the 5-7 business days for hand-printed darkroom prints, since scanning doesn’t require the hand-printing process a physical print does.',
+    ],
+    extraSection: {
+      title: 'Scan Specs & File Format',
+      badge: 'Technical Details',
+      paragraphs: [
+        'Negatives are scanned using dedicated film-scanning equipment rather than a flatbed scanner or a photograph-of-a-print approach — the difference matters because a direct negative scan captures far more real detail and tonal range than a secondary capture of an already-printed image.',
+        'Files are delivered at a resolution suitable for both web use and reasonably sized printing elsewhere if you decide later that you want a print made outside our darkroom — though for the best possible print quality, our own hand-printed darkroom prints, made directly from the negative, remain the stronger option.',
+        'No AI upscaling, sharpening, or enhancement is applied at any stage — the scan reflects exactly what exists on the negative. If a frame has natural film grain or a specific tonal character from how it was shot, the scan preserves that faithfully rather than smoothing or "improving" it.',
+      ],
+    },
+    preparation: [
+      'Decide before your session (or at least before development) whether you want scans, so we can plan the workflow accordingly.',
+      'If you have a specific platform or use case (LinkedIn, a wedding website, a printed announcement), mention the format or dimensions you need.',
+      'Scans reflect exactly what’s on the negative — if you want a specific crop or framing, that’s best planned during the actual shoot, not after.',
+      'This add-on works with any other service — mention it when booking whichever primary session you’re scheduling.',
+    ],
+    faqs: [
+      { q: 'Do digital scans look as good as the physical prints?', a: 'They capture the same image with real fidelity, though a hand-printed darkroom print has a tonal depth — genuine blacks, dodge-and-burn detail — that a screen can’t fully reproduce. Most clients want both for different purposes.' },
+      { q: 'Can I get scans without ordering physical prints?', a: 'This is offered as an add-on to another service, so it’s paired with a primary session — but scans can be prioritized if physical prints aren’t your main goal.' },
+      { q: 'What resolution are the scans?', a: 'High-resolution, suitable for both web use and reasonably sized printing through other services if you decide you want a print later.' },
+      { q: 'Do you edit or retouch the scans at all?', a: 'Only traditional adjustments equivalent to darkroom printing techniques — no AI retouching, skin smoothing, or generative editing, consistent with our process for physical prints.' },
+      { q: 'How quickly can I get scans if I need them urgently?', a: 'Standard turnaround is 2-3 business days after development — mention any specific deadline when you book and we’ll do what we can to accommodate it.' },
+      { q: 'Can I order scans of old negatives I already have, without a new session?', a: 'Yes — that’s typically handled through the Fine Art Darkroom Prints service, which accepts your own existing negatives; ask about pairing it with scans.' },
+      { q: 'Can I get scans of every frame from a roll, or just selected ones?', a: 'Both are available — full-roll scanning gives you every frame, while selected scanning focuses on your top picks; discuss your preference when booking.' },
+      { q: 'What file format are the scans delivered in?', a: 'Standard high-resolution image files suitable for both web sharing and further printing elsewhere — ask about specific format needs if you have a particular use case.' },
+      { q: 'Do you keep a backup of my scans after delivery?', a: 'Ask about our file retention policy when you book — we recommend keeping your own backup copy regardless once files are delivered.' },
+      { q: 'Can I request scans in black and white only, or is there a color option?', a: 'Since this pairs with our black and white film sessions, scans reflect the black and white negative directly — there’s no color conversion involved since the source material is already black and white.' },
+      { q: 'How is a scan different from a photo of the print taken on my phone?', a: 'A dedicated negative scan captures far more real detail and tonal range directly from the negative — a phone photo of a physical print loses detail, introduces glare and color shift, and is a secondary, lower-quality capture.' },
+      { q: 'Can I get scans delivered via a shared cloud folder or do I need to be there in person?', a: 'Scans are delivered digitally, no in-person pickup required — ask about delivery method when booking.' },
+      { q: 'Does adding scans slow down the delivery of my physical prints?', a: 'No — scans and darkroom prints are processed as separate workflows, so adding scans doesn’t delay your physical print timeline.' },
+      { q: 'Can I order scans after already receiving my physical prints, if I change my mind?', a: 'Yes — as long as the negatives are still accessible, scans can be ordered after the fact.' },
+      { q: 'Are scans watermarked, or is the file clean for my own use?', a: 'Delivered scans are clean, unwatermarked files intended for your own use — ask about any specific commercial licensing terms if applicable.' },
+      { q: 'Do you offer a lower-resolution version specifically optimized for social media file size limits?', a: 'Ask when you book if you need a specific file size or dimension for a particular platform — we can deliver accordingly.' },
+      { q: 'Can I request scans in a specific aspect ratio different from the original negative?', a: 'The scan reflects the full negative by default; specific crops can be requested and are typically planned during the original shoot for the best result.' },
+      { q: 'How does this add-on work if I’m booking the Vintage Camera Consultation & Rental instead of a photography session?', a: 'Scans are meant to pair with a session where we do the shooting — for film you shoot yourself during a camera rental, ask about separate film processing and scanning options when you return the camera.' },
+      { q: 'Can I get a contact sheet scan showing every frame from a roll at once, in addition to individual scans?', a: 'Yes — a full contact sheet scan can be provided alongside individual high-resolution scans if you want an overview of the whole roll.' },
+      { q: 'Does this add-on cost the same regardless of how many frames I want scanned?', a: 'Pricing is confirmed when you add this to your booking and can vary based on the number of frames — ask for specifics based on your session.' },
+      { q: 'If I only want a couple of frames scanned rather than a whole roll, is that an option?', a: 'Yes — selective scanning of just your favorite frames is available if you don’t need every image from the roll.' },
+      { q: 'Do you offer scans as a standalone service for negatives I already have, separate from a booked session?', a: 'That’s typically handled alongside the Fine Art Darkroom Prints service, which accepts your own existing negatives — ask about pairing scans with that service.' },
+      { q: 'Can I get a scan of a negative that was shot on a different camera than what I usually use with you?', a: 'Yes — as long as it’s film we can develop and scan, the specific camera used doesn’t affect our ability to scan the negative.' },
+      { q: 'Do you scan in a way that preserves the sprocket holes and film edge markings for an authentic look?', a: 'Ask when booking — a full-frame scan including edge markings and sprocket holes can be requested if that aesthetic matters to your project.' },
+      { q: 'Is there a limit to how many total scans I can order from one session?', a: 'No fixed limit — the number of scans is discussed and confirmed when you add this service to your booking.' },
+      { q: 'Can I request scans be color-corrected or is that not applicable for black and white negatives?', a: 'Color correction doesn’t apply to black and white negatives — tonal balance is checked instead, to make sure the scan faithfully reflects the negative’s exposure.' },
+    ],
+  },
+
+  'Vintage Camera Consultation & Rental': {
+    intro: 'One-on-one consultation on vintage 35mm film cameras, plus rental of a fully working body for your own shoot — real gear, real guidance, no AI in the loop. If you’re curious about shooting film yourself, this is a hands-on introduction from people who do it every day. This service stands entirely on its own — no obligation to book a full photography session — for anyone who wants to actually learn and try shooting film themselves.',
+    introExtra: 'Getting started with film photography has a real barrier most people underestimate: buying a vintage camera blind, often off a marketplace listing with no way to verify it actually works, then losing a full roll of film to a light leak or a broken shutter before finding out. This service removes that risk entirely — a tested, working body, real guidance, and a genuine hands-on introduction before you ever have to commit to owning gear yourself.',
+    features: [
+      'One-on-one consultation on vintage 35mm camera bodies and how to use them',
+      'Rental of a fully working, tested camera body for your own project',
+      'Guidance on film stock selection, exposure, and basic darkroom process',
+      'No obligation to book a full session — this stands alone as its own service',
+    ],
+    idealFor: [
+      'Anyone curious about getting into film photography themselves',
+      'Photography students who want hands-on time with real vintage gear',
+      'Hobbyists who want expert guidance before buying their own camera',
+    ],
+    process: [
+      { title: 'The Consultation', body: 'We start with a real conversation about your experience level and goals — total beginner, someone returning to film after years away, or a student wanting to supplement digital work with analog experience — since the right camera and guidance depends entirely on that starting point.' },
+      { title: 'Camera Selection', body: 'Based on that conversation, we recommend a specific vintage body from our working collection — fully tested and confirmed functional before it goes out, since a broken light seal or a sticky shutter can ruin an entire roll without you knowing until it’s developed.' },
+      { title: 'Hands-On Walkthrough', body: 'Before you leave with the camera, we walk through loading film, basic exposure settings, and how that specific body’s quirks work — every vintage camera has its own personality, and a five-minute walkthrough prevents most beginner mistakes.' },
+      { title: 'Shooting on Your Own', body: 'The camera is yours for the rental period to shoot on your own schedule — your own project, your own pace, real hands-on experience rather than just watching someone else shoot.' },
+      { title: 'Return & Follow-Up', body: 'When you return the camera, we’re happy to talk through how the shoot went and answer questions — and if you want your rolls developed, that can be arranged separately through our darkroom.' },
+    ],
+    whyFilm: [
+      'There’s a real, growing interest in film photography right now, and a lot of it is happening among people who’ve never actually held a fully manual camera — everything they know about photography comes from a phone that handles exposure, focus, and processing automatically. This service exists specifically to close that gap with real, hands-on experience rather than a YouTube tutorial.',
+      'Vintage camera bodies also have something modern digital cameras and phones deliberately design away: manual constraint. No auto-everything mode, no AI scene detection, no computational assistance — just you, a light meter, and a decision about aperture and shutter speed. Learning on a body like that teaches photography fundamentals in a way that’s hard to shortcut.',
+      'And renting rather than buying outright lets someone genuinely test whether film photography is something they want to commit to — a real vintage body, properly tested and guided, without the risk of buying a camera on eBay that turns out to have a light leak or a broken meter.',
+      'There’s also something worth saying plainly about learning on manual gear specifically: it teaches you to actually see light, rather than trusting a phone’s automatic metering to handle it invisibly. That skill carries over into every kind of photography afterward, film or otherwise — it’s the difference between operating a camera and actually understanding one.',
+    ],
+    pricingDetail: [
+      'This service follows the same flat $300/hr rate structure, applied to the consultation and walkthrough time — specific rental period terms and any additional rental cost are confirmed during booking based on how long you need the camera.',
+      'No obligation exists to book any other service — this stands entirely on its own for anyone who just wants to learn and shoot on their own.',
+    ],
+    extraSection: {
+      title: 'Available Camera Bodies',
+      badge: 'The Gear',
+      paragraphs: [
+        'Our rental collection is a working set of genuine vintage 35mm film camera bodies, each tested and confirmed fully functional before it goes out — light seals checked, shutter speeds verified, meter accuracy confirmed where the camera has a built-in meter. We don’t rent out anything we haven’t personally verified works properly, because a broken light seal can ruin an entire roll without you knowing until it’s developed.',
+        'Bodies range from fully manual classics with no built-in metering (which teach exposure fundamentals most directly) to slightly more modern vintage bodies with built-in light meters, better suited to a first-time shooter who wants a gentler learning curve. During the consultation, we’ll recommend the specific body that matches your experience level and goals.',
+        'Basic accessories — a light meter if the body doesn’t have one built in, a strap, and guidance on film stock — are covered as part of the consultation, so you leave with everything needed to actually shoot, not just a camera body and good intentions.',
+      ],
+    },
+    preparation: [
+      'Come to the consultation with your experience level honestly — there’s no wrong starting point, and guidance is tailored accordingly.',
+      'Think about what you want to shoot during the rental period (a specific project, general practice, a trip) so we can recommend the right camera and film stock.',
+      'Ask questions during the walkthrough — better to clarify a loading or exposure detail before you leave than to lose a roll to a preventable mistake.',
+      'Handle the rented body carefully — these are real vintage cameras, some decades old, and part of what makes them special is that they’ve been kept in genuinely working condition.',
+      'If you want your shot rolls developed afterward, ask about that when you return the camera — it can be arranged separately.',
+    ],
+    faqs: [
+      { q: 'Do I need any prior photography experience to rent a camera?', a: 'No — this service is built for total beginners as much as experienced photographers. The consultation and walkthrough are tailored to your starting point.' },
+      { q: 'How long is the typical rental period?', a: 'Rental length is discussed and confirmed during booking based on your project — ask about specific timeframes when you reach out.' },
+      { q: 'What if I damage the camera during the rental?', a: 'Terms around damage and care are discussed during the consultation before the camera goes out — ask directly when booking.' },
+      { q: 'Do you supply the film, or do I need to bring my own?', a: 'We can guide you on film stock selection and sourcing during the consultation — ask about availability when you book.' },
+      { q: 'Can you develop the film after I’m done shooting?', a: 'Yes — that can be arranged separately through our darkroom when you return the camera.' },
+      { q: 'Is this available to people who don’t plan to book a full photography session?', a: 'Yes — this stands entirely on its own with no obligation to book any other service.' },
+      { q: 'Can I rent a camera for a trip or vacation, not just local shooting?', a: 'Ask when booking — rental terms for travel outside the Bay Area are handled on a case-by-case basis.' },
+      { q: 'What happens if I lose or damage the rented camera?', a: 'Care and damage terms are discussed during the consultation before the camera goes out, so expectations are clear from the start.' },
+      { q: 'Do you offer a follow-up consultation after I return the camera?', a: 'Yes — we’re glad to talk through how the shoot went, answer questions, and help plan next steps if you want to keep shooting film.' },
+      { q: 'Can I rent a camera as a gift for someone else to use?', a: 'Ask when booking — the consultation is most useful with the actual person who’ll be shooting present, but arrangements can be discussed.' },
+      { q: 'Do you offer group or class-style consultations for multiple beginners at once?', a: 'Individual consultations are the standard format; ask about group scheduling if you have multiple people interested at once.' },
+      { q: 'What’s the difference between renting here versus buying a cheap vintage camera online?', a: 'A camera bought blind online has no guarantee it actually works — light seals, shutter accuracy, and meter function are all unknowns until you’ve wasted a roll finding out. Every camera in our rental collection is tested and verified working before it goes out.' },
+      { q: 'Can this consultation help me choose which vintage camera to eventually buy?', a: 'Yes — trying different bodies through rental before committing to a purchase is one of the most common reasons people use this service.' },
+      { q: 'Is there a minimum rental period?', a: 'Minimum and maximum rental terms are discussed and confirmed during booking based on your specific project needs.' },
+      { q: 'Can I schedule a follow-up consultation later to try a different camera body?', a: 'Yes — many people rent a few different bodies over time to find what they like best before deciding on their own eventual camera.' },
+      { q: 'What kind of film should a total beginner start with?', a: 'We typically recommend a forgiving, widely available black and white stock like Kodak Tri-X 400 for a first roll — we’ll confirm the right choice for your specific camera and lighting during the consultation.' },
+      { q: 'Does the consultation cover basic darkroom development too, or just the camera?', a: 'The consultation focuses on the camera itself; darkroom development of your shot rolls can be arranged separately when you return the camera.' },
+      { q: 'Is this a good option for a photography class assignment or school project?', a: 'Yes — students frequently use this service for coursework requiring hands-on film camera experience.' },
+      { q: 'Can I rent a second camera body at the same time if I want a backup?', a: 'Ask when booking — a second body may be available depending on current inventory and availability.' },
+      { q: 'Do you offer any resources or reading material alongside the consultation for further learning?', a: 'We’re glad to point you toward resources for continued learning after the consultation — ask if you want recommendations.' },
+      { q: 'Is there an option to purchase a vintage camera outright after renting it, if I fall in love with it?', a: 'Our rental fleet is kept in active rotation rather than sold, but during the consultation we’re happy to point you toward where to look for a similar body if you want to buy your own.' },
+      { q: 'Does the consultation cover how to clean and maintain a vintage camera myself?', a: 'Basic care guidance is covered — for anything beyond routine care, we can point you toward a trusted camera repair technician.' },
+      { q: 'Can I test a couple of different camera bodies side by side before deciding which to rent?', a: 'Yes — the consultation is a good time to handle a few different bodies and compare how each one feels before committing to a rental.' },
+      { q: 'Do you offer this consultation to complete beginners who’ve never held a film camera before?', a: 'Yes — total beginners are exactly who this service is built for; no prior experience is expected or required.' },
+      { q: 'Is a light meter app on my phone a reasonable substitute if a camera body doesn’t have one built in?', a: 'It can work as a starting point, though we’ll also cover reading light by eye during the consultation, since that’s the more durable long-term skill.' },
+    ],
+  },
+}
+
+/** San Francisco service-area neighborhoods, each with a short real description — not a filler list. */
+export const SF_NEIGHBORHOODS: { name: string; blurb: string }[] = [
+  { name: 'Mission District', blurb: 'murals and taquerias, great black and white texture' },
+  { name: 'Noe Valley', blurb: 'quiet Victorian streets, family portrait sessions' },
+  { name: 'The Castro', blurb: 'color and character, great for portrait and event work' },
+  { name: 'Haight-Ashbury', blurb: 'vintage-styled sessions right at home' },
+  { name: 'Pacific Heights', blurb: 'classic architecture, corporate headshot clients' },
+  { name: 'Nob Hill', blurb: 'skyline views, elegant portrait backdrops' },
+  { name: 'SoMa', blurb: 'corporate headshots and studio bookings' },
+  { name: 'North Beach', blurb: 'old-world charm, engagement sessions' },
+  { name: 'The Sunset', blurb: 'foggy beach light, moody black and white' },
+  { name: 'The Richmond', blurb: 'Golden Gate Park nearby, family sessions' },
+  { name: 'Bernal Heights', blurb: 'hilltop views, sunset portrait light' },
+  { name: 'Potrero Hill', blurb: 'industrial texture, editorial-style shoots' },
+]
+
+/**
+ * Real, sourced stats on film photography's resurgence — every figure here
+ * was verified against its primary/reported source (Fortune's reporting,
+ * Kodak's own Q4 2025 investor results, PetaPixel, and Ilford Photo's 2024
+ * survey) before being used. Deliberately excludes a couple of more
+ * eye-catching numbers ("127% wholesale growth," "312 new labs") that only
+ * turned up on SEO/wholesale-blog aggregation, not a primary source — not
+ * putting unverifiable stats on a client's site.
+ */
+export const FILM_STATS: { stat: string; label: string; source: string }[] = [
+  { stat: '35%', label: "of the world's 42 million active film camera users are age 18–30", source: 'Fortune, 2025' },
+  { stat: '41%', label: 'year-over-year rise in searches for analog photography', source: 'Reported via Fortune, 2025' },
+  { stat: '36%', label: "growth in Kodak's motion picture film revenue over the past two years", source: 'Kodak VP Vanessa Bendetti, Kodak Q4 2025 results' },
+  { stat: '30%+', label: "of respondents to Ilford Photo's 2024 survey were age 25–34", source: 'Ilford Photo, 2024 survey' },
+  { stat: '"Best Year in Decades"', label: 'how PetaPixel described 2024 for film photography', source: 'PetaPixel, 2024' },
+  { stat: 'Rising Every Year', label: 'disposable camera sales, climbing steadily since 2023', source: 'Reported via Fortune, 2025' },
+]
+
+/** Additional real FAQ entries beyond the generic engine's set — pricing, film stock, logistics. */
+export function photographyExtraFaq(place: string): { q: string; a: string }[] {
+  return [
+    { q: 'What film stock do you shoot?', a: `Primarily Kodak Tri-X 400 for its classic black and white grain, with Ilford HP5 as an alternative depending on the light and the session. Every roll is developed by hand, never sent to an AI upscaling tool.` },
+    { q: 'Do I get digital scans, or only physical prints?', a: `Both, if you want them. The Digital Scans Add-On gets you high-resolution scans of your negatives for sharing and printing elsewhere, alongside your physical darkroom prints.` },
+    { q: 'How long does it take to get my photos?', a: `Darkroom prints typically take 5-7 business days to develop and print by hand. Digital scans, when added, are usually ready in 2-3 business days.` },
+    { q: 'Do you shoot corporate headshots?', a: `Yes — black and white corporate headshots are one of our most-booked sessions, for individuals and full teams in ${place}.` },
+    { q: 'Can you shoot outside San Francisco?', a: `Yes, within the Bay Area — reach out with your location and we'll confirm travel details before booking.` },
+    { q: 'Do you rent out vintage cameras?', a: `Yes — the Vintage Camera Consultation & Rental service includes a real 35mm body plus guidance on how to use it for your own shoot.` },
+    { q: 'What if it rains on my session day?', a: `We reschedule at no charge for weather that would ruin an outdoor session. Studio sessions are unaffected either way.` },
+    { q: 'Do you retouch or edit photos with AI?', a: `Never. Every edit is done by hand in the darkroom or with traditional printing techniques — no AI photo editing, no AI-generated portraits, ever.` },
+    { q: 'Can I book a group or family session with more than 5 people?', a: `Yes — larger group and family sessions are available, just note the group size when you book so we can plan the right amount of time.` },
+    { q: 'Do you offer gift certificates?', a: `Yes, gift certificates are available for any session type — text or call to arrange one.` },
+    { q: 'What sizes do darkroom prints come in?', a: `Standard sizes run from 5x7 up to 16x20, all hand-printed on archival photo paper. Custom sizes are available on request.` },
+    { q: 'Is there a deposit required to book?', a: `Yes, a deposit secures your date; the balance is due at the session. Exact terms are confirmed when you book.` },
+    { q: 'Can I reschedule if something comes up?', a: `Yes, with reasonable notice — reach out as soon as you know and we'll find a new date.` },
+    { q: 'Do you shoot weddings outside the traditional package?', a: `Yes — partial-day coverage and elopements are available in addition to full-day black and white film wedding photography.` },
+  ]
+}

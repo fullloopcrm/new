@@ -2,6 +2,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { useState, useEffect } from 'react'
+import { dialDigits } from '@/lib/phone'
 
 interface NavProps {
   businessName: string
@@ -26,7 +27,7 @@ export default function MarketingNav({ businessName, phone, email, logoUrl, stri
   const [servicesOpen, setServicesOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
 
-  const phoneDigits = phone.replace(/\D/g, '')
+  const phoneDigits = dialDigits(phone)
   const formattedPhone = phone || ''
 
   // Lock body scroll when menu is open

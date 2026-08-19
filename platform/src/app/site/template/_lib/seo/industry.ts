@@ -39,6 +39,13 @@ export interface IndustryProfile {
    * industry gets by default.
    */
   isPureRetail: boolean
+  /**
+   * True for photography tenants — drives the film-strip/sprocket-hole editorial
+   * treatment on GenericHome instead of the plain stacked-section layout every
+   * other trade gets. Purely additive: every other industry renders exactly as
+   * before.
+   */
+  isPhotography: boolean
   /** Title-case service label, e.g. "House Cleaning", "Plumbing", "Home Services". */
   serviceLabel: string
   /** Lowercase noun for mid-sentence use, e.g. "plumbing", "home services". */
@@ -68,7 +75,7 @@ const LABEL_BY_KEY: Record<string, string> = {
   paving: 'Paving', windows_doors: 'Windows & Doors', stucco: 'Stucco', solar: 'Solar Installation',
   smart_home: 'Smart Home & Security', accessibility: 'Accessibility & Mobility',
   restoration: 'Restoration', interior_design: 'Interior Design', general: 'Home Services',
-  streetwear: 'Streetwear',
+  streetwear: 'Streetwear', photography: 'Photography',
 }
 
 export function industryProfile(industry?: string | null): IndustryProfile {
@@ -104,6 +111,7 @@ export function industryProfile(industry?: string | null): IndustryProfile {
 
   const isProjectLed = PROJECT_LEAD_INDUSTRIES.has(key as IndustryKey)
   const isPureRetail = key === 'streetwear'
+  const isPhotography = key === 'photography'
 
   return {
     key,
@@ -112,6 +120,7 @@ export function industryProfile(industry?: string | null): IndustryProfile {
     isRemote: isVirtualAssistant,
     isProjectLed,
     isPureRetail,
+    isPhotography,
     serviceLabel,
     serviceNoun: serviceLabel.toLowerCase(),
   }

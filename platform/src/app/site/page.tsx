@@ -12,6 +12,7 @@ import Image from 'next/image'
 import VideoReviews from '@/components/marketing/VideoReviews'
 import HeroChat from '@/components/marketing/HeroChat'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
+import { dialDigits } from '@/lib/phone'
 
 
 const content = homepageContent()
@@ -124,7 +125,7 @@ export default async function HomePage() {
   // injects x-tenant-id for tenant domains and these resolve per-tenant.
   const name = tenant?.name || '[Your Business]'
   const phone = tenant?.phone || '[phone]'
-  const phoneDigits = (tenant?.phone || '').replace(/\D/g, '')
+  const phoneDigits = dialDigits(tenant?.phone || '')
   const email = tenant?.email || '[email]'
 
   const schemas = [...homepageSchemas(), faqSchema(homepageFAQs), ...videoReviewsSchemas()]
