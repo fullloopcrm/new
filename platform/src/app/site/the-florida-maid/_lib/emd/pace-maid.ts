@@ -6,7 +6,7 @@ export const paceMaidConfig: EmdMicrositeConfig = {
   city: 'Pensacola',
   regionLabel: 'Pace, Santa Rosa County, Pensacola, FL',
   metaTitle: 'Pace Maid and Cleaning Service',
-  metaDescription: 'Pace Maid — house cleaning near US-90 & Chumuckla Hwy, greater Pensacola, FL from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'Pace Maid — house cleaning near US-90 & Chumuckla Hwy, greater Pensacola, FL starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '30.5919', lng: '-87.1725' },
   introParagraphs: [
     "Pace Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning for Pace and the greater Pensacola area — one of the fastest-growing bedroom communities in the Florida Panhandle, just north of Pensacola in Santa Rosa County. If you live in Pace, you know how quickly a growing family in a newer subdivision can get ahead of your cleaning schedule. We built Pace Maid to answer exactly that problem: a local cleaning service that understands life in the greater Pensacola area and shows up on time, every time.",

@@ -6,7 +6,7 @@ export const bocaRatonMaidConfig: EmdMicrositeConfig = {
   city: 'Boca Raton',
   regionLabel: 'Boca Raton, FL',
   metaTitle: 'Boca Raton Maid and Cleaning Service',
-  metaDescription: 'Boca Raton Maid — house cleaning across East Boca, Royal Palm Yacht & Country Club & Boca Del Mar from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'Boca Raton Maid — house cleaning across East Boca, Royal Palm Yacht & Country Club & Boca Del Mar starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '26.3683', lng: '-80.1289' },
   introParagraphs: [
     "Boca Raton Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning across one of South Florida's most polished communities — from Mizner-inspired estates in East Boca to gated golf communities west of I-95. If you live in Boca Raton, you know how quickly Atlantic salt air and a demanding standard of presentation can make cleaning a real job. We built Boca Raton Maid to answer exactly that problem: a local cleaning service that understands this community's expectations and shows up on time, every time.",

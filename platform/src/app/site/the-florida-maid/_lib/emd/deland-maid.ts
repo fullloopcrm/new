@@ -6,7 +6,7 @@ export const delandMaidConfig: EmdMicrositeConfig = {
   city: 'DeLand',
   regionLabel: 'DeLand, FL',
   metaTitle: 'DeLand Maid and Cleaning Service',
-  metaDescription: 'DeLand Maid — house cleaning across Historic Downtown DeLand, Victoria Park & Glenwood from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'DeLand Maid — house cleaning across Historic Downtown DeLand, Victoria Park & Glenwood starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '29.0283', lng: '-81.3031' },
   introParagraphs: [
     "DeLand Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning across the 'Athens of Florida' — a Volusia County city known for its historic brick-lined downtown, Stetson University, and oak-canopied neighborhoods. If you live in DeLand, you know how quickly humidity and mature tree canopy can wear down a home. We built DeLand Maid to answer exactly that problem: a local cleaning service that understands this community and shows up on time, every time.",

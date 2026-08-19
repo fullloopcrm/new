@@ -6,7 +6,7 @@ export const fortLauderdaleMaidConfig: EmdMicrositeConfig = {
   city: 'Fort Lauderdale',
   regionLabel: 'Fort Lauderdale, FL',
   metaTitle: 'Fort Lauderdale Maid and Cleaning Service',
-  metaDescription: 'Fort Lauderdale Maid — house cleaning across Las Olas, Victoria Park & Rio Vista from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'Fort Lauderdale Maid — house cleaning across Las Olas, Victoria Park & Rio Vista starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '26.1224', lng: '-80.1373' },
   introParagraphs: [
     "Fort Lauderdale Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning across the canals, waterfront estates, and downtown high-rises that make Fort Lauderdale the 'Venice of America.' If you live in Fort Lauderdale, you know how quickly salt air, humidity, and boat traffic can wear down a home. We built Fort Lauderdale Maid to answer exactly that problem: a local cleaning service that understands waterfront living and shows up on time, every time.",

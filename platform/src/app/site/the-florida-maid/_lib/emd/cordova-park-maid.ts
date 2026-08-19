@@ -6,7 +6,7 @@ export const cordovaParkMaidConfig: EmdMicrositeConfig = {
   city: 'Pensacola',
   regionLabel: 'Cordova Park, Pensacola, FL',
   metaTitle: 'Cordova Park Maid and Cleaning Service',
-  metaDescription: 'Cordova Park Maid — house cleaning near Cordova Mall & Bayou Blvd, Pensacola, FL from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'Cordova Park Maid — house cleaning near Cordova Mall & Bayou Blvd, Pensacola, FL starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '30.4674', lng: '-87.2114' },
   introParagraphs: [
     "Cordova Park Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning for the Cordova Park neighborhood and the surrounding Pensacola area — an established, centrally-located residential pocket near Cordova Mall and Bayou Boulevard. If you live in Cordova Park, you know how quickly Gulf Coast humidity and everyday life can get ahead of a busy household. We built Cordova Park Maid to answer exactly that problem: a local cleaning service that understands Pensacola living and shows up on time, every time.",

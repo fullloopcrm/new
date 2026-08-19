@@ -6,7 +6,7 @@ export const ensleyMaidConfig: EmdMicrositeConfig = {
   city: 'Pensacola',
   regionLabel: 'Ensley, Pensacola, FL',
   metaTitle: 'Ensley Maid and Cleaning Service',
-  metaDescription: 'Ensley Maid — house cleaning near Blue Angel Pkwy & Barrancas Ave, Pensacola, FL from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'Ensley Maid — house cleaning near Blue Angel Pkwy & Barrancas Ave, Pensacola, FL starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '30.4974', lng: '-87.2751' },
   introParagraphs: [
     "Ensley Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning for Ensley and the surrounding Pensacola area — a working, west-side community along the Blue Angel Parkway and Barrancas Avenue corridor. If you live in Ensley, you know how quickly Gulf Coast humidity and a busy household can get ahead of even a well-kept home. We built Ensley Maid to answer exactly that problem: a local cleaning service that understands Pensacola living and shows up on time, every time.",

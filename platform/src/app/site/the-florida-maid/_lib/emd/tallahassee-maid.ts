@@ -6,7 +6,7 @@ export const tallahasseeMaidConfig: EmdMicrositeConfig = {
   city: 'Tallahassee',
   regionLabel: 'Tallahassee, FL',
   metaTitle: 'Tallahassee Maid and Cleaning Service',
-  metaDescription: 'Tallahassee Maid — house cleaning across Midtown, Killearn Estates & Betton Hills from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'Tallahassee Maid — house cleaning across Midtown, Killearn Estates & Betton Hills starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '30.4383', lng: '-84.2807' },
   introParagraphs: [
     "Tallahassee Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning across Florida's state capital — a city shaped by two major universities, a state legislature that fills up rentals every spring session, and oak-canopied neighborhoods that feel more Georgia than South Florida. If you live in Tallahassee, you know the rhythm: FSU and FAMU move-in and move-out surges, legislative session housing turnover, and a red-clay landscape that tracks indoors easily. We built Tallahassee Maid to answer exactly that problem: a local cleaning service that understands this city's unique calendar and shows up on time, every time.",

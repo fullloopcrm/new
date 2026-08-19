@@ -6,7 +6,7 @@ export const warringtonMaidConfig: EmdMicrositeConfig = {
   city: 'Pensacola',
   regionLabel: 'Warrington, Pensacola, FL',
   metaTitle: 'Warrington Maid and Cleaning Service',
-  metaDescription: 'Warrington Maid — house cleaning near NAS Pensacola & Navy Blvd, Pensacola, FL from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'Warrington Maid — house cleaning near NAS Pensacola & Navy Blvd, Pensacola, FL starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '30.3372', lng: '-87.2699' },
   introParagraphs: [
     "Warrington Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning for Warrington and the surrounding Pensacola area — a historic Navy town neighborhood right outside the main gate of NAS Pensacola. If you live in Warrington, you know how quickly Gulf Coast humidity and a demanding military schedule can get ahead of your household. We built Warrington Maid to answer exactly that problem: a local cleaning service that understands Pensacola's Navy-town rhythm and shows up on time, every time.",

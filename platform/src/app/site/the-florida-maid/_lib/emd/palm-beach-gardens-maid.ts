@@ -6,7 +6,7 @@ export const palmBeachGardensMaidConfig: EmdMicrositeConfig = {
   city: 'Palm Beach Gardens',
   regionLabel: 'Palm Beach Gardens, FL',
   metaTitle: 'Palm Beach Gardens Maid and Cleaning Service',
-  metaDescription: 'Palm Beach Gardens Maid — house cleaning across PGA National, BallenIsles & Mirasol from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'Palm Beach Gardens Maid — house cleaning across PGA National, BallenIsles & Mirasol starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '26.8234', lng: '-80.1584' },
   introParagraphs: [
     "Palm Beach Gardens Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning across one of Palm Beach County's most prestigious golf communities — home to PGA National, BallenIsles, and some of the finest gated estates on Florida's Gold Coast. If you live in Palm Beach Gardens, you know how much this community's presentation standards matter to residents. We built Palm Beach Gardens Maid to answer exactly that problem: a local cleaning service that understands this community's expectations and shows up on time, every time.",

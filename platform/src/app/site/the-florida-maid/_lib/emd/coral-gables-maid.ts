@@ -6,7 +6,7 @@ export const coralGablesMaidConfig: EmdMicrositeConfig = {
   city: 'Coral Gables',
   regionLabel: 'Coral Gables, FL',
   metaTitle: 'Coral Gables Maid and Cleaning Service',
-  metaDescription: 'Coral Gables Maid — house cleaning across the Biltmore Section, Cocoplum & Gables Estates from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'Coral Gables Maid — house cleaning across the Biltmore Section, Cocoplum & Gables Estates starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '25.7215', lng: '-80.2684' },
   introParagraphs: [
     "Coral Gables Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning across Miami's 'City Beautiful' — a meticulously planned community known for Mediterranean Revival architecture, banyan-lined streets, and some of South Florida's most storied estate homes. If you live in Coral Gables, you know how quickly mature tree canopy and Miami humidity can wear down a home. We built Coral Gables Maid to answer exactly that problem: a local cleaning service that understands this city's architectural character and shows up on time, every time.",

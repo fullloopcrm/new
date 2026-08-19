@@ -6,7 +6,7 @@ export const pompanoBeachMaidConfig: EmdMicrositeConfig = {
   city: 'Pompano Beach',
   regionLabel: 'Pompano Beach, FL',
   metaTitle: 'Pompano Beach Maid and Cleaning Service',
-  metaDescription: 'Pompano Beach Maid — house cleaning across Palm-Aire, Harbor Village & Cypress Bend from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'Pompano Beach Maid — house cleaning across Palm-Aire, Harbor Village & Cypress Bend starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '26.2379', lng: '-80.1248' },
   introParagraphs: [
     "Pompano Beach Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning across a city that mixes quiet golf communities, canal-front homes, and a working beachfront that still feels like Old Florida. If you live in Pompano Beach, you know how quickly salt air and canal humidity can wear down a home. We built Pompano Beach Maid to answer exactly that problem: a local cleaning service that understands coastal Broward living and shows up on time, every time.",

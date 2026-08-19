@@ -6,7 +6,7 @@ export const winterParkMaidConfig: EmdMicrositeConfig = {
   city: 'Winter Park',
   regionLabel: 'Winter Park, FL',
   metaTitle: 'Winter Park Maid and Cleaning Service',
-  metaDescription: 'Winter Park Maid — house cleaning across Park Avenue, Interlachen & Comstock Park from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'Winter Park Maid — house cleaning across Park Avenue, Interlachen & Comstock Park starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '28.5999', lng: '-81.3392' },
   introParagraphs: [
     "Winter Park Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning across one of Central Florida's most polished, historic communities — a lakefront college town built around Rollins College, brick-paved streets, and a chain of spring-fed lakes. If you live in Winter Park, you know how much this community's presentation standards and mature oak canopy shape how a home should look. We built Winter Park Maid to answer exactly that problem: a local cleaning service that understands this community's expectations and shows up on time, every time.",

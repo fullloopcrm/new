@@ -6,7 +6,7 @@ export const naplesMaidConfig: EmdMicrositeConfig = {
   city: 'Naples',
   regionLabel: 'Naples, FL',
   metaTitle: 'Naples Maid and Cleaning Service',
-  metaDescription: 'Naples Maid — house cleaning across Olde Naples, Park Shore & Pelican Bay from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'Naples Maid — house cleaning across Olde Naples, Park Shore & Pelican Bay starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '26.1420', lng: '-81.7948' },
   introParagraphs: [
     "Naples Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning across one of Florida's most refined Gulf Coast communities — from historic Olde Naples cottages to some of the most exclusive gated estates in the state. If you live in Naples, you know how quickly Gulf salt air and a demanding standard of presentation can make cleaning a real job. We built Naples Maid to answer exactly that problem: a local cleaning service that understands this community's expectations and shows up on time, every time.",

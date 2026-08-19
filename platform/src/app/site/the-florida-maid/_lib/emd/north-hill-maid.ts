@@ -6,7 +6,7 @@ export const northHillMaidConfig: EmdMicrositeConfig = {
   city: 'Pensacola',
   regionLabel: 'North Hill, Pensacola, FL',
   metaTitle: 'North Hill Maid and Cleaning Service',
-  metaDescription: 'North Hill Maid — house cleaning across the North Hill Preservation District, Pensacola, FL from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'North Hill Maid — house cleaning across the North Hill Preservation District, Pensacola, FL starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '30.4227', lng: '-87.2145' },
   introParagraphs: [
     "North Hill Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning for the North Hill Preservation District and the surrounding Pensacola area — one of the city's most architecturally significant neighborhoods, full of Victorian, Queen Anne, and Colonial Revival homes. If you live in North Hill, you know how quickly original woodwork and vintage fixtures demand a different kind of care than a newer build. We built North Hill Maid to answer exactly that problem: a local cleaning service that understands Pensacola living and shows up on time, every time.",

@@ -6,7 +6,7 @@ export const winterGardenMaidConfig: EmdMicrositeConfig = {
   city: 'Winter Garden',
   regionLabel: 'Winter Garden, FL',
   metaTitle: 'Winter Garden Maid and Cleaning Service',
-  metaDescription: 'Winter Garden Maid — house cleaning across Historic Downtown, Independence & Stoneybrook West from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'Winter Garden Maid — house cleaning across Historic Downtown, Independence & Stoneybrook West starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '28.5654', lng: '-81.5862' },
   introParagraphs: [
     "Winter Garden Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning across one of Orange County's most beloved revitalized towns — a community known for its brick-paved historic downtown, weekly farmers market, and rapid growth pushing toward Horizon West. If you live in Winter Garden, you know the pace: new subdivisions filling in while the historic core keeps its small-town charm. We built Winter Garden Maid to answer exactly that problem: a local cleaning service that understands this community and shows up on time, every time.",

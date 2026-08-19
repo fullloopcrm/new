@@ -6,7 +6,7 @@ export const ferryPassMaidConfig: EmdMicrositeConfig = {
   city: 'Pensacola',
   regionLabel: 'Ferry Pass, Pensacola, FL',
   metaTitle: 'Ferry Pass Maid and Cleaning Service',
-  metaDescription: 'Ferry Pass Maid — house cleaning near Nine Mile Rd, UWF & I-10, Pensacola, FL from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'Ferry Pass Maid — house cleaning near Nine Mile Rd, UWF & I-10, Pensacola, FL starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '30.5192', lng: '-87.2251' },
   introParagraphs: [
     "Ferry Pass Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning for Ferry Pass and the surrounding Pensacola area — a fast-growing suburban stretch near I-10, Nine Mile Road, and the University of West Florida. If you live in Ferry Pass, you know how quickly a busy household with student housing or growing subdivisions nearby can get ahead of your cleaning schedule. We built Ferry Pass Maid to answer exactly that problem: a local cleaning service that understands Pensacola living and shows up on time, every time.",

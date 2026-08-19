@@ -6,7 +6,7 @@ export const westonMaidConfig: EmdMicrositeConfig = {
   city: 'Weston',
   regionLabel: 'Weston, FL',
   metaTitle: 'Weston Maid and Cleaning Service',
-  metaDescription: 'Weston Maid — house cleaning across Weston Hills, Bonaventure & Windmill Ranch Estates from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'Weston Maid — house cleaning across Weston Hills, Bonaventure & Windmill Ranch Estates starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '26.1004', lng: '-80.3997' },
   introParagraphs: [
     "Weston Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning across one of Broward County's most polished planned communities — a city known for manicured landscaping, top-rated schools, and a large international population. If you live in Weston, you know how much this community's presentation standards matter to residents. We built Weston Maid to answer exactly that problem: a local cleaning service that understands this community's expectations and shows up on time, every time.",

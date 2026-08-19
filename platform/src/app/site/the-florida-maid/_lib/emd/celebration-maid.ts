@@ -6,7 +6,7 @@ export const celebrationMaidConfig: EmdMicrositeConfig = {
   city: 'Celebration',
   regionLabel: 'Celebration, FL',
   metaTitle: 'Celebration Maid and Cleaning Service',
-  metaDescription: 'Celebration Maid — house cleaning across Downtown Celebration, Artisan Park & Lake Evalyn from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'Celebration Maid — house cleaning across Downtown Celebration, Artisan Park & Lake Evalyn starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '28.3197', lng: '-81.5326' },
   introParagraphs: [
     "Celebration Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning across one of Florida's most distinctive planned communities — a New Urbanist town built around walkable streets, front porches, and picture-perfect architecture just south of Walt Disney World. If you live in Celebration, you know how much this community's picket-fence presentation matters to residents. We built Celebration Maid to answer exactly that problem: a local cleaning service that understands this community's standards and shows up on time, every time.",

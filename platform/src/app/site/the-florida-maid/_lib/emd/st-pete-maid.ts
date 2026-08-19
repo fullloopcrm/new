@@ -6,7 +6,7 @@ export const stPeteMaidConfig: EmdMicrositeConfig = {
   city: 'St. Petersburg',
   regionLabel: 'St. Petersburg, FL',
   metaTitle: 'St. Pete Maid and Cleaning Service',
-  metaDescription: 'St. Pete Maid — house cleaning across Old Northeast, Snell Isle & Downtown St. Pete from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'St. Pete Maid — house cleaning across Old Northeast, Snell Isle & Downtown St. Pete starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '27.7676', lng: '-82.6403' },
   introParagraphs: [
     "St. Pete Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning across a city known for its arts murals, historic Craftsman bungalows, and a rapidly growing downtown skyline on Tampa Bay. If you live in St. Petersburg, you know how quickly Gulf Coast humidity and bay-front salt air can wear down a home. We built St. Pete Maid to answer exactly that problem: a local cleaning service that understands this city's character and shows up on time, every time.",

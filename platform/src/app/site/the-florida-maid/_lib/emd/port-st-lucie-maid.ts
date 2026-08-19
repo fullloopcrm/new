@@ -6,7 +6,7 @@ export const portStLucieMaidConfig: EmdMicrositeConfig = {
   city: 'Port St. Lucie',
   regionLabel: 'Port St. Lucie, FL',
   metaTitle: 'Port St. Lucie Maid and Cleaning Service',
-  metaDescription: 'Port St. Lucie Maid — house cleaning across Tradition, St. Lucie West & PGA Village Verano from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'Port St. Lucie Maid — house cleaning across Tradition, St. Lucie West & PGA Village Verano starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '27.2730', lng: '-80.3582' },
   introParagraphs: [
     "Port St. Lucie Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning across one of Florida's fastest-growing cities — from brand-new construction in Tradition to established retiree communities near St. Lucie West. If you live in Port St. Lucie, you know the pace: new neighborhoods breaking ground constantly, a large active-adult population, and a sprawling footprint that stretches across the Treasure Coast. We built Port St. Lucie Maid to answer exactly that problem: a local cleaning service that understands this city's rapid growth and shows up on time, every time.",

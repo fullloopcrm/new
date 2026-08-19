@@ -6,7 +6,7 @@ export const wellingtonMaidConfig: EmdMicrositeConfig = {
   city: 'Wellington',
   regionLabel: 'Wellington, FL',
   metaTitle: 'Wellington Maid and Cleaning Service',
-  metaDescription: 'Wellington Maid — house cleaning across Palm Beach Polo, Palm Beach Point & Grand Isles from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'Wellington Maid — house cleaning across Palm Beach Polo, Palm Beach Point & Grand Isles starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '26.6584', lng: '-80.2496' },
   introParagraphs: [
     "Wellington Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning across the 'Winter Equestrian Capital of the World' — a Palm Beach County community defined by horse farms, gated golf estates, and a seasonal population that swells every winter for show season. If you live in Wellington, you know how quickly equestrian-property dust and South Florida humidity can wear down a home. We built Wellington Maid to answer exactly that problem: a local cleaning service that understands this community's expectations and shows up on time, every time.",

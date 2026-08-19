@@ -6,7 +6,7 @@ export const clermontMaidConfig: EmdMicrositeConfig = {
   city: 'Clermont',
   regionLabel: 'Clermont, FL',
   metaTitle: 'Clermont Maid and Cleaning Service',
-  metaDescription: 'Clermont Maid — house cleaning across Kings Ridge, Legends & Lost Lake from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'Clermont Maid — house cleaning across Kings Ridge, Legends & Lost Lake starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '28.5494', lng: '-81.7729' },
   introParagraphs: [
     "Clermont Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning across the 'Choice of Champions' — Lake County's hilly, lake-dotted city known for triathlons, citrus groves turned neighborhoods, and one of Central Florida's fastest-growing suburbs. If you live in Clermont, you know how quickly Florida humidity and red-clay hills can wear down a home. We built Clermont Maid to answer exactly that problem: a local cleaning service that understands this community and shows up on time, every time.",

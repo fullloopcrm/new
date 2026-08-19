@@ -6,7 +6,7 @@ export const eastHillMaidConfig: EmdMicrositeConfig = {
   city: 'Pensacola',
   regionLabel: 'East Hill, Pensacola, FL',
   metaTitle: 'East Hill Maid and Cleaning Service',
-  metaDescription: 'East Hill Maid — house cleaning near 12th Ave & Cervantes St, Pensacola, FL from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'East Hill Maid — house cleaning near 12th Ave & Cervantes St, Pensacola, FL starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '30.4223', lng: '-87.1968' },
   introParagraphs: [
     "East Hill Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning for East Hill and the surrounding Pensacola area — one of the city's most walkable, tree-lined historic neighborhoods, full of Craftsman bungalows and century-old character. If you live in East Hill, you know how quickly that historic charm comes with real upkeep, from original woodwork to Gulf Coast humidity. We built East Hill Maid to answer exactly that problem: a local cleaning service that understands Pensacola living and shows up on time, every time.",

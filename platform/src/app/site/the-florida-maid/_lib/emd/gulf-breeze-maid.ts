@@ -6,7 +6,7 @@ export const gulfBreezeMaidConfig: EmdMicrositeConfig = {
   city: 'Pensacola',
   regionLabel: 'Gulf Breeze, Santa Rosa County, Pensacola, FL',
   metaTitle: 'Gulf Breeze Maid and Cleaning Service',
-  metaDescription: 'Gulf Breeze Maid — house cleaning across Tiger Point & Shoreline Park, greater Pensacola, FL from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'Gulf Breeze Maid — house cleaning across Tiger Point & Shoreline Park, greater Pensacola, FL starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '30.3585', lng: '-87.1636' },
   introParagraphs: [
     "Gulf Breeze Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning for Gulf Breeze and the greater Pensacola area — a quiet peninsula town across the bay from downtown Pensacola, tucked between Pensacola Bay and Santa Rosa Sound. If you live in Gulf Breeze, you know how quickly salt air and coastal humidity can wear down a home. We built Gulf Breeze Maid to answer exactly that problem: a local cleaning service that understands life across the bay from Pensacola and shows up on time, every time.",

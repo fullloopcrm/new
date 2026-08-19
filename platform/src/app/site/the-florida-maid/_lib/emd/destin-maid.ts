@@ -6,7 +6,7 @@ export const destinMaidConfig: EmdMicrositeConfig = {
   city: 'Destin',
   regionLabel: 'Destin, FL',
   metaTitle: 'Destin Maid and Cleaning Service',
-  metaDescription: 'Destin Maid — house cleaning across Crystal Beach, Kelly Plantation & Holiday Isle from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'Destin Maid — house cleaning across Crystal Beach, Kelly Plantation & Holiday Isle starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '30.3935', lng: '-86.4958' },
   introParagraphs: [
     "Destin Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning across the 'World's Luckiest Fishing Village' — a Panhandle beach town known for sugar-white sand, emerald water, and one of the busiest vacation-rental markets in the state. If you live in Destin, you know how quickly that famous sand and salt air can wear down a home. We built Destin Maid to answer exactly that problem: a local cleaning service that understands Panhandle beach living and shows up on time, every time.",

@@ -6,7 +6,7 @@ export const gainesvilleMaidConfig: EmdMicrositeConfig = {
   city: 'Gainesville',
   regionLabel: 'Gainesville, FL',
   metaTitle: 'Gainesville Maid and Cleaning Service',
-  metaDescription: 'Gainesville Maid — house cleaning across Haile Plantation, the Duckpond & Turkey Creek from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'Gainesville Maid — house cleaning across Haile Plantation, the Duckpond & Turkey Creek starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '29.6516', lng: '-82.3248' },
   introParagraphs: [
     "Gainesville Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning across a city that runs on a college-town calendar — families in Haile Plantation, historic homes in the Duckpond, and a rotating population of students, faculty, and renters near the University of Florida. If you live in Gainesville, you know the rhythm: move-in surges in August, move-out chaos in May, and everything in between. We built Gainesville Maid to answer exactly that problem: a local cleaning service that understands the town-and-gown calendar and shows up on time, every time.",

@@ -6,7 +6,7 @@ export const panamaCityMaidConfig: EmdMicrositeConfig = {
   city: 'Panama City',
   regionLabel: 'Panama City, FL',
   metaTitle: 'Panama City Maid and Cleaning Service',
-  metaDescription: 'Panama City Maid — house cleaning across St. Andrews, the Cove & North Bay from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'Panama City Maid — house cleaning across St. Andrews, the Cove & North Bay starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '30.1588', lng: '-85.6602' },
   introParagraphs: [
     "Panama City Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning across a Panhandle city built around St. Andrews Bay — a community of historic waterfront neighborhoods, a rebuilt downtown, and a strong Tyndall Air Force Base presence. If you live in Panama City, you know how quickly bay-front humidity and salt air can wear down a home. We built Panama City Maid to answer exactly that problem: a local cleaning service that understands this community and shows up on time, every time.",

@@ -6,7 +6,7 @@ export const altamonteSpringsMaidConfig: EmdMicrositeConfig = {
   city: 'Altamonte Springs',
   regionLabel: 'Altamonte Springs, FL',
   metaTitle: 'Altamonte Springs Maid and Cleaning Service',
-  metaDescription: 'Altamonte Springs Maid — house cleaning across Spring Oaks, Weathersfield & Uptown Altamonte from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'Altamonte Springs Maid — house cleaning across Spring Oaks, Weathersfield & Uptown Altamonte starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '28.6611', lng: '-81.3656' },
   introParagraphs: [
     "Altamonte Springs Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning across one of Seminole County's most densely built, centrally located cities — a hub anchored by Cranes Roost Park, the walkable Uptown Altamonte district, and a mix of established suburban neighborhoods. If you live in Altamonte Springs, you know how quickly a busy, centrally located city can wear on a home between commutes and weekend events. We built Altamonte Springs Maid to answer exactly that problem: a local cleaning service that understands this community and shows up on time, every time.",

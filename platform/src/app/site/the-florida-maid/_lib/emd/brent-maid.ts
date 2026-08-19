@@ -6,7 +6,7 @@ export const brentMaidConfig: EmdMicrositeConfig = {
   city: 'Pensacola',
   regionLabel: 'Brent, Pensacola, FL',
   metaTitle: 'Brent Maid and Cleaning Service',
-  metaDescription: 'Brent Maid — house cleaning near Brent Lane, N Davis Hwy & Pensacola State College from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'Brent Maid — house cleaning near Brent Lane, N Davis Hwy & Pensacola State College starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '30.4899', lng: '-87.2231' },
   introParagraphs: [
     "Brent Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning for the Brent community and the surrounding Pensacola area — an inland stretch of Escambia County built around the Brent Lane corridor, Pensacola State College, and some of the city's steadiest, most established residential streets. If you live in Brent, you know the mix of older ranch homes, mature oak trees, and everyday Gulf Coast humidity that makes keeping a house clean a real chore. We built Brent Maid to answer exactly that problem: a local cleaning service that understands Pensacola living and shows up on time, every time.",

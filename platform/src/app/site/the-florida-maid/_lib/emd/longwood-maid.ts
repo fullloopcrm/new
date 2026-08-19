@@ -6,7 +6,7 @@ export const longwoodMaidConfig: EmdMicrositeConfig = {
   city: 'Longwood',
   regionLabel: 'Longwood, FL',
   metaTitle: 'Longwood Maid and Cleaning Service',
-  metaDescription: 'Longwood Maid — house cleaning across Sabal Point, The Woodlands & Sweetwater Oaks from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'Longwood Maid — house cleaning across Sabal Point, The Woodlands & Sweetwater Oaks starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '28.7031', lng: '-81.3384' },
   introParagraphs: [
     "Longwood Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning across one of Seminole County's most historic small towns — a community of oak-canopied streets, lakefront neighborhoods near the Wekiva River, and a preserved Victorian-era downtown. If you live in Longwood, you know how quickly mature tree canopy and Florida humidity can wear down a home. We built Longwood Maid to answer exactly that problem: a local cleaning service that understands this community and shows up on time, every time.",

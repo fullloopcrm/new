@@ -6,7 +6,7 @@ export const veroBeachMaidConfig: EmdMicrositeConfig = {
   city: 'Vero Beach',
   regionLabel: 'Vero Beach, FL',
   metaTitle: 'Vero Beach Maid and Cleaning Service',
-  metaDescription: 'Vero Beach Maid — house cleaning across Riomar, Central Beach & Grand Harbor from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'Vero Beach Maid — house cleaning across Riomar, Central Beach & Grand Harbor starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '27.6386', lng: '-80.3973' },
   introParagraphs: [
     "Vero Beach Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning across one of the Treasure Coast's most refined communities — from barrier-island estates in Riomar to golf-and-marina living in Grand Harbor. If you live in Vero Beach, you know how quickly ocean air and seasonal turnover can wear down a home. We built Vero Beach Maid to answer exactly that problem: a local cleaning service that understands this community's standards and shows up on time, every time.",

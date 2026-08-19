@@ -6,7 +6,7 @@ export const cocoaBeachMaidConfig: EmdMicrositeConfig = {
   city: 'Cocoa Beach',
   regionLabel: 'Cocoa Beach, FL',
   metaTitle: 'Cocoa Beach Maid and Cleaning Service',
-  metaDescription: 'Cocoa Beach Maid — house cleaning across Cocoa Isles, South Patrick Shores & Banana River Estates from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'Cocoa Beach Maid — house cleaning across Cocoa Isles, South Patrick Shores & Banana River Estates starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '28.3200', lng: '-80.6076' },
   introParagraphs: [
     "Cocoa Beach Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning across the Space Coast's most famous barrier island — a surf town where salt air, sand, and rocket launches are just part of daily life. If you live in Cocoa Beach, you know how quickly beach sand and ocean humidity can wear down a home. We built Cocoa Beach Maid to answer exactly that problem: a local cleaning service that understands barrier-island living and shows up on time, every time.",

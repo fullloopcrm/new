@@ -6,7 +6,7 @@ export const parklandMaidConfig: EmdMicrositeConfig = {
   city: 'Parkland',
   regionLabel: 'Parkland, FL',
   metaTitle: 'Parkland Maid and Cleaning Service',
-  metaDescription: 'Parkland Maid — house cleaning across Heron Bay, Parkland Golf & Country Club & Terramar from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'Parkland Maid — house cleaning across Heron Bay, Parkland Golf & Country Club & Terramar starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '26.3103', lng: '-80.2378' },
   introParagraphs: [
     "Parkland Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning across one of Broward County's most affluent, family-focused communities — a city known for equestrian trails, gated golf estates, and some of the top-rated schools in South Florida. If you live in Parkland, you know how much this community's presentation standards matter to residents. We built Parkland Maid to answer exactly that problem: a local cleaning service that understands this community's expectations and shows up on time, every time.",

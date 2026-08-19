@@ -6,7 +6,7 @@ export const orlandoMaidConfig: EmdMicrositeConfig = {
   city: 'Orlando',
   regionLabel: 'Orlando, FL',
   metaTitle: 'Orlando Maid and Cleaning Service',
-  metaDescription: 'Orlando Maid — house cleaning across Winter Park, Baldwin Park & Lake Nona from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'Orlando Maid — house cleaning across Winter Park, Baldwin Park & Lake Nona starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '28.5383', lng: '-81.3792' },
   introParagraphs: [
     "Orlando Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning across Central Florida's biggest, fastest-growing metro — from lakefront bungalows near Winter Park to new-construction communities pushing out toward Lake Nona. If you live in Orlando, you know the pace: new neighborhoods breaking ground every year, theme-park tourism flooding the area with short-term rentals, and a housing stock that ranges from 1920s Colonial charm to brand-new smart homes. We built Orlando Maid to answer exactly that problem: a local cleaning service that understands the full range of Orlando living and shows up on time, every time.",

@@ -6,7 +6,7 @@ export const westPalmBeachMaidConfig: EmdMicrositeConfig = {
   city: 'West Palm Beach',
   regionLabel: 'West Palm Beach, FL',
   metaTitle: 'West Palm Beach Maid and Cleaning Service',
-  metaDescription: 'West Palm Beach Maid — house cleaning across Downtown, El Cid & Flamingo Park from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'West Palm Beach Maid — house cleaning across Downtown, El Cid & Flamingo Park starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '26.7153', lng: '-80.0534' },
   introParagraphs: [
     "West Palm Beach Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning across downtown high-rises, historic bungalow neighborhoods, and the waterfront estates that make West Palm Beach one of Florida's most desirable places to live. If you live in West Palm Beach, you already know how quickly humidity, dust, and the pace of city life can wear down a home. We built West Palm Beach Maid to answer exactly that problem: a local cleaning service that understands the city and shows up on time, every time.",

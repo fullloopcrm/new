@@ -6,7 +6,7 @@ export const coralSpringsMaidConfig: EmdMicrositeConfig = {
   city: 'Coral Springs',
   regionLabel: 'Coral Springs, FL',
   metaTitle: 'Coral Springs Maid and Cleaning Service',
-  metaDescription: 'Coral Springs Maid — house cleaning across Eagle Trace, Turtle Run & The Hills from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'Coral Springs Maid — house cleaning across Eagle Trace, Turtle Run & The Hills starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '26.2712', lng: '-80.2706' },
   introParagraphs: [
     "Coral Springs Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning across one of Broward County's most established, family-oriented suburbs. If you live in Coral Springs, you know how a well-planned community with top-rated schools and manicured neighborhoods sets a real standard for how a home should look. We built Coral Springs Maid to answer exactly that problem: a local cleaning service that understands this community's expectations and shows up on time, every time.",

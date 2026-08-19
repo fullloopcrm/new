@@ -6,7 +6,7 @@ export const wesleyChapelMaidConfig: EmdMicrositeConfig = {
   city: 'Wesley Chapel',
   regionLabel: 'Wesley Chapel, FL',
   metaTitle: 'Wesley Chapel Maid and Cleaning Service',
-  metaDescription: 'Wesley Chapel Maid — house cleaning across Meadow Pointe, Seven Oaks & Epperson from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'Wesley Chapel Maid — house cleaning across Meadow Pointe, Seven Oaks & Epperson starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '28.2320', lng: '-82.3237' },
   introParagraphs: [
     "Wesley Chapel Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning across one of the Tampa Bay area's fastest-growing suburbs — a Pasco County community of sprawling master-planned neighborhoods, new construction, and young families moving in every month. If you live in Wesley Chapel, you know the pace: new subdivisions filling in constantly and homes that need real upkeep between school runs and work schedules. We built Wesley Chapel Maid to answer exactly that problem: a local cleaning service that understands this community and shows up on time, every time.",

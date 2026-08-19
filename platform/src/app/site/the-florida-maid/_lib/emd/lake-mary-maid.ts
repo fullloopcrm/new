@@ -6,7 +6,7 @@ export const lakeMaryMaidConfig: EmdMicrositeConfig = {
   city: 'Lake Mary',
   regionLabel: 'Lake Mary, FL',
   metaTitle: 'Lake Mary Maid and Cleaning Service',
-  metaDescription: 'Lake Mary Maid — house cleaning across Heathrow, Timacuan & Buckingham Estates from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'Lake Mary Maid — house cleaning across Heathrow, Timacuan & Buckingham Estates starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '28.7589', lng: '-81.3181' },
   introParagraphs: [
     "Lake Mary Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning across one of Seminole County's most polished corporate and residential hubs. If you live in Lake Mary, you know how a community built around gated golf neighborhoods and relocated corporate families sets a real standard for how a home should look. We built Lake Mary Maid to answer exactly that problem: a local cleaning service that understands this community's expectations and shows up on time, every time.",

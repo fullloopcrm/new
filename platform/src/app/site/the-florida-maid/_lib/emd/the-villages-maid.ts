@@ -6,7 +6,7 @@ export const theVillagesMaidConfig: EmdMicrositeConfig = {
   city: 'The Villages',
   regionLabel: 'The Villages, FL',
   metaTitle: 'The Villages Maid and Cleaning Service',
-  metaDescription: 'The Villages Maid — house cleaning across Spanish Springs, Lake Sumter Landing & Brownwood from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'The Villages Maid — house cleaning across Spanish Springs, Lake Sumter Landing & Brownwood starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '28.9005', lng: '-81.9401' },
   introParagraphs: [
     "The Villages Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning across America's largest active-adult community — a sprawling network of villas and golf-cart-friendly neighborhoods spanning three counties. If you live in The Villages, you know how much this community's presentation standards and golf-cart-paced lifestyle matter to residents. We built The Villages Maid to answer exactly that problem: a local cleaning service that understands this community and shows up on time, every time.",

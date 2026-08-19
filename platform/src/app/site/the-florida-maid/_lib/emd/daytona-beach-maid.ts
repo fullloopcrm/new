@@ -6,7 +6,7 @@ export const daytonaBeachMaidConfig: EmdMicrositeConfig = {
   city: 'Daytona Beach',
   regionLabel: 'Daytona Beach, FL',
   metaTitle: 'Daytona Beach Maid and Cleaning Service',
-  metaDescription: 'Daytona Beach Maid — house cleaning across Seabreeze, Wilbur-by-the-Sea & Daytona Beach Shores from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'Daytona Beach Maid — house cleaning across Seabreeze, Wilbur-by-the-Sea & Daytona Beach Shores starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '29.2108', lng: '-81.0228' },
   introParagraphs: [
     "Daytona Beach Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning across the 'World's Most Famous Beach' — a city known for the Daytona 500, Bike Week, and a beachfront that draws visitors year-round. If you live in Daytona Beach, you know how quickly ocean salt air and event-driven crowds can wear down a home. We built Daytona Beach Maid to answer exactly that problem: a local cleaning service that understands this city's rhythm and shows up on time, every time.",

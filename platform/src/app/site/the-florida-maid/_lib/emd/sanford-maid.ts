@@ -6,7 +6,7 @@ export const sanfordMaidConfig: EmdMicrositeConfig = {
   city: 'Sanford',
   regionLabel: 'Sanford, FL',
   metaTitle: 'Sanford Maid and Cleaning Service',
-  metaDescription: 'Sanford Maid — house cleaning across Historic Downtown Sanford, Mayfair & Idyllwilde from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'Sanford Maid — house cleaning across Historic Downtown Sanford, Mayfair & Idyllwilde starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '28.8028', lng: '-81.2731' },
   introParagraphs: [
     "Sanford Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning across the Seminole County seat — a historic riverfront city on Lake Monroe known for its revitalized brick-lined downtown and a mix of century-old homes and newer suburban neighborhoods. If you live in Sanford, you know how quickly lakefront humidity and older-home maintenance can wear down a home. We built Sanford Maid to answer exactly that problem: a local cleaning service that understands this community and shows up on time, every time.",

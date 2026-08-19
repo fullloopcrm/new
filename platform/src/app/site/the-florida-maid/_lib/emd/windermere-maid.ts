@@ -6,7 +6,7 @@ export const windermereMaidConfig: EmdMicrositeConfig = {
   city: 'Windermere',
   regionLabel: 'Windermere, FL',
   metaTitle: 'Windermere Maid and Cleaning Service',
-  metaDescription: 'Windermere Maid — house cleaning across Isleworth, Keene\'s Pointe & Casabella from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'Windermere Maid — house cleaning across Isleworth, Keene\'s Pointe & Casabella starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '28.4931', lng: '-81.5323' },
   introParagraphs: [
     "Windermere Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning across one of Central Florida's most exclusive lakefront communities — a town built around a chain of spring-fed lakes and home to some of the most prestigious gated estates in the state. If you live in Windermere, you know how much this community's privacy and presentation standards matter to residents. We built Windermere Maid to answer exactly that problem: a local cleaning service that understands this community's expectations and shows up on time, every time.",

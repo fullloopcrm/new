@@ -6,7 +6,7 @@ export const riverviewMaidConfig: EmdMicrositeConfig = {
   city: 'Riverview',
   regionLabel: 'Riverview, FL',
   metaTitle: 'Riverview Maid and Cleaning Service',
-  metaDescription: 'Riverview Maid — house cleaning across Panther Trace, Summerfield & South Fork from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'Riverview Maid — house cleaning across Panther Trace, Summerfield & South Fork starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '27.8661', lng: '-82.3254' },
   introParagraphs: [
     "Riverview Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning across one of the Tampa Bay area's fastest-growing suburbs — a Hillsborough County community of sprawling master-planned neighborhoods, new construction, and young families moving in every month. If you live in Riverview, you know the pace: new subdivisions filling in constantly and homes that need real upkeep between school runs and work schedules. We built Riverview Maid to answer exactly that problem: a local cleaning service that understands this community and shows up on time, every time.",

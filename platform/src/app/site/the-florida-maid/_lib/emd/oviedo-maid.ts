@@ -6,7 +6,7 @@ export const oviedoMaidConfig: EmdMicrositeConfig = {
   city: 'Oviedo',
   regionLabel: 'Oviedo, FL',
   metaTitle: 'Oviedo Maid and Cleaning Service',
-  metaDescription: 'Oviedo Maid — house cleaning across Historic Downtown Oviedo, Twin Rivers & Live Oak Reserve from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'Oviedo Maid — house cleaning across Historic Downtown Oviedo, Twin Rivers & Live Oak Reserve starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '28.6700', lng: '-81.2081' },
   introParagraphs: [
     "Oviedo Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning across one of Seminole County's top family-oriented suburbs — a community known for excellent schools, well-kept planned neighborhoods, and easy access to UCF. If you live in Oviedo, you know the pace: busy family schedules, active HOA communities, and homes that need real upkeep between school runs and after-school activities. We built Oviedo Maid to answer exactly that problem: a local cleaning service that understands this community and shows up on time, every time.",

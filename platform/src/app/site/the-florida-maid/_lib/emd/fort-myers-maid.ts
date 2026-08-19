@@ -6,7 +6,7 @@ export const fortMyersMaidConfig: EmdMicrositeConfig = {
   city: 'Fort Myers',
   regionLabel: 'Fort Myers, FL',
   metaTitle: 'Fort Myers Maid and Cleaning Service',
-  metaDescription: 'Fort Myers Maid — house cleaning across McGregor Boulevard, the River District & Gateway from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'Fort Myers Maid — house cleaning across McGregor Boulevard, the River District & Gateway starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '26.6406', lng: '-81.8723' },
   introParagraphs: [
     "Fort Myers Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning across a city defined by royal palm-lined boulevards, a revitalized historic downtown, and a canal network that laces through nearly every neighborhood. If you live in Fort Myers, you know how quickly Southwest Florida humidity and canal-front living can wear down a home. We built Fort Myers Maid to answer exactly that problem: a local cleaning service that understands this region and shows up on time, every time.",

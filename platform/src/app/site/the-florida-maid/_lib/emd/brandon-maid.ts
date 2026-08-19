@@ -6,7 +6,7 @@ export const brandonMaidConfig: EmdMicrositeConfig = {
   city: 'Brandon',
   regionLabel: 'Brandon, FL',
   metaTitle: 'Brandon Maid and Cleaning Service',
-  metaDescription: 'Brandon Maid — house cleaning across Bloomingdale, Lake Brandon & Providence Lakes from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'Brandon Maid — house cleaning across Bloomingdale, Lake Brandon & Providence Lakes starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '27.9378', lng: '-82.2859' },
   introParagraphs: [
     "Brandon Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning across one of Tampa Bay's largest suburban communities — a fast-growing area of established family neighborhoods east of Tampa. If you live in Brandon, you know the pace: new subdivisions filling in, busy dual-income households, and homes that need real upkeep between soccer practices and work schedules. We built Brandon Maid to answer exactly that problem: a local cleaning service that understands this community and shows up on time, every time.",

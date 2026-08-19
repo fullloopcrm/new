@@ -6,7 +6,7 @@ export const pensacolaMaidConfig: EmdMicrositeConfig = {
   city: 'Pensacola',
   regionLabel: 'Pensacola, FL',
   metaTitle: 'Pensacola Maid and Cleaning Service',
-  metaDescription: 'Pensacola Maid — house cleaning across East Hill, North Hill & Perdido Key from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'Pensacola Maid — house cleaning across East Hill, North Hill & Perdido Key starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '30.4213', lng: '-87.2169' },
   introParagraphs: [
     "Pensacola Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning across Florida's westernmost city — a Panhandle town with a Navy history, historic Victorian neighborhoods, and beaches every bit as beautiful as the rest of the Gulf Coast. If you live in Pensacola, you know how quickly salt air and coastal humidity can wear down a home. We built Pensacola Maid to answer exactly that problem: a local cleaning service that understands Panhandle living and shows up on time, every time.",

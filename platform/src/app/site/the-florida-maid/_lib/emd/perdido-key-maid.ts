@@ -6,7 +6,7 @@ export const perdidoKeyMaidConfig: EmdMicrositeConfig = {
   city: 'Pensacola',
   regionLabel: 'Perdido Key, Pensacola, FL',
   metaTitle: 'Perdido Key Maid and Cleaning Service',
-  metaDescription: 'Perdido Key Maid — house cleaning across Perdido Key & Johnson Beach, greater Pensacola, FL from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'Perdido Key Maid — house cleaning across Perdido Key & Johnson Beach, greater Pensacola, FL starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '30.3113', lng: '-87.4468' },
   introParagraphs: [
     "Perdido Key Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning across Perdido Key and the greater Pensacola area — a narrow barrier island stretching along the Florida-Alabama line, home to one of the region's busiest vacation-rental markets. If you own or manage property on Perdido Key, you know how quickly salt air, beach sand, and back-to-back guest turnovers can wear down a home. We built Perdido Key Maid to answer exactly that problem: a local cleaning service that understands barrier-island living and shows up on time, every time.",

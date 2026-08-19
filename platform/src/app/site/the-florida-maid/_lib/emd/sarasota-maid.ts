@@ -6,7 +6,7 @@ export const sarasotaMaidConfig: EmdMicrositeConfig = {
   city: 'Sarasota',
   regionLabel: 'Sarasota, FL',
   metaTitle: 'Sarasota Maid and Cleaning Service',
-  metaDescription: 'Sarasota Maid — house cleaning across Siesta Key, Downtown Sarasota & Laurel Park from $49/hr. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'Sarasota Maid — house cleaning across Siesta Key, Downtown Sarasota & Laurel Park starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
   geo: { lat: '27.3364', lng: '-82.5307' },
   introParagraphs: [
     "Sarasota Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning across a city known for its arts scene, its downtown high-rises, and Siesta Key's famous powder-quartz sand. If you live in Sarasota, you know how quickly barrier-island sand and Gulf humidity can wear down a home. We built Sarasota Maid to answer exactly that problem: a local cleaning service that understands this community and shows up on time, every time.",
