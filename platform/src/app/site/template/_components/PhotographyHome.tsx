@@ -35,7 +35,7 @@ export default function PhotographyHome({ config }: { config: SiteConfig }) {
       ? { label: 'Get in touch', href: '/contact' }
       : config.funnelMode === 'pipeline'
         ? { label: 'Request a quote', href: '/book/new' }
-        : { label: 'Book now', href: '/book/new' }
+        : { label: 'Book Your Service', href: '/book/new' }
 
   const orgLd = {
     '@context': 'https://schema.org',
