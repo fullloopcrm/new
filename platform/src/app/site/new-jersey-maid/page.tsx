@@ -9,7 +9,6 @@ import TrustBadges from '@/app/site/new-jersey-maid/_components/TrustBadges'
 import CTABlock from '@/app/site/new-jersey-maid/_components/CTABlock'
 import FAQSection from '@/app/site/new-jersey-maid/_components/FAQSection'
 import Image from 'next/image'
-import { WEEKEND_CLIENT_SUPPLIES_RATE, WEEKEND_SUPPLIES_PROVIDED_RATE, WEEKEND_EMERGENCY_RATE, WEEKEND_PRICING_NOTE } from '@/lib/nycmaid/weekend-pricing'
 
 
 const content = homepageContent()
@@ -42,11 +41,11 @@ export const metadata: Metadata = {
 
 const homepageFAQs = [
   // Pricing & Booking
-  { question: 'How much does house cleaning cost in NYC?', answer: `Our house cleaning services start at $59/hour when you provide supplies (recurring: 10% off weekly, 5% off biweekly/monthly), or $69/hour when we bring everything (recurring: 20% off weekly, 10% off biweekly/monthly). Same-day and emergency service is $89/hour.${WEEKEND_PRICING_NOTE} Final cost depends on home size and service type.` },
+  { question: 'How much does house cleaning cost in NYC?', answer: `Our house cleaning services start at $59/hour when you provide supplies (recurring: 10% off weekly, 5% off biweekly/monthly), or $69/hour when we bring everything (recurring: 20% off weekly, 10% off biweekly/monthly). Same-day and emergency service is $89/hour. Final cost depends on home size and service type.` },
   { question: 'Do you charge by the hour or a flat rate?', answer: 'We charge by the hour. This keeps pricing fair — you only pay for the time your space actually needs. No inflated flat-rate quotes.' },
-  { question: 'Is there a minimum number of hours?', answer: `Yes — a 2-hour minimum on all bookings, first-time cleanings included. Bookings with 2 or more cleaners carry a 4-hour minimum and receive no discounts.${WEEKEND_PRICING_NOTE}` },
+  { question: 'Is there a minimum number of hours?', answer: `Yes — a 2-hour minimum on all bookings, first-time cleanings included. Bookings with 2 or more cleaners carry a 4-hour minimum and receive no discounts.` },
   { question: 'How do I book a cleaning?', answer: 'Text (973) 370-8800. We typically schedule within 24-48 hours, with same-day availability for urgent requests.' },
-  { question: 'Do you offer same-day cleaning?', answer: `Yes. Same-day and emergency cleaning is available at $89/hour.${WEEKEND_PRICING_NOTE} We dispatch a professional cleaner to your door within hours.` },
+  { question: 'Do you offer same-day cleaning?', answer: `Yes. Same-day and emergency cleaning is available at $89/hour. We dispatch a professional cleaner to your door within hours.` },
   { question: 'What payment methods do you accept?', answer: 'We accept credit cards, debit cards, Apple Pay, and Cash App through our secure online payment link, plus cash. You can also pay securely online through our payment portal.' },
   { question: 'Do I need to tip my cleaner?', answer: 'Tipping is never required but always appreciated. If you feel your cleaner did a great job, a tip is a wonderful way to show it.' },
 
@@ -61,10 +60,10 @@ const homepageFAQs = [
   { question: 'Can I customize what gets cleaned?', answer: 'Of course. Just let us know your priorities and we will tailor the cleaning to focus on what matters most to you.' },
 
   // Supplies & Equipment
-  { question: 'Do you bring your own cleaning supplies?', answer: `We offer both options. At $59/hour, you provide supplies (recurring: 10% off weekly, 5% off biweekly/monthly). At $69/hour, we bring all professional-grade supplies and equipment (recurring: 20% off weekly, 10% off biweekly/monthly). Same-day emergency service is $89/hour, supplies included.${WEEKEND_PRICING_NOTE}` },
+  { question: 'Do you bring your own cleaning supplies?', answer: `We offer both options. At $59/hour, you provide supplies (recurring: 10% off weekly, 5% off biweekly/monthly). At $69/hour, we bring all professional-grade supplies and equipment (recurring: 20% off weekly, 10% off biweekly/monthly). Same-day emergency service is $89/hour, supplies included.` },
   { question: 'What cleaning products do you use?', answer: 'We use professional-grade, effective standard cleaning products. If you want eco-friendly, non-toxic, or hypoallergenic products used instead, just provide them and we will use them.' },
   { question: 'Can I request eco-friendly or green products?', answer: 'Yes — provide your own eco-friendly, non-toxic, or hypoallergenic products and we will use them on your cleaning. We don\'t stock these ourselves; our standard supplies are professional-grade, not eco-specific.' },
-  { question: 'Do I need to provide a vacuum or mop?', answer: `If you choose our $59/hour rate, yes — you provide all supplies and equipment. At $69/hour, we bring everything including vacuums, mops, and all cleaning tools. Same-day emergency service at $89/hour also includes all supplies.${WEEKEND_PRICING_NOTE}` },
+  { question: 'Do I need to provide a vacuum or mop?', answer: `If you choose our $59/hour rate, yes — you provide all supplies and equipment. At $69/hour, we bring everything including vacuums, mops, and all cleaning tools. Same-day emergency service at $89/hour also includes all supplies.` },
 
   // Trust & Safety
   { question: 'Are your cleaners background-checked and insured?', answer: 'Yes. Every cleaner on our team is fully background-checked, licensed, and insured. We carry general liability insurance and bonding for your complete peace of mind.' },
@@ -171,7 +170,6 @@ export default function HomePage() {
               <p className="font-[family-name:var(--font-bebas)] text-5xl text-white tracking-wide">$59<span className="text-2xl text-blue-200/50">/hr</span></p>
               <p className="text-blue-200/50 text-sm mt-3">You provide the cleaning supplies and equipment. We bring the expertise.</p>
               <p className="text-[#A8F0DC]/80 text-xs mt-2 font-medium">10% off weekly &middot; 5% off biweekly &amp; monthly</p>
-              <p className="text-blue-200/40 text-xs mt-1">(Weekends: ${WEEKEND_CLIENT_SUPPLIES_RATE}/hr for new clients)</p>
             </div>
             <div className="bg-[#A8F0DC]/10 backdrop-blur-sm border border-[#A8F0DC]/30 rounded-2xl p-8 relative">
               <div className="absolute -top-3 left-6 bg-[#A8F0DC] text-[#1E2A4A] text-xs font-bold tracking-widest uppercase px-4 py-1.5 rounded-full">Most Popular</div>
@@ -179,13 +177,11 @@ export default function HomePage() {
               <p className="font-[family-name:var(--font-bebas)] text-5xl text-white tracking-wide">$69<span className="text-2xl text-blue-200/50">/hr</span></p>
               <p className="text-blue-200/50 text-sm mt-3">We bring all supplies and professional-grade equipment. Just open the door.</p>
               <p className="text-[#A8F0DC]/80 text-xs mt-2 font-medium">20% off weekly &middot; 10% off biweekly &amp; monthly</p>
-              <p className="text-blue-200/40 text-xs mt-1">(Weekends: ${WEEKEND_SUPPLIES_PROVIDED_RATE}/hr for new clients)</p>
             </div>
             <div className="bg-white/[0.08] backdrop-blur-sm border border-white/15 rounded-2xl p-8">
               <p className="text-xs font-semibold text-[#A8F0DC] tracking-[0.2em] uppercase mb-3">Same-Day / Emergency</p>
               <p className="font-[family-name:var(--font-bebas)] text-5xl text-white tracking-wide">$89<span className="text-2xl text-blue-200/50">/hr</span></p>
               <p className="text-blue-200/50 text-sm mt-3">Need it today? We dispatch a professional cleaner to your door within hours.</p>
-              <p className="text-blue-200/40 text-xs mt-1">(Weekends: ${WEEKEND_EMERGENCY_RATE}/hr for new clients)</p>
             </div>
           </div>
           <p className="text-blue-200/50 text-xs mt-5 max-w-3xl leading-relaxed">
@@ -309,7 +305,6 @@ export default function HomePage() {
             <div className="bg-white border border-gray-200 rounded-2xl p-8 flex flex-col">
               <p className="text-xs font-semibold text-gray-400 tracking-[0.2em] uppercase mb-3">Client Supplies &amp; Equipment</p>
               <p className="font-[family-name:var(--font-bebas)] text-5xl sm:text-6xl lg:text-7xl text-[#1E2A4A] tracking-wide leading-none mb-1">$59<span className="text-2xl sm:text-3xl text-gray-300">/hr</span></p>
-              <p className="text-gray-400 text-xs">(Weekends: ${WEEKEND_CLIENT_SUPPLIES_RATE}/hr for new clients)</p>
               <div className="w-10 h-[2px] bg-[#A8F0DC] mt-4 mb-5" />
               <p className="text-gray-600 text-sm leading-relaxed mb-5">
                 You provide all cleaning supplies, equipment, and products. We bring an experienced, background-checked professional cleaner who does the work.
@@ -344,7 +339,6 @@ export default function HomePage() {
               <div className="absolute -top-3.5 left-6 bg-[#A8F0DC] text-[#1E2A4A] text-xs font-bold tracking-widest uppercase px-5 py-1.5 rounded-full">Most Popular</div>
               <p className="text-xs font-semibold text-[#A8F0DC]/70 tracking-[0.2em] uppercase mb-3">We Bring Everything</p>
               <p className="font-[family-name:var(--font-bebas)] text-6xl sm:text-7xl lg:text-8xl text-white tracking-wide leading-none mb-1">$69<span className="text-2xl sm:text-3xl text-blue-200/40">/hr</span></p>
-              <p className="text-blue-200/40 text-xs">(Weekends: ${WEEKEND_SUPPLIES_PROVIDED_RATE}/hr for new clients)</p>
               <div className="w-10 h-[2px] bg-[#A8F0DC] mt-4 mb-5" />
               <p className="text-blue-200/60 text-sm leading-relaxed mb-5">
                 We bring all professional-grade supplies, equipment, vacuums, mops, and cleaning products. Just open the door — we handle everything from start to finish.
@@ -378,7 +372,6 @@ export default function HomePage() {
             <div className="bg-white border border-gray-200 rounded-2xl p-8 flex flex-col">
               <p className="text-xs font-semibold text-gray-400 tracking-[0.2em] uppercase mb-3">Same-Day &amp; Emergency</p>
               <p className="font-[family-name:var(--font-bebas)] text-5xl sm:text-6xl lg:text-7xl text-[#1E2A4A] tracking-wide leading-none mb-1">$89<span className="text-2xl sm:text-3xl text-gray-300">/hr</span></p>
-              <p className="text-gray-400 text-xs">(Weekends: ${WEEKEND_EMERGENCY_RATE}/hr for new clients)</p>
               <div className="w-10 h-[2px] bg-[#A8F0DC] mt-4 mb-5" />
               <p className="text-gray-600 text-sm leading-relaxed mb-5">
                 Need a cleaner today? We dispatch a professional to your door within hours. Includes all supplies and equipment — <Link href="/services/same-day-cleaning-service-in-nyc" className="text-[#1E2A4A] underline underline-offset-2">same-day cleaning</Link> when you need it most.

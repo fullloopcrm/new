@@ -17,7 +17,7 @@ import ClientErrorMonitor from '@/components/monitoring/ClientErrorMonitor'
 // their existing titles are not wrapped/doubled).
 export const metadata = {
   title: {
-    default: 'The New Jersey Maid — Professional Cleaning Services in NYC From $59/hr',
+    default: 'The New Jersey Maid — Professional Cleaning Services in New Jersey From $59/hr',
   },
 }
 
