@@ -84,6 +84,13 @@ export default async function ShopPage({ searchParams }: { searchParams: Promise
             </div>
           </section>
           <section className="mt-14">
+            <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--brand)] tracking-wide mb-5">Why We Sell Prints, Not Just Sessions</h2>
+            <div className="space-y-4 text-gray-600 text-[17px] leading-relaxed">
+              <p>Most people who love a city they don&apos;t live in anymore, or love the specific way San Francisco&apos;s fog rolls over the hills at dusk, don&apos;t need a personal photo session — they need a real, physical print of a place that means something to them. That&apos;s what this shop exists for: the same darkroom process behind every client session, available as a finished object without booking a shoot first.</p>
+              <p>We also think a working darkroom studio should have something to show for itself beyond client work. Every print here is a piece we chose to shoot, develop, and print because we thought it was worth doing — not commissioned, not stock, just real film work we&apos;re proud enough of to sell.</p>
+            </div>
+          </section>
+          <section className="mt-14">
             <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--brand)] tracking-wide mb-5">Sizes, Paper, and What You&apos;re Getting</h2>
             <div className="space-y-4 text-gray-600 text-[17px] leading-relaxed">
               <p>Standard sizes run from 5x7 up to 16x20, all hand-printed on archival photo paper rated to resist fading and yellowing for well over a century under normal display conditions. Custom sizing beyond that range is available — text us and we&apos;ll quote it directly.</p>
@@ -100,12 +107,34 @@ export default async function ShopPage({ searchParams }: { searchParams: Promise
             <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--brand)] tracking-wide mb-5">Prints as Gifts</h2>
             <div className="space-y-4 text-gray-600 text-[17px] leading-relaxed">
               <p>A hand-printed photograph is a genuinely uncommon gift in 2026 — almost everyone already has more digital photos than they know what to do with, and almost no one has enough real, physical ones. A print of a favorite San Francisco spot works for a housewarming, an anniversary, or anyone who used to live here and misses it.</p>
+              <p>Unlike a session gift certificate, which asks the recipient to schedule and show up, a print is finished the moment it arrives — no coordination required on their end, just something real to unwrap.</p>
+            </div>
+          </section>
+          <section className="mt-14">
+            <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--brand)] tracking-wide mb-5">Archival Value — What You&apos;re Actually Buying</h2>
+            <div className="space-y-4 text-gray-600 text-[17px] leading-relaxed">
+              <p>A properly fixed and washed darkroom print doesn&apos;t depend on a device, a cloud account, or a subscription to still exist in fifty years — it just needs to stay out of direct sun and normal indoor humidity. That&apos;s a meaningfully different kind of object than a digital image, which depends on someone actively maintaining a backup indefinitely.</p>
+              <p>We also keep the original negative for every print in this shop archived in our own darkroom. If you ever want the same image in a different size, or a replacement for a print that got damaged, we can reprint from the original negative — no re-shoot required.</p>
             </div>
           </section>
           <section className="mt-14">
             <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--brand)] tracking-wide mb-5">Shipping and Turnaround</h2>
             <div className="space-y-4 text-gray-600 text-[17px] leading-relaxed">
               <p>Because every print is hand-printed to order — not pulled from a pre-made stack — expect roughly 5-7 business days before your print ships, the same turnaround as a client session&apos;s darkroom prints. Prints are packaged flat and protected for shipping; local pickup is available if you&apos;d rather not wait on a courier.</p>
+              <p>We ship within the continental US as standard; if you&apos;re outside that range, <Link href="/contact" className="underline text-[var(--brand)] hover:text-[var(--accent)]">reach out</Link> before ordering and we&apos;ll confirm cost and timing.</p>
+            </div>
+          </section>
+          <section className="mt-14">
+            <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--brand)] tracking-wide mb-5">No AI, Same as Everything Else Here</h2>
+            <div className="space-y-4 text-gray-600 text-[17px] leading-relaxed">
+              <p>The same standard that governs every client session governs this shop: no AI-generated imagery, no AI upscaling standing in for real resolution, no digital filter dressed up to look like film grain. Every image started as light through a real lens onto real film — the shop exists to sell the physical results of that process, not a shortcut to them.</p>
+              <p>If you&apos;ve read anything else on this site, you already know why that matters to us. A print that claims to be a real photograph should actually be one.</p>
+            </div>
+          </section>
+          <section className="mt-14">
+            <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--brand)] tracking-wide mb-5">Framing It Yourself</h2>
+            <div className="space-y-4 text-gray-600 text-[17px] leading-relaxed">
+              <p>Prints ship unframed so you can choose framing that fits your own space and budget — a standard-size mat and frame from any framing shop will fit our 5x7 through 16x20 sizes without custom cutting. If you want the print to hold its full tonal range for decades rather than years, ask your framer for acid-free matting and UV-filtering glass; it&apos;s a small added cost with a real long-term payoff.</p>
             </div>
           </section>
           <section className="mt-14 pt-12 border-t border-gray-200">
@@ -126,6 +155,18 @@ export default async function ShopPage({ searchParams }: { searchParams: Promise
               <div>
                 <h3 className="font-semibold text-[var(--brand)] text-lg mb-1.5">How should I care for a print once I have it?</h3>
                 <p className="text-gray-600 text-[17px] leading-relaxed">Keep it out of direct sunlight and normal indoor humidity, and it&apos;ll hold its tonal range for generations. Full details in our <Link href="/blog/how-to-care-for-and-preserve-darkroom-prints" className="underline text-[var(--brand)] hover:text-[var(--accent)]">print care guide</Link>.</p>
+              </div>
+              <div>
+                <h3 className="font-semibold text-[var(--brand)] text-lg mb-1.5">Do you offer a discount for buying multiple prints?</h3>
+                <p className="text-gray-600 text-[17px] leading-relaxed">Ask when ordering — a small collection of prints from the same shoot or theme is a common request, and we&apos;re glad to talk through options.</p>
+              </div>
+              <div>
+                <h3 className="font-semibold text-[var(--brand)] text-lg mb-1.5">Are these limited-edition or numbered prints?</h3>
+                <p className="text-gray-600 text-[17px] leading-relaxed">Ask when ordering if you&apos;re interested in a numbered, collector-oriented print run — we can discuss options on a per-image basis.</p>
+              </div>
+              <div>
+                <h3 className="font-semibold text-[var(--brand)] text-lg mb-1.5">Can I return a print if I&apos;m not happy with it?</h3>
+                <p className="text-gray-600 text-[17px] leading-relaxed">If a print arrives damaged or isn&apos;t what you expected, <Link href="/contact" className="underline text-[var(--brand)] hover:text-[var(--accent)]">tell us</Link> and we&apos;ll make it right — the same standard we hold every part of this studio to.</p>
               </div>
             </div>
           </section>
