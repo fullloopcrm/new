@@ -136,6 +136,6 @@ describe('GET /api/social/connect/instagram/callback — success path', () => {
 
     const location = res.headers.get('location')!
     expect(location).not.toContain('undefined')
-    expect(location.startsWith('https://homeservicesbusinesscrm.com/dashboard/social')).toBe(true)
+    expect(location.startsWith('https://homeservicecrm.ai/dashboard/social')).toBe(true)
   })
 })

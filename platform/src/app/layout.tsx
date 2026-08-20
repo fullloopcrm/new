@@ -20,7 +20,7 @@ const fraunces = Fraunces({
 })
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://homeservicesbusinesscrm.com'),
+  metadataBase: new URL('https://homeservicecrm.ai'),
   title: 'Home Service Business CRM That Runs Itself | Full Loop CRM',
   description: 'The full-cycle, AI-managed home service business CRM that runs an automated business. Live-proven by The NYC Maid — ~200 services a month, run by one person in under an hour a day. No other CRM does even 50% of this.',
   keywords: 'home service business crm, home service crm, crm for home service business, cleaning business CRM, field service CRM, AI sales chatbot, lead generation CRM, booking software for cleaners, maid service software',
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     title: 'Home Service Business CRM That Runs Itself | Full Loop CRM',
     description: 'The full-cycle, AI-managed home service business CRM that runs an automated business — live-proven by The NYC Maid: ~200 services/month, one person, under an hour a day.',
     type: 'website',
-    url: 'https://homeservicesbusinesscrm.com',
+    url: 'https://homeservicecrm.ai',
     siteName: 'Full Loop CRM',
   },
   twitter: {
@@ -41,7 +41,7 @@ export const metadata: Metadata = {
     icon: '/icon.svg',
   },
   alternates: {
-    canonical: 'https://homeservicesbusinesscrm.com',
+    canonical: 'https://homeservicecrm.ai',
   },
 }
 

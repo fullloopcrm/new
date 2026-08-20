@@ -62,7 +62,7 @@ describe('provisionStripeWebhookSecret', () => {
   it('creates a new endpoint at the tenant\'s own domain and stores the captured secret', async () => {
     h.store.tenants = [{ id: TENANT_ID, domain: 'thefloridamaid.com', stripe_api_key: 'sk_live_plain', stripe_webhook_secret: null }]
 
-    const res = await provisionStripeWebhookSecret(TENANT_ID, 'https://homeservicesbusinesscrm.com')
+    const res = await provisionStripeWebhookSecret(TENANT_ID, 'https://homeservicecrm.ai')
 
     expect(res.ok).toBe(true)
     expect(res.status).toBe('created')
@@ -82,7 +82,7 @@ describe('provisionStripeWebhookSecret', () => {
     stripeCtl.endpoints = [{ id: 'we_existing', url: 'https://thefloridamaid.com/api/webhooks/stripe', status: 'enabled' }]
     h.store.tenants = [{ id: TENANT_ID, domain: 'thefloridamaid.com', stripe_api_key: 'sk_live_plain', stripe_webhook_secret: 'v1:already:set:here' }]
 
-    const res = await provisionStripeWebhookSecret(TENANT_ID, 'https://homeservicesbusinesscrm.com')
+    const res = await provisionStripeWebhookSecret(TENANT_ID, 'https://homeservicecrm.ai')
 
     expect(res.status).toBe('already_configured')
     expect(stripeCtl.created).toHaveLength(0)
@@ -93,7 +93,7 @@ describe('provisionStripeWebhookSecret', () => {
     stripeCtl.endpoints = [{ id: 'we_orphaned', url: 'https://thefloridamaid.com/api/webhooks/stripe', status: 'enabled' }]
     h.store.tenants = [{ id: TENANT_ID, domain: 'thefloridamaid.com', stripe_api_key: 'sk_live_plain', stripe_webhook_secret: null }]
 
-    const res = await provisionStripeWebhookSecret(TENANT_ID, 'https://homeservicesbusinesscrm.com')
+    const res = await provisionStripeWebhookSecret(TENANT_ID, 'https://homeservicecrm.ai')
 
     expect(res.status).toBe('recreated')
     expect(stripeCtl.deleted).toEqual(['we_orphaned'])
@@ -105,9 +105,9 @@ describe('provisionStripeWebhookSecret', () => {
   it('falls back to the platform URL when the tenant has no domain set', async () => {
     h.store.tenants = [{ id: TENANT_ID, domain: null, stripe_api_key: 'sk_live_plain', stripe_webhook_secret: null }]
 
-    const res = await provisionStripeWebhookSecret(TENANT_ID, 'https://homeservicesbusinesscrm.com')
+    const res = await provisionStripeWebhookSecret(TENANT_ID, 'https://homeservicecrm.ai')
 
-    expect(res.url).toBe('https://homeservicesbusinesscrm.com/api/webhooks/stripe')
+    expect(res.url).toBe('https://homeservicecrm.ai/api/webhooks/stripe')
   })
 
   it('reports an error, does not throw, when the tenant does not exist', async () => {

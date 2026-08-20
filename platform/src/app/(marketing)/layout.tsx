@@ -7,9 +7,9 @@ import GlobalSiteChatWidget from '@/components/comhub/GlobalSiteChatWidget'
 import '../globals.css'
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://homeservicesbusinesscrm.com'),
+  metadataBase: new URL('https://homeservicecrm.ai'),
   applicationName: 'Full Loop CRM',
-  authors: [{ name: 'Full Loop CRM', url: 'https://homeservicesbusinesscrm.com' }],
+  authors: [{ name: 'Full Loop CRM', url: 'https://homeservicecrm.ai' }],
   creator: 'Full Loop CRM',
   publisher: 'Full Loop CRM',
   formatDetection: { telephone: true, email: true, address: true },

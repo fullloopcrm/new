@@ -9,8 +9,8 @@ import {
 import PartnerApplyForm from "@/components/PartnerApplyForm";
 
 const breadcrumbs = [
-  { name: "Home", url: "https://homeservicesbusinesscrm.com" },
-  { name: "Partners", url: "https://homeservicesbusinesscrm.com/partner-with-full-loop-crm" },
+  { name: "Home", url: "https://homeservicecrm.ai" },
+  { name: "Partners", url: "https://homeservicecrm.ai/partner-with-full-loop-crm" },
 ];
 
 export const metadata: Metadata = {
@@ -24,12 +24,12 @@ export const metadata: Metadata = {
     "CRM franchise alternative",
     "home service lead generation partner",
   ],
-  alternates: { canonical: "https://homeservicesbusinesscrm.com/partner-with-full-loop-crm" },
+  alternates: { canonical: "https://homeservicecrm.ai/partner-with-full-loop-crm" },
   openGraph: {
     title: "Partner With Full Loop CRM | Exclusive Territory CRM Partnership",
     description:
       "One partner per trade per city. Apply to see if your market is still available.",
-    url: "https://homeservicesbusinesscrm.com/partner-with-full-loop-crm",
+    url: "https://homeservicecrm.ai/partner-with-full-loop-crm",
     type: "website",
   },
   twitter: {
@@ -47,12 +47,12 @@ export default function PartnersPage() {
         data={webPageSchema(
           "Partner With Full Loop CRM | Exclusive Territory CRM Partnership",
           "One partner per trade per city. Get exclusive territory, AI-powered CRM, Yinez SMS automation, SEO microsites, and GMB optimization.",
-          "https://homeservicesbusinesscrm.com/partner-with-full-loop-crm",
+          "https://homeservicecrm.ai/partner-with-full-loop-crm",
           breadcrumbs
         )}
       />
       <JsonLd data={breadcrumbSchema(breadcrumbs)} />
-      <JsonLd data={localBusinessSchema("https://homeservicesbusinesscrm.com/partner-with-full-loop-crm", "United States", "Country")} />
+      <JsonLd data={localBusinessSchema("https://homeservicecrm.ai/partner-with-full-loop-crm", "United States", "Country")} />
 
       {/* Hero */}
       <section className="bg-slate-900 py-24 px-6">

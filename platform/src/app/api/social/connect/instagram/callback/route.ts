@@ -3,7 +3,7 @@ import { saveSocialAccount } from '@/lib/social'
 import { verifyOAuthState } from '@/lib/oauth-state'
 
 export async function GET(request: Request) {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://homeservicesbusinesscrm.com'
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://homeservicecrm.ai'
   try {
     const { searchParams } = new URL(request.url)
     const code = searchParams.get('code')

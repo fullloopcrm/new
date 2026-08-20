@@ -5,13 +5,13 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
   // Read the Host header so tenant sites emit a robots.txt pointing to their
   // own /sitemap.xml rather than the platform sitemap.
   const h = await headers()
-  const hostRaw = h.get('host') || 'homeservicesbusinesscrm.com'
+  const hostRaw = h.get('host') || 'homeservicecrm.ai'
   const host = hostRaw.split(':')[0].toLowerCase()
 
   // Same MAIN_HOSTS as middleware.ts — keep in sync if that list changes.
   const MAIN_HOSTS = new Set([
-    'homeservicesbusinesscrm.com',
-    'www.homeservicesbusinesscrm.com',
+    'homeservicecrm.ai',
+    'www.homeservicecrm.ai',
     'localhost',
     '127.0.0.1',
     'platform-ten-psi.vercel.app',
@@ -19,7 +19,7 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
 
   const isMainHost = MAIN_HOSTS.has(host)
   const origin = isMainHost
-    ? 'https://homeservicesbusinesscrm.com'
+    ? 'https://homeservicecrm.ai'
     : `https://${host}`
 
   // Private app surfaces — disallowed on every host (main + tenant).

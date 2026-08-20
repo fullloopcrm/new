@@ -55,7 +55,7 @@ import { featuresB } from "./feature-data-b";
 import { featuresC } from "./feature-data-c";
 import { featuresD } from "./feature-data-d";
 
-const SITE = "https://homeservicesbusinesscrm.com";
+const SITE = "https://homeservicecrm.ai";
 
 const baseFeatures: Feature[] = [
   // ───────────────────────────────────────────────────────────────────────

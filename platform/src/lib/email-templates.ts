@@ -86,7 +86,7 @@ ${data.logoUrl ? `<td width="40" style="padding-right:12px"><img src="${safeUrl(
 ${content}
 </td></tr>
 <tr><td style="padding:16px 28px;border-top:1px solid #D8D2C4;background:#E7E1D3;font-family:${SANS};font-size:11px;color:#807B70;line-height:1.55">
-© ${year} ${escapeHtml(data.tenantName)} · powered by <a href="https://homeservicesbusinesscrm.com/" style="text-decoration:none"><span style="font-family:${DISPLAY};font-weight:600;color:#1C1C1C">Full&nbsp;Loop</span><span style="font-family:${MONO};font-size:8px;letter-spacing:0.18em;color:#807B70">&nbsp;CRM</span></a><br>Autonomous Home Service Business CRM Systems${data.businessAddress ? `<br>${escapeHtml(data.businessAddress)}` : ''}${data.unsubscribeUrl ? `<br><a href="${safeUrl(data.unsubscribeUrl)}" style="color:#807B70;text-decoration:underline">Unsubscribe from these emails</a>` : ''}
+© ${year} ${escapeHtml(data.tenantName)} · powered by <a href="https://homeservicecrm.ai/" style="text-decoration:none"><span style="font-family:${DISPLAY};font-weight:600;color:#1C1C1C">Full&nbsp;Loop</span><span style="font-family:${MONO};font-size:8px;letter-spacing:0.18em;color:#807B70">&nbsp;CRM</span></a><br>Autonomous Home Service Business CRM Systems${data.businessAddress ? `<br>${escapeHtml(data.businessAddress)}` : ''}${data.unsubscribeUrl ? `<br><a href="${safeUrl(data.unsubscribeUrl)}" style="color:#807B70;text-decoration:underline">Unsubscribe from these emails</a>` : ''}
 </td></tr>
 </table></td></tr></table></body></html>`
 }

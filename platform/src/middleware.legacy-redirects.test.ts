@@ -21,8 +21,8 @@ vi.mock('@/lib/tenant-lookup', () => ({
  */
 
 const reqFor = (pathname: string) =>
-  new NextRequest(`https://www.homeservicesbusinesscrm.com${pathname}`, {
-    headers: { host: 'www.homeservicesbusinesscrm.com' },
+  new NextRequest(`https://www.homeservicecrm.ai${pathname}`, {
+    headers: { host: 'www.homeservicecrm.ai' },
   })
 
 describe('middleware — legacy marketing-slug redirects (2026-07-28 redesign)', () => {

@@ -63,7 +63,7 @@ describe('GET /api/social/connect/instagram', () => {
     const redirectUri = new URL(url).searchParams.get('redirect_uri')
 
     expect(redirectUri).not.toContain('undefined')
-    expect(redirectUri).toBe('https://homeservicesbusinesscrm.com/api/social/connect/instagram/callback')
+    expect(redirectUri).toBe('https://homeservicecrm.ai/api/social/connect/instagram/callback')
   })
 
   it('includes the instagram-specific scopes in addition to the page scopes', async () => {

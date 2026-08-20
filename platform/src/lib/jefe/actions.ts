@@ -11,7 +11,7 @@ import { sendEmail } from '@/lib/email'
 
 const has = (v: string | null | undefined): boolean => typeof v === 'string' && v.trim().length > 0
 
-const PROD_BASE = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || 'https://homeservicesbusinesscrm.com').replace(/\/$/, '')
+const PROD_BASE = (process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || 'https://homeservicecrm.ai').replace(/\/$/, '')
 
 // Crons Jefe is allowed to re-fire (mirrors vercel.json). Guards against hitting
 // arbitrary routes via a crafted name.

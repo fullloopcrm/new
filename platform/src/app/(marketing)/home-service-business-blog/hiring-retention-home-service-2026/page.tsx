@@ -9,7 +9,7 @@ import {
   howToSchema,
 } from "@/lib/schema";
 
-const SITE = "https://homeservicesbusinesscrm.com";
+const SITE = "https://homeservicecrm.ai";
 const URL = `${SITE}/home-service-business-blog/hiring-retention-home-service-2026`;
 const PUBLISHED = "2026-04-22";
 const MODIFIED = "2026-04-22";

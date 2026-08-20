@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import PartnershipForm from "@/components/PartnershipForm";
 import { JsonLd, breadcrumbSchema, organizationSchema, websiteSchema } from "@/lib/schema";
 
-const URL = "https://homeservicesbusinesscrm.com/waitlist";
+const URL = "https://homeservicecrm.ai/waitlist";
 const breadcrumbs = [
-  { name: "Home", url: "https://homeservicesbusinesscrm.com" },
+  { name: "Home", url: "https://homeservicecrm.ai" },
   { name: "Waitlist", url: URL },
 ];
 
@@ -24,7 +24,7 @@ export const metadata: Metadata = {
     title: "Join the Waitlist | Full Loop CRM",
     description:
       "One partner per trade per city. Request to join the Full Loop CRM waitlist.",
-    url: "https://homeservicesbusinesscrm.com/waitlist",
+    url: "https://homeservicecrm.ai/waitlist",
     type: "website",
   },
   twitter: {
@@ -43,8 +43,8 @@ const jsonLd = {
   description:
     "Request to join the Full Loop CRM waitlist. One partner per trade per city.",
   url: URL,
-  isPartOf: { "@id": "https://homeservicesbusinesscrm.com/#website" },
-  about: { "@id": "https://homeservicesbusinesscrm.com/#organization" },
+  isPartOf: { "@id": "https://homeservicecrm.ai/#website" },
+  about: { "@id": "https://homeservicecrm.ai/#organization" },
 };
 
 export default function WaitlistPage() {

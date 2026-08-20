@@ -1,6 +1,6 @@
 import { industries, metros, comboPath } from "@/lib/marketing/combos";
 
-const BASE = "https://homeservicesbusinesscrm.com";
+const BASE = "https://homeservicecrm.ai";
 // Stable lastmod — do not stamp today's date on every deploy for this
 // programmatic network (see src/app/sitemap-pages.xml/route.ts for why).
 const LASTMOD = "2026-07-28";

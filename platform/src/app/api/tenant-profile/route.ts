@@ -140,7 +140,7 @@ export async function POST(request: Request) {
     )
 
     const tenantName = (tenant?.name as string) || 'A tenant'
-    const businessUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://www.homeservicesbusinesscrm.com'}/admin/businesses/${tenantId}`
+    const businessUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://www.homeservicecrm.ai'}/admin/businesses/${tenantId}`
 
     alertOwner('Onboarding completed', `${tenantName} finished their profile.\n${businessUrl}`).catch(() => {})
 

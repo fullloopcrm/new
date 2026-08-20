@@ -26,12 +26,12 @@ export const metadata: Metadata = {
     "all-in-one home service platform",
     "AI receptionist CRM",
   ],
-  alternates: { canonical: "https://homeservicesbusinesscrm.com/full-loop-crm-pricing" },
+  alternates: { canonical: "https://homeservicecrm.ai/full-loop-crm-pricing" },
   openGraph: {
     title: "$2,500/Month: Unlimited Users & Locations | $25,000 Website: Lock Your Territory",
     description:
       "$2,500/month flat — unlimited users, unlimited locations. The $25,000 website locks your exclusive territory, and you own it outright.",
-    url: "https://homeservicesbusinesscrm.com/full-loop-crm-pricing",
+    url: "https://homeservicecrm.ai/full-loop-crm-pricing",
     siteName: "Full Loop CRM",
     type: "website",
   },
@@ -47,8 +47,8 @@ export const metadata: Metadata = {
 /*  Data                                                               */
 /* ------------------------------------------------------------------ */
 const breadcrumbs = [
-  { name: "Home", url: "https://homeservicesbusinesscrm.com" },
-  { name: "Pricing", url: "https://homeservicesbusinesscrm.com/full-loop-crm-pricing" },
+  { name: "Home", url: "https://homeservicecrm.ai" },
+  { name: "Pricing", url: "https://homeservicecrm.ai/full-loop-crm-pricing" },
 ];
 
 const MONTHLY_PRICE = 2500; // flat, unlimited users
@@ -145,13 +145,13 @@ export default function PricingPage() {
         data={webPageSchema(
           "Pricing | Full Loop CRM",
           "$2,500/month: unlimited users and unlimited locations. $25,000: full-suite website — one per territory, and buying it is what locks that territory to you. You own the website 100%, it generates leads and job applications, and it connects straight to the CRM backend.",
-          "https://homeservicesbusinesscrm.com/full-loop-crm-pricing",
+          "https://homeservicecrm.ai/full-loop-crm-pricing",
           breadcrumbs
         )}
       />
       <JsonLd data={breadcrumbSchema(breadcrumbs)} />
       <JsonLd data={faqSchema(pricingFaqs)} />
-      <JsonLd data={localBusinessSchema("https://homeservicesbusinesscrm.com/full-loop-crm-pricing", "United States", "Country")} />
+      <JsonLd data={localBusinessSchema("https://homeservicecrm.ai/full-loop-crm-pricing", "United States", "Country")} />
       <JsonLd data={softwareApplicationSchema(String(MONTHLY_PRICE), "USD")} />
       <JsonLd data={organizationSchema} />
       <JsonLd data={websiteSchema} />

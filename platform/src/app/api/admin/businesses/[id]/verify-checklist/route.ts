@@ -35,7 +35,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     stripe_api_key: tenant.stripe_api_key ? decryptSecret(tenant.stripe_api_key) : tenant.stripe_api_key,
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://homeservicesbusinesscrm.com'
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://homeservicecrm.ai'
   const checks = await runAllChecks(tenantForVerify, appUrl)
 
   // Persist auto-verified flags into setup_progress so the /admin/businesses/[id]

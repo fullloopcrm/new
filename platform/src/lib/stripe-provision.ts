@@ -57,7 +57,7 @@ function targetWebhookUrl(appUrl: string, domain: string | null): string {
 
 export async function provisionStripeWebhookSecret(
   tenantId: string,
-  appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://homeservicesbusinesscrm.com',
+  appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://homeservicecrm.ai',
 ): Promise<ProvisionStripeWebhookResult> {
   const { data: tenant, error: fetchErr } = await supabaseAdmin
     .from('tenants')

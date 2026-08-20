@@ -8,10 +8,10 @@ import {
 } from "@/lib/schema";
 import ContactForm from "@/components/ContactForm";
 
-const URL = "https://homeservicesbusinesscrm.com/contact";
+const URL = "https://homeservicecrm.ai/contact";
 
 const breadcrumbs = [
-  { name: "Home", url: "https://homeservicesbusinesscrm.com" },
+  { name: "Home", url: "https://homeservicecrm.ai" },
   { name: "Contact", url: URL },
 ];
 

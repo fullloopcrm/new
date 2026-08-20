@@ -16,7 +16,7 @@ import {
   featureUrl,
 } from "@/lib/marketing/features";
 
-const SITE = "https://homeservicesbusinesscrm.com";
+const SITE = "https://homeservicecrm.ai";
 
 // ~20 pages — cheap to pre-render, and pre-rendering is best for SEO.
 export function generateStaticParams() {

@@ -109,7 +109,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       token,
       expires_at,
     })
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://homeservicesbusinesscrm.com'
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://homeservicecrm.ai'
     const joinUrl = `${appUrl}/join/${token}`
     const { escapeHtml } = await import('@/lib/escape-html')
     const { sendEmail } = await import('@/lib/email')

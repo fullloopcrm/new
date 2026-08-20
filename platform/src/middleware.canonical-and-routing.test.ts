@@ -24,19 +24,19 @@ beforeEach(() => {
 const reqFor = (host: string, pathname: string) =>
   new NextRequest(`https://${host}${pathname}`, { headers: { host } })
 
-describe('middleware — brand consolidation (fullloopcrm.com -> homeservicesbusinesscrm.com)', () => {
+describe('middleware — brand consolidation (fullloopcrm.com -> homeservicecrm.ai)', () => {
   it('bare apex 308s to the main marketing host, preserving path + query', async () => {
     const { default: middleware } = await import('./middleware')
     const res = await middleware(reqFor('fullloopcrm.com', '/full-loop-crm-pricing?ref=x'))
     expect(res?.status).toBe(308)
-    expect(res?.headers.get('location')).toBe('https://www.homeservicesbusinesscrm.com/full-loop-crm-pricing?ref=x')
+    expect(res?.headers.get('location')).toBe('https://www.homeservicecrm.ai/full-loop-crm-pricing?ref=x')
   })
 
   it('www.fullloopcrm.com also 308s to the main marketing host', async () => {
     const { default: middleware } = await import('./middleware')
     const res = await middleware(reqFor('www.fullloopcrm.com', '/'))
     expect(res?.status).toBe(308)
-    expect(res?.headers.get('location')).toBe('https://www.homeservicesbusinesscrm.com/')
+    expect(res?.headers.get('location')).toBe('https://www.homeservicecrm.ai/')
   })
 })
 
@@ -76,7 +76,7 @@ describe('middleware — canonical www redirect (301)', () => {
 describe('middleware — killed routes (410 Gone)', () => {
   it('/apply on the main host returns 410, not 404', async () => {
     const { default: middleware } = await import('./middleware')
-    const res = await middleware(reqFor('www.homeservicesbusinesscrm.com', '/apply'))
+    const res = await middleware(reqFor('www.homeservicecrm.ai', '/apply'))
     expect(res?.status).toBe(410)
   })
 

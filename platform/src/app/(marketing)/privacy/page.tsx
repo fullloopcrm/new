@@ -7,8 +7,8 @@ import {
 } from "@/lib/schema";
 
 const breadcrumbs = [
-  { name: "Home", url: "https://homeservicesbusinesscrm.com" },
-  { name: "Privacy", url: "https://homeservicesbusinesscrm.com/privacy" },
+  { name: "Home", url: "https://homeservicecrm.ai" },
+  { name: "Privacy", url: "https://homeservicecrm.ai/privacy" },
 ];
 
 export const metadata: Metadata = {
@@ -17,12 +17,12 @@ export const metadata: Metadata = {
     "How Full Loop CRM handles data: what we collect, the sub-processors we use, how long we retain data, and your rights under GDPR and CCPA.",
   keywords:
     "privacy policy, GDPR, CCPA, data subject rights, sub-processors, data retention, Full Loop CRM",
-  alternates: { canonical: "https://homeservicesbusinesscrm.com/privacy" },
+  alternates: { canonical: "https://homeservicecrm.ai/privacy" },
   openGraph: {
     title: "Privacy | Full Loop CRM",
     description:
       "What we collect, who processes it, how long we keep it, and your rights under GDPR and CCPA.",
-    url: "https://homeservicesbusinesscrm.com/privacy",
+    url: "https://homeservicecrm.ai/privacy",
     type: "website",
   },
   twitter: {
@@ -75,12 +75,12 @@ export default function PrivacyPage() {
         data={webPageSchema(
           "Privacy | Full Loop CRM",
           "How Full Loop CRM handles data: what we collect, our sub-processors, retention, and your rights.",
-          "https://homeservicesbusinesscrm.com/privacy",
+          "https://homeservicecrm.ai/privacy",
           breadcrumbs
         )}
       />
       <JsonLd data={breadcrumbSchema(breadcrumbs)} />
-      <JsonLd data={localBusinessSchema("https://homeservicesbusinesscrm.com/privacy", "United States", "Country")} />
+      <JsonLd data={localBusinessSchema("https://homeservicecrm.ai/privacy", "United States", "Country")} />
 
       <section className="bg-slate-900 py-20 px-6">
         <div className="mx-auto max-w-3xl text-center">

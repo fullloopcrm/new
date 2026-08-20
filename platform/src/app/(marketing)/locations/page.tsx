@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Home Service CRM by State | Full Loop CRM",
     description: "400+ markets across every US state. One operator per trade per city.",
-    url: "https://homeservicesbusinesscrm.com/locations",
+    url: "https://homeservicecrm.ai/locations",
     type: "website",
   },
   twitter: {
@@ -33,12 +33,12 @@ export const metadata: Metadata = {
     title: "Home Service CRM by State | Full Loop CRM",
     description: "400+ markets across every US state. One operator per trade per city.",
   },
-  alternates: { canonical: "https://homeservicesbusinesscrm.com/locations" },
+  alternates: { canonical: "https://homeservicecrm.ai/locations" },
 };
 
 const breadcrumbs = [
-  { name: "Home", url: "https://homeservicesbusinesscrm.com" },
-  { name: "Locations", url: "https://homeservicesbusinesscrm.com/locations" },
+  { name: "Home", url: "https://homeservicecrm.ai" },
+  { name: "Locations", url: "https://homeservicecrm.ai/locations" },
 ];
 
 export default function LocationsIndexPage() {
@@ -51,12 +51,12 @@ export default function LocationsIndexPage() {
         data={webPageSchema(
           "Home Service CRM by State | Full Loop CRM",
           `Full Loop CRM's exclusive-territory home service CRM, available across ${totalCities}+ markets in every US state.`,
-          "https://homeservicesbusinesscrm.com/locations",
+          "https://homeservicecrm.ai/locations",
           breadcrumbs
         )}
       />
       <JsonLd data={breadcrumbSchema(breadcrumbs)} />
-      <JsonLd data={localBusinessSchema("https://homeservicesbusinesscrm.com/locations", "United States", "Country")} />
+      <JsonLd data={localBusinessSchema("https://homeservicecrm.ai/locations", "United States", "Country")} />
       <JsonLd data={organizationSchema} />
       <JsonLd data={websiteSchema} />
       <JsonLd
@@ -64,7 +64,7 @@ export default function LocationsIndexPage() {
           "Full Loop CRM Markets by State",
           groups.map((g) => ({
             name: `Home Service CRM in ${g.state}`,
-            url: `https://homeservicesbusinesscrm.com/locations/${g.stateAbbr.toLowerCase()}`,
+            url: `https://homeservicecrm.ai/locations/${g.stateAbbr.toLowerCase()}`,
           }))
         )}
       />

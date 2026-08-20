@@ -101,7 +101,7 @@ export async function generateMetadata({
 
   const title = `Home Service CRM in ${metro.city}, ${metro.stateAbbr} | Full Loop CRM`;
   const description = `The full-cycle, AI-managed home service CRM in ${metro.city}, ${metro.stateAbbr}. Live-proven by The NYC Maid: real clients, one person, under an hour a day. One partner per trade.`;
-  const url = `https://homeservicesbusinesscrm.com${locationPath(metro)}`;
+  const url = `https://homeservicecrm.ai${locationPath(metro)}`;
 
   return {
     title,
@@ -129,7 +129,7 @@ export default async function LocationPage({
   const metro = findMetro(state, city);
   if (!metro) notFound();
 
-  const pageUrl = `https://homeservicesbusinesscrm.com${locationPath(metro)}`;
+  const pageUrl = `https://homeservicecrm.ai${locationPath(metro)}`;
   const live = await getCaseStudyStats();
   const stateGroup = groupMetrosByState().find((g) => g.stateAbbr === metro.stateAbbr);
   const stateMeta = getStateMeta(metro.stateAbbr);
@@ -141,9 +141,9 @@ export default async function LocationPage({
   const nearby5 = nearbyMarkets.slice(0, 5);
 
   const breadcrumbs = [
-    { name: "Home", url: "https://homeservicesbusinesscrm.com" },
-    { name: "Locations", url: "https://homeservicesbusinesscrm.com/locations" },
-    { name: metro.state, url: `https://homeservicesbusinesscrm.com/locations/${state.toLowerCase()}` },
+    { name: "Home", url: "https://homeservicecrm.ai" },
+    { name: "Locations", url: "https://homeservicecrm.ai/locations" },
+    { name: metro.state, url: `https://homeservicecrm.ai/locations/${state.toLowerCase()}` },
     { name: `Home Service CRM in ${metro.city}, ${metro.stateAbbr}`, url: pageUrl },
   ];
 
@@ -169,7 +169,7 @@ export default async function LocationPage({
           `Home Service Industries Available in ${metro.city}, ${metro.stateAbbr}`,
           industries.map((i) => ({
             name: `${i.name} CRM in ${metro.city}`,
-            url: `https://homeservicesbusinesscrm.com${comboPath(i, metro)}`,
+            url: `https://homeservicecrm.ai${comboPath(i, metro)}`,
           }))
         )}
       />

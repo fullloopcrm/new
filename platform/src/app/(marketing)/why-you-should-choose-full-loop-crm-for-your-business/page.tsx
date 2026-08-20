@@ -27,13 +27,13 @@ export const metadata: Metadata = {
     "territory-exclusive CRM",
   ],
   alternates: {
-    canonical: "https://homeservicesbusinesscrm.com/why-you-should-choose-full-loop-crm-for-your-business",
+    canonical: "https://homeservicecrm.ai/why-you-should-choose-full-loop-crm-for-your-business",
   },
   openGraph: {
     title: "Why Full Loop CRM — One Operator Per Trade Per City, Nobody Else",
     description:
       "Your competitors buy the same Jobber subscription you do. Full Loop CRM is different — the platform powers our own portfolio of vertical brands.",
-    url: "https://homeservicesbusinesscrm.com/why-you-should-choose-full-loop-crm-for-your-business",
+    url: "https://homeservicecrm.ai/why-you-should-choose-full-loop-crm-for-your-business",
     type: "website",
   },
   twitter: {
@@ -48,8 +48,8 @@ export const metadata: Metadata = {
 /*  Breadcrumbs                                                       */
 /* ------------------------------------------------------------------ */
 const breadcrumbs = [
-  { name: "Home", url: "https://homeservicesbusinesscrm.com" },
-  { name: "Why Full Loop", url: "https://homeservicesbusinesscrm.com/why-you-should-choose-full-loop-crm-for-your-business" },
+  { name: "Home", url: "https://homeservicecrm.ai" },
+  { name: "Why Full Loop", url: "https://homeservicecrm.ai/why-you-should-choose-full-loop-crm-for-your-business" },
 ];
 
 /* ------------------------------------------------------------------ */
@@ -164,12 +164,12 @@ export default function WhyFullLoopPage() {
         data={webPageSchema(
           "Why Full Loop CRM | The Only CRM That Closes the Loop",
           "Full Loop CRM replaces 9+ disconnected tools with one AI-powered platform for home service businesses. Organic leads, AI sales, scheduling, GPS ops, payments, reviews, retargeting.",
-          "https://homeservicesbusinesscrm.com/why-you-should-choose-full-loop-crm-for-your-business",
+          "https://homeservicecrm.ai/why-you-should-choose-full-loop-crm-for-your-business",
           breadcrumbs
         )}
       />
       <JsonLd data={breadcrumbSchema(breadcrumbs)} />
-      <JsonLd data={localBusinessSchema("https://homeservicesbusinesscrm.com/why-you-should-choose-full-loop-crm-for-your-business", "United States", "Country")} />
+      <JsonLd data={localBusinessSchema("https://homeservicecrm.ai/why-you-should-choose-full-loop-crm-for-your-business", "United States", "Country")} />
 
       {/* ============================================================ */}
       {/*  1. HERO                                                     */}

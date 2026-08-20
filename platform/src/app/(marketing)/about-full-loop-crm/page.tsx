@@ -8,8 +8,8 @@ import {
 } from "@/lib/schema";
 
 const breadcrumbs = [
-  { name: "Home", url: "https://homeservicesbusinesscrm.com" },
-  { name: "About", url: "https://homeservicesbusinesscrm.com/about-full-loop-crm" },
+  { name: "Home", url: "https://homeservicecrm.ai" },
+  { name: "About", url: "https://homeservicecrm.ai/about-full-loop-crm" },
 ];
 
 export const metadata: Metadata = {
@@ -23,12 +23,12 @@ export const metadata: Metadata = {
     "home service business technology",
     "full cycle CRM",
   ],
-  alternates: { canonical: "https://homeservicesbusinesscrm.com/about-full-loop-crm" },
+  alternates: { canonical: "https://homeservicecrm.ai/about-full-loop-crm" },
   openGraph: {
     title: "About Full Loop CRM | Built by Home Service Operators",
     description:
       "Full Loop CRM was built by a home service business owner with 20+ years in the field. One platform, full cycle.",
-    url: "https://homeservicesbusinesscrm.com/about-full-loop-crm",
+    url: "https://homeservicecrm.ai/about-full-loop-crm",
     type: "website",
   },
   twitter: {
@@ -46,12 +46,12 @@ export default function AboutPage() {
         data={webPageSchema(
           "About Full Loop CRM | Built by Home Service Operators",
           "Full Loop CRM was built by a home service business owner with 20+ years in the field. One platform that handles the full cycle — leads to rebooking.",
-          "https://homeservicesbusinesscrm.com/about-full-loop-crm",
+          "https://homeservicecrm.ai/about-full-loop-crm",
           breadcrumbs
         )}
       />
       <JsonLd data={breadcrumbSchema(breadcrumbs)} />
-      <JsonLd data={localBusinessSchema("https://homeservicesbusinesscrm.com/about-full-loop-crm", "United States", "Country")} />
+      <JsonLd data={localBusinessSchema("https://homeservicecrm.ai/about-full-loop-crm", "United States", "Country")} />
 
       {/* Hero */}
       <section className="bg-slate-900 py-24 px-6">

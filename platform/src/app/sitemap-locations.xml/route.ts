@@ -1,6 +1,6 @@
 import { metros, locationPath } from "@/lib/marketing/combos";
 
-const BASE = "https://homeservicesbusinesscrm.com";
+const BASE = "https://homeservicecrm.ai";
 
 export function GET() {
   const urls = metros

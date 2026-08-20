@@ -14,7 +14,7 @@ import { alertOwner } from './telegram'
 import { emailShell, type CommsBrand } from './messaging/shell'
 
 function appUrl(): string {
-  return process.env.NEXT_PUBLIC_APP_URL || 'https://www.homeservicesbusinesscrm.com'
+  return process.env.NEXT_PUBLIC_APP_URL || 'https://www.homeservicecrm.ai'
 }
 
 export function onboardingLinkUrl(tenantId: string, linkVersion: number): string {

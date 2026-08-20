@@ -50,9 +50,9 @@ export async function generateMetadata({
   const trade = industry.name.toLowerCase();
   const title = `Best CRM for ${industry.name} | Full Loop CRM`;
   const description = `AI-managed CRM for ${trade} businesses. Proven live: ~200 jobs/mo, one person, under an hour a day. Leads, sales, scheduling, payments, reviews.`;
-  const url = `https://homeservicesbusinesscrm.com/industry/${slug}`;
+  const url = `https://homeservicecrm.ai/industry/${slug}`;
   const canonicalSlug = getCanonicalIndustrySlug(slug);
-  const canonicalUrl = `https://homeservicesbusinesscrm.com/industry/${canonicalSlug}`;
+  const canonicalUrl = `https://homeservicecrm.ai/industry/${canonicalSlug}`;
 
   return {
     title,
@@ -117,7 +117,7 @@ export default async function IndustryPage({
   // @id/url fields still self-reference the non-canonical slug, a mismatch
   // Google's Rich Results validator flags.
   const canonicalSlug = getCanonicalIndustrySlug(slug);
-  const pageUrl = `https://homeservicesbusinesscrm.com/industry/${canonicalSlug}`;
+  const pageUrl = `https://homeservicecrm.ai/industry/${canonicalSlug}`;
   const trade = industry.name.toLowerCase();
   const live = await getCaseStudyStats();
 
@@ -133,8 +133,8 @@ export default async function IndustryPage({
       );
 
   const breadcrumbs = [
-    { name: "Home", url: "https://homeservicesbusinesscrm.com" },
-    { name: "Industries", url: "https://homeservicesbusinesscrm.com/full-loop-crm-service-business-industries" },
+    { name: "Home", url: "https://homeservicecrm.ai" },
+    { name: "Industries", url: "https://homeservicecrm.ai/full-loop-crm-service-business-industries" },
     {
       name: `Best CRM for ${industry.name} Businesses`,
       url: pageUrl,
@@ -170,7 +170,7 @@ export default async function IndustryPage({
           `${industry.name} CRM — Available Markets`,
           topMetros.map((m) => ({
             name: `${industry.name} CRM in ${m.city}, ${m.stateAbbr}`,
-            url: `https://homeservicesbusinesscrm.com${comboPath(industry, m)}`,
+            url: `https://homeservicecrm.ai${comboPath(industry, m)}`,
           }))
         )}
       />

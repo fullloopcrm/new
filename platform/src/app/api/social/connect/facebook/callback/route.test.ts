@@ -159,7 +159,7 @@ describe('GET /api/social/connect/facebook/callback — success path', () => {
 
     const location = res.headers.get('location')!
     expect(location).not.toContain('undefined')
-    expect(location.startsWith('https://homeservicesbusinesscrm.com/dashboard/social')).toBe(true)
+    expect(location.startsWith('https://homeservicecrm.ai/dashboard/social')).toBe(true)
   })
 
   it('redirects with error=unknown (not a raw 500/stack trace) when an unexpected exception occurs', async () => {

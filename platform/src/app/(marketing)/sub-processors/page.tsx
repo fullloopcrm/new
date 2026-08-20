@@ -12,8 +12,8 @@ import {
 } from "@/lib/legal/sub-processors";
 
 const breadcrumbs = [
-  { name: "Home", url: "https://homeservicesbusinesscrm.com" },
-  { name: "Sub-Processors", url: "https://homeservicesbusinesscrm.com/sub-processors" },
+  { name: "Home", url: "https://homeservicecrm.ai" },
+  { name: "Sub-Processors", url: "https://homeservicecrm.ai/sub-processors" },
 ];
 
 export const metadata: Metadata = {
@@ -22,12 +22,12 @@ export const metadata: Metadata = {
     "The third-party sub-processors Full Loop CRM uses to deliver its service, what they process, and where. Maintained per GDPR Article 28 and CCPA.",
   keywords:
     "sub-processors, GDPR, Article 28, data processing, DPA, Full Loop CRM, CCPA",
-  alternates: { canonical: "https://homeservicesbusinesscrm.com/sub-processors" },
+  alternates: { canonical: "https://homeservicecrm.ai/sub-processors" },
   openGraph: {
     title: "Sub-Processors | Full Loop CRM",
     description:
       "The third-party sub-processors Full Loop CRM uses to deliver its service.",
-    url: "https://homeservicesbusinesscrm.com/sub-processors",
+    url: "https://homeservicecrm.ai/sub-processors",
     type: "website",
   },
   twitter: {
@@ -51,12 +51,12 @@ export default function SubProcessorsPage() {
         data={webPageSchema(
           "Sub-Processors | Full Loop CRM",
           "The third-party sub-processors Full Loop CRM uses to deliver its service.",
-          "https://homeservicesbusinesscrm.com/sub-processors",
+          "https://homeservicecrm.ai/sub-processors",
           breadcrumbs
         )}
       />
       <JsonLd data={breadcrumbSchema(breadcrumbs)} />
-      <JsonLd data={localBusinessSchema("https://homeservicesbusinesscrm.com/sub-processors", "United States", "Country")} />
+      <JsonLd data={localBusinessSchema("https://homeservicecrm.ai/sub-processors", "United States", "Country")} />
 
       <section className="bg-slate-900 py-20 px-6">
         <div className="mx-auto max-w-3xl text-center">

@@ -7,10 +7,10 @@ import {
 } from "@/lib/schema";
 
 const breadcrumbs = [
-  { name: "Home", url: "https://homeservicesbusinesscrm.com" },
+  { name: "Home", url: "https://homeservicecrm.ai" },
   {
     name: "Partnership Agreement",
-    url: "https://homeservicesbusinesscrm.com/agreement",
+    url: "https://homeservicecrm.ai/agreement",
   },
 ];
 
@@ -20,12 +20,12 @@ export const metadata: Metadata = {
     "Full Loop CRM partnership agreement. Plain-language terms covering pricing, ownership, cancellation, and everything you need to know before partnering with us.",
   keywords:
     "partnership agreement, Full Loop CRM, CRM pricing, website ownership, home service business, cancellation policy",
-  alternates: { canonical: "https://homeservicesbusinesscrm.com/agreement" },
+  alternates: { canonical: "https://homeservicecrm.ai/agreement" },
   openGraph: {
     title: "Partnership Agreement | Full Loop CRM",
     description:
       "Plain-language partnership agreement covering pricing, ownership, cancellation, and what you get with Full Loop CRM.",
-    url: "https://homeservicesbusinesscrm.com/agreement",
+    url: "https://homeservicecrm.ai/agreement",
     type: "website",
   },
   twitter: {
@@ -43,12 +43,12 @@ export default function AgreementPage() {
         data={webPageSchema(
           "Partnership Agreement | Full Loop CRM",
           "Plain-language partnership agreement for Full Loop CRM partners.",
-          "https://homeservicesbusinesscrm.com/agreement",
+          "https://homeservicecrm.ai/agreement",
           breadcrumbs
         )}
       />
       <JsonLd data={breadcrumbSchema(breadcrumbs)} />
-      <JsonLd data={localBusinessSchema("https://homeservicesbusinesscrm.com/agreement", "United States", "Country")} />
+      <JsonLd data={localBusinessSchema("https://homeservicecrm.ai/agreement", "United States", "Country")} />
 
       {/* Hero */}
       <section className="bg-slate-900 py-20 px-6">

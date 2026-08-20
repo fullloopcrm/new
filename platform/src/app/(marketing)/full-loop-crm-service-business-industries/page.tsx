@@ -34,11 +34,11 @@ export const metadata: Metadata = {
     title: "50+ Home Service Industries | Full Loop CRM",
     description:
       "One CRM platform for every home service trade. Exclusive territory partnerships available.",
-    url: "https://homeservicesbusinesscrm.com/full-loop-crm-service-business-industries",
+    url: "https://homeservicecrm.ai/full-loop-crm-service-business-industries",
     type: "website",
   },
   alternates: {
-    canonical: "https://homeservicesbusinesscrm.com/full-loop-crm-service-business-industries",
+    canonical: "https://homeservicecrm.ai/full-loop-crm-service-business-industries",
   },
   twitter: {
     card: "summary_large_image",
@@ -49,8 +49,8 @@ export const metadata: Metadata = {
 };
 
 const breadcrumbs = [
-  { name: "Home", url: "https://homeservicesbusinesscrm.com" },
-  { name: "Industries", url: "https://homeservicesbusinesscrm.com/full-loop-crm-service-business-industries" },
+  { name: "Home", url: "https://homeservicecrm.ai" },
+  { name: "Industries", url: "https://homeservicecrm.ai/full-loop-crm-service-business-industries" },
 ];
 
 
@@ -84,18 +84,18 @@ export default function IndustriesPage() {
         data={webPageSchema(
           "50+ Home Service Industries We Support | Full Loop CRM",
           "Full Loop CRM serves 50+ home service trades with exclusive territory partnerships.",
-          "https://homeservicesbusinesscrm.com/full-loop-crm-service-business-industries",
+          "https://homeservicecrm.ai/full-loop-crm-service-business-industries",
           breadcrumbs
         )}
       />
       <JsonLd data={breadcrumbSchema(breadcrumbs)} />
-      <JsonLd data={localBusinessSchema("https://homeservicesbusinesscrm.com/full-loop-crm-service-business-industries", "United States", "Country")} />
+      <JsonLd data={localBusinessSchema("https://homeservicecrm.ai/full-loop-crm-service-business-industries", "United States", "Country")} />
       <JsonLd
         data={itemListSchema(
           "Home Service Industries Supported by Full Loop CRM",
           industries.map((ind) => ({
             name: ind.name,
-            url: `https://homeservicesbusinesscrm.com${industryPath(ind)}`,
+            url: `https://homeservicecrm.ai${industryPath(ind)}`,
             description: ind.description,
           }))
         )}

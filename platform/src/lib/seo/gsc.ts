@@ -29,7 +29,7 @@ type ServiceAccount = {
 }
 
 export type GscSite = {
-  siteUrl: string // e.g. "sc-domain:homeservicesbusinesscrm.com"
+  siteUrl: string // e.g. "sc-domain:homeservicecrm.ai"
   permissionLevel: string
 }
 

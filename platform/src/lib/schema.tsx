@@ -4,16 +4,16 @@ import { safeJsonLd } from '@/lib/escape-html'
 export const organizationSchema = {
   "@context": "https://schema.org",
   "@type": "Organization",
-  "@id": "https://homeservicesbusinesscrm.com/#organization",
+  "@id": "https://homeservicecrm.ai/#organization",
   name: "Full Loop CRM",
-  url: "https://homeservicesbusinesscrm.com",
+  url: "https://homeservicecrm.ai",
   logo: {
     "@type": "ImageObject",
-    url: "https://homeservicesbusinesscrm.com/logo.png",
+    url: "https://homeservicecrm.ai/logo.png",
     width: 600,
     height: 60,
   },
-  image: "https://homeservicesbusinesscrm.com/opengraph-image",
+  image: "https://homeservicecrm.ai/opengraph-image",
   description:
     "Full Loop CRM is the first full-cycle CRM for home service businesses — AI-powered lead generation, sales automation, scheduling, GPS field operations, payments, reviews, and retargeting in one platform.",
   email: "hi@fullloopcrm.com",
@@ -72,13 +72,13 @@ export const organizationSchema = {
 export const websiteSchema = {
   "@context": "https://schema.org",
   "@type": "WebSite",
-  "@id": "https://homeservicesbusinesscrm.com/#website",
-  url: "https://homeservicesbusinesscrm.com",
+  "@id": "https://homeservicecrm.ai/#website",
+  url: "https://homeservicecrm.ai",
   name: "Full Loop CRM",
   description:
     "The first full-cycle CRM for home service businesses. AI-powered lead generation, sales automation, scheduling, GPS field operations, payments, reviews, and retargeting in one platform.",
   publisher: {
-    "@id": "https://homeservicesbusinesscrm.com/#organization",
+    "@id": "https://homeservicecrm.ai/#organization",
   },
   inLanguage: "en-US",
 };
@@ -95,7 +95,7 @@ export function localBusinessSchema(pageUrl: string, area: string, areaType: str
     "@type": "SoftwareApplication",
     "@id": `${pageUrl}/#software`,
     name: `Full Loop CRM - ${area}`,
-    image: "https://homeservicesbusinesscrm.com/opengraph-image",
+    image: "https://homeservicecrm.ai/opengraph-image",
     url: pageUrl,
     applicationCategory: "BusinessApplication",
     operatingSystem: "Web",
@@ -115,7 +115,7 @@ export function localBusinessSchema(pageUrl: string, area: string, areaType: str
       name: area,
     },
     provider: {
-      "@id": "https://homeservicesbusinesscrm.com/#organization",
+      "@id": "https://homeservicecrm.ai/#organization",
     },
   };
 }
@@ -129,14 +129,14 @@ export function serviceSchema(
   const base: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "Service",
-    "@id": `https://homeservicesbusinesscrm.com/${serviceSlug}/#service`,
+    "@id": `https://homeservicecrm.ai/${serviceSlug}/#service`,
     name: serviceName,
     description,
     url: area
-      ? `https://homeservicesbusinesscrm.com/${serviceSlug}/${area.toLowerCase().replace(/\s+/g, "-")}`
-      : `https://homeservicesbusinesscrm.com/${serviceSlug}`,
+      ? `https://homeservicecrm.ai/${serviceSlug}/${area.toLowerCase().replace(/\s+/g, "-")}`
+      : `https://homeservicecrm.ai/${serviceSlug}`,
     provider: {
-      "@id": "https://homeservicesbusinesscrm.com/#organization",
+      "@id": "https://homeservicecrm.ai/#organization",
     },
     serviceType: serviceName,
     areaServed: area
@@ -188,8 +188,8 @@ export function webPageSchema(
     url,
     name: title,
     description,
-    isPartOf: { "@id": "https://homeservicesbusinesscrm.com/#website" },
-    about: { "@id": "https://homeservicesbusinesscrm.com/#organization" },
+    isPartOf: { "@id": "https://homeservicecrm.ai/#website" },
+    about: { "@id": "https://homeservicecrm.ai/#organization" },
     datePublished: "2025-01-01",
     dateModified: new Date().toISOString().split("T")[0],
     inLanguage: "en-US",
@@ -216,14 +216,14 @@ export function articleSchema(
     headline: title,
     description,
     url,
-    image: image || "https://homeservicesbusinesscrm.com/opengraph-image",
+    image: image || "https://homeservicecrm.ai/opengraph-image",
     datePublished,
     dateModified,
     author: {
-      "@id": "https://homeservicesbusinesscrm.com/#organization",
+      "@id": "https://homeservicecrm.ai/#organization",
     },
     publisher: {
-      "@id": "https://homeservicesbusinesscrm.com/#organization",
+      "@id": "https://homeservicecrm.ai/#organization",
     },
     mainEntityOfPage: {
       "@type": "WebPage",
@@ -242,14 +242,14 @@ export function softwareApplicationSchema(
   const schema: Record<string, unknown> = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    "@id": "https://homeservicesbusinesscrm.com/#software",
+    "@id": "https://homeservicecrm.ai/#software",
     name: "Full Loop CRM",
     description:
       "The only full-cycle CRM for home service businesses proven by a real business it built and operates ~99% via AI — The NYC Maid. AI lead generation, AI sales over SMS/web/email, scheduling, GPS field operations, payments, bookkeeping, reviews, and retargeting in one platform. $2,500/mo flat, unlimited users, $25,000 one-time setup.",
-    url: "https://homeservicesbusinesscrm.com",
+    url: "https://homeservicecrm.ai",
     applicationCategory: "BusinessApplication",
     operatingSystem: "Web",
-    image: "https://homeservicesbusinesscrm.com/opengraph-image",
+    image: "https://homeservicecrm.ai/opengraph-image",
     offers: {
       "@type": "Offer",
       price,
@@ -260,7 +260,7 @@ export function softwareApplicationSchema(
         .toISOString()
         .split("T")[0],
       availability: "https://schema.org/InStock",
-      url: "https://homeservicesbusinesscrm.com/waitlist",
+      url: "https://homeservicecrm.ai/waitlist",
       priceSpecification: {
         "@type": "UnitPriceSpecification",
         price,
@@ -274,7 +274,7 @@ export function softwareApplicationSchema(
       },
     },
     provider: {
-      "@id": "https://homeservicesbusinesscrm.com/#organization",
+      "@id": "https://homeservicecrm.ai/#organization",
     },
     featureList: [
       "AI-Powered Lead Generation",
@@ -347,7 +347,7 @@ export function howToSchema(
     name,
     description,
     totalTime: "PT30M",
-    image: "https://homeservicesbusinesscrm.com/opengraph-image",
+    image: "https://homeservicecrm.ai/opengraph-image",
     step: steps.map((step, index) => ({
       "@type": "HowToStep",
       position: index + 1,

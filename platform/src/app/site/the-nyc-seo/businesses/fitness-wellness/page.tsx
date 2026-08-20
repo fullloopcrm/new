@@ -61,7 +61,7 @@ export default function FitnessWellnessPage() {
       postalCode: "10036",
       addressCountry: "US",
     },
-    sameAs: ["https://www.consortiumnyc.com", "https://homeservicesbusinesscrm.com"],
+    sameAs: ["https://www.consortiumnyc.com", "https://homeservicecrm.ai"],
     parentOrganization: {
       "@type": "Organization",
       name: "Consortium NYC",

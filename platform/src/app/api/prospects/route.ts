@@ -165,7 +165,7 @@ export async function POST(request: Request) {
           body.launch_timeline ? `Launch: ${body.launch_timeline}` : '',
           slotTaken ? 'Note: slot already taken (trade × zip)' : '',
         ].filter(Boolean).join('\n')
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://homeservicesbusinesscrm.com'
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://homeservicecrm.ai'
         await sendEmail({
           to: adminEmail,
           subject: `New Full Loop lead: ${body.business_name} (${body.trade})`,

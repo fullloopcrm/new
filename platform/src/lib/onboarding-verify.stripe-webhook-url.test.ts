@@ -22,49 +22,49 @@ import { verifyStripeWebhook, candidateStripeWebhookUrls } from './onboarding-ve
 
 describe('candidateStripeWebhookUrls', () => {
   it('includes the platform URL plus the tenant\'s own apex and www domain', () => {
-    const urls = candidateStripeWebhookUrls('https://homeservicesbusinesscrm.com', 'thefloridamaid.com')
+    const urls = candidateStripeWebhookUrls('https://homeservicecrm.ai', 'thefloridamaid.com')
     expect(urls).toEqual([
-      'https://homeservicesbusinesscrm.com/api/webhooks/stripe',
+      'https://homeservicecrm.ai/api/webhooks/stripe',
       'https://thefloridamaid.com/api/webhooks/stripe',
       'https://www.thefloridamaid.com/api/webhooks/stripe',
     ])
   })
 
   it('normalizes a domain already carrying www or a scheme', () => {
-    const urls = candidateStripeWebhookUrls('https://homeservicesbusinesscrm.com', 'https://www.thenycmaid.com/')
+    const urls = candidateStripeWebhookUrls('https://homeservicecrm.ai', 'https://www.thenycmaid.com/')
     expect(urls).toContain('https://thenycmaid.com/api/webhooks/stripe')
     expect(urls).toContain('https://www.thenycmaid.com/api/webhooks/stripe')
   })
 
   it('is just the platform URL when the tenant has no domain set', () => {
-    const urls = candidateStripeWebhookUrls('https://homeservicesbusinesscrm.com', null)
-    expect(urls).toEqual(['https://homeservicesbusinesscrm.com/api/webhooks/stripe'])
+    const urls = candidateStripeWebhookUrls('https://homeservicecrm.ai', null)
+    expect(urls).toEqual(['https://homeservicecrm.ai/api/webhooks/stripe'])
   })
 })
 
 describe('verifyStripeWebhook', () => {
   it('passes when the enabled endpoint is on the tenant\'s own branded domain, not the platform domain (nycmaid\'s real shape)', async () => {
     stripeCtl.endpoints = [{ url: 'https://www.thenycmaid.com/api/webhooks/stripe', status: 'enabled' }]
-    const res = await verifyStripeWebhook('sk_test_x', candidateStripeWebhookUrls('https://homeservicesbusinesscrm.com', 'thenycmaid.com'))
+    const res = await verifyStripeWebhook('sk_test_x', candidateStripeWebhookUrls('https://homeservicecrm.ai', 'thenycmaid.com'))
     expect(res.ok).toBe(true)
     expect(res.detail).toContain('www.thenycmaid.com')
   })
 
   it('passes when the enabled endpoint is on the apex domain without www (FloridaMade\'s real shape)', async () => {
     stripeCtl.endpoints = [{ url: 'https://thefloridamaid.com/api/webhooks/stripe', status: 'enabled' }]
-    const res = await verifyStripeWebhook('sk_test_x', candidateStripeWebhookUrls('https://homeservicesbusinesscrm.com', 'thefloridamaid.com'))
+    const res = await verifyStripeWebhook('sk_test_x', candidateStripeWebhookUrls('https://homeservicecrm.ai', 'thefloridamaid.com'))
     expect(res.ok).toBe(true)
   })
 
   it('fails when no endpoint matches any candidate URL', async () => {
     stripeCtl.endpoints = [{ url: 'https://someone-elses-domain.com/api/webhooks/stripe', status: 'enabled' }]
-    const res = await verifyStripeWebhook('sk_test_x', candidateStripeWebhookUrls('https://homeservicesbusinesscrm.com', 'thefloridamaid.com'))
+    const res = await verifyStripeWebhook('sk_test_x', candidateStripeWebhookUrls('https://homeservicecrm.ai', 'thefloridamaid.com'))
     expect(res.ok).toBe(false)
   })
 
   it('fails when the matching-URL endpoint is disabled', async () => {
     stripeCtl.endpoints = [{ url: 'https://thefloridamaid.com/api/webhooks/stripe', status: 'disabled' }]
-    const res = await verifyStripeWebhook('sk_test_x', candidateStripeWebhookUrls('https://homeservicesbusinesscrm.com', 'thefloridamaid.com'))
+    const res = await verifyStripeWebhook('sk_test_x', candidateStripeWebhookUrls('https://homeservicecrm.ai', 'thefloridamaid.com'))
     expect(res.ok).toBe(false)
   })
 

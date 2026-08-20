@@ -10,7 +10,7 @@ import {
 import { metros, locationPath } from "@/lib/marketing/combos";
 import { groupMetrosByState } from "@/lib/marketing/metroGroups";
 
-const URL = "https://homeservicesbusinesscrm.com/home-service-crm-locations";
+const URL = "https://homeservicecrm.ai/home-service-crm-locations";
 
 export const metadata: Metadata = {
   title: "Home Service CRM by City — 400+ U.S. Cities | Full Loop CRM",
@@ -40,7 +40,7 @@ export const metadata: Metadata = {
 };
 
 const breadcrumbs = [
-  { name: "Home", url: "https://homeservicesbusinesscrm.com" },
+  { name: "Home", url: "https://homeservicecrm.ai" },
   { name: "Locations", url: URL },
 ];
 
@@ -64,7 +64,7 @@ export default function LocationsHubPage() {
           "Home Service CRM by City",
           metros.map((m) => ({
             name: `Home Service CRM in ${m.city}, ${m.stateAbbr}`,
-            url: `https://homeservicesbusinesscrm.com${locationPath(m)}`,
+            url: `https://homeservicecrm.ai${locationPath(m)}`,
           }))
         )}
       />

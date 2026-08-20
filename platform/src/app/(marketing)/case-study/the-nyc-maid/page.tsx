@@ -29,9 +29,9 @@ import Objections from "@/components/case-study/Objections";
 import Proves from "@/components/case-study/Proves";
 import Cta from "@/components/case-study/Cta";
 
-const PAGE_URL = "https://homeservicesbusinesscrm.com/case-study/the-nyc-maid";
+const PAGE_URL = "https://homeservicecrm.ai/case-study/the-nyc-maid";
 const breadcrumbs = [
-  { name: "Home", url: "https://homeservicesbusinesscrm.com" },
+  { name: "Home", url: "https://homeservicecrm.ai" },
   { name: "Case Study — The NYC Maid", url: PAGE_URL },
 ];
 

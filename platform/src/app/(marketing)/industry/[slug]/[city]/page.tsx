@@ -76,7 +76,7 @@ export async function generateMetadata({
       : status === "pending"
         ? `A ${trade} operator in ${metro.city}, ${metro.stateAbbr} has applied for this exclusive license. Join the waitlist if it falls through.`
         : `The only full-cycle CRM for ${trade} businesses in ${metro.city}, ${metro.stateAbbr}. AI leads, sales, scheduling & payments — one operator per city.`;
-  const url = `https://homeservicesbusinesscrm.com${comboPath(industry, metro)}`;
+  const url = `https://homeservicecrm.ai${comboPath(industry, metro)}`;
 
   const override = await getSeoOverride(url);
   const finalTitle = override?.title || title;
@@ -145,7 +145,7 @@ export default async function ComboPage({
   if (!match) notFound();
 
   const { industry, metro } = match;
-  const pageUrl = `https://homeservicesbusinesscrm.com${comboPath(industry, metro)}`;
+  const pageUrl = `https://homeservicecrm.ai${comboPath(industry, metro)}`;
   const trade = industry.name.toLowerCase();
 
   const stateMeta = getStateMeta(metro.stateAbbr);
@@ -163,8 +163,8 @@ export default async function ComboPage({
     : richIndustries.find((ri) => ri.name.toLowerCase() === industry.name.toLowerCase());
 
   const breadcrumbs = [
-    { name: "Home", url: "https://homeservicesbusinesscrm.com" },
-    { name: `${industry.name} CRM`, url: `https://homeservicesbusinesscrm.com${industryPath(industry)}` },
+    { name: "Home", url: "https://homeservicecrm.ai" },
+    { name: `${industry.name} CRM`, url: `https://homeservicecrm.ai${industryPath(industry)}` },
     { name: `Best ${industry.name} CRM in ${metro.city}, ${metro.stateAbbr}`, url: pageUrl },
   ];
 
@@ -174,7 +174,7 @@ export default async function ComboPage({
 
   const nearbyComboItems = sameStateMetros.map((m) => ({
     name: `${industry.name} CRM in ${m.city}, ${m.stateAbbr}`,
-    url: `https://homeservicesbusinesscrm.com${comboPath(industry, m)}`,
+    url: `https://homeservicecrm.ai${comboPath(industry, m)}`,
   }));
 
   const serviceLd = {
@@ -185,7 +185,7 @@ export default async function ComboPage({
     description: `Full-cycle ${trade} CRM for ${metro.city}, ${metro.stateAbbr} — AI lead generation, AI sales, scheduling, GPS dispatch, payments, and reviews. One exclusive operator per city.`,
     serviceType: `${industry.name} CRM`,
     url: pageUrl,
-    provider: { "@id": "https://homeservicesbusinesscrm.com/#organization" },
+    provider: { "@id": "https://homeservicecrm.ai/#organization" },
     areaServed: {
       "@type": "City",
       name: `${metro.city}, ${metro.stateAbbr}`,
@@ -196,7 +196,7 @@ export default async function ComboPage({
       priceCurrency: "USD",
       price: "2500",
       availability: "https://schema.org/InStock",
-      url: "https://homeservicesbusinesscrm.com/waitlist",
+      url: "https://homeservicecrm.ai/waitlist",
     },
   };
 
