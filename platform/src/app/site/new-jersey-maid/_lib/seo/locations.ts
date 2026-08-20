@@ -1,12 +1,5 @@
 import { AREAS, type Area } from './data/areas'
-import { MANHATTAN_NEIGHBORHOODS } from './data/manhattan'
-import { BROOKLYN_NEIGHBORHOODS } from './data/brooklyn'
-import { QUEENS_NEIGHBORHOODS } from './data/queens'
-import { BRONX_NEIGHBORHOODS } from './data/bronx'
-import { STATEN_ISLAND_NEIGHBORHOODS } from './data/staten-island'
-import { LONG_ISLAND_NEIGHBORHOODS } from './data/long-island'
-import { WESTCHESTER_NEIGHBORHOODS } from './data/westchester'
-import { NEW_JERSEY_NEIGHBORHOODS } from './data/new-jersey'
+import { CENTRAL_JERSEY_NEIGHBORHOODS } from './data/central-jersey'
 
 export interface Neighborhood {
   slug: string
@@ -22,15 +15,11 @@ export interface Neighborhood {
   nearby: string[]
 }
 
+// NYC-borough neighborhood data was removed 2026-08-19 — this tenant is an
+// independent business, not an extension of NYC Maid's coverage. Real
+// neighborhood data for this tenant has not been built yet.
 export const ALL_NEIGHBORHOODS: Neighborhood[] = [
-  ...MANHATTAN_NEIGHBORHOODS,
-  ...BROOKLYN_NEIGHBORHOODS,
-  ...QUEENS_NEIGHBORHOODS,
-  ...BRONX_NEIGHBORHOODS,
-  ...STATEN_ISLAND_NEIGHBORHOODS,
-  ...LONG_ISLAND_NEIGHBORHOODS,
-  ...WESTCHESTER_NEIGHBORHOODS,
-  ...NEW_JERSEY_NEIGHBORHOODS,
+  ...CENTRAL_JERSEY_NEIGHBORHOODS,
 ]
 
 export function getArea(slug: string): Area | undefined {

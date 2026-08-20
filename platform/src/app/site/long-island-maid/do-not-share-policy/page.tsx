@@ -6,7 +6,7 @@ import Breadcrumbs from '@/app/site/long-island-maid/_components/Breadcrumbs'
 
 export const metadata: Metadata = {
   title: 'Do Not Share Policy | The Long Island Maid',
-  description: 'The Long Island Maid does not sell, share, or distribute your personal information. Your data stays with us. NYC cleaning from $59/hr. (516) 202-5900',
+  description: 'The Long Island Maid does not sell, share, or distribute your personal information. Your data stays with us. Long Island cleaning from $59/hr. (516) 202-5900',
   alternates: { canonical: 'https://www.thelongislandmaid.com/do-not-share-policy' },
 }
 

@@ -31,7 +31,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const n = getNeighborhood(slug)
   if (!n) return {}
   const title = `Sales Jobs in ${n.name} — Commission / 1099 Sales Rep, Paid Daily`
-  const description = `Commission sales jobs in ${n.name}, NYC. 1099 sales rep role — sign clients or referrers and earn 10% recurring on every cleaning, paid daily via Stripe. No cap. Apply: (516) 202-5900`
+  const description = `Commission sales jobs in ${n.name}, Long Island. 1099 sales rep role — sign clients or referrers and earn 10% recurring on every cleaning, paid daily via Stripe. No cap. Apply: (516) 202-5900`
   return {
     title,
     description,
@@ -92,7 +92,7 @@ export default async function NeighborhoodSalesJobPage({ params }: { params: Pro
         streetAddress: n.name,
         addressLocality: n.name,
         addressRegion: stateAbbr,
-        postalCode: n.zip_codes[0] || (stateAbbr === 'NJ' ? '07102' : '10036'),
+        postalCode: n.zip_codes[0],
         addressCountry: 'US',
       },
       geo: { '@type': 'GeoCoordinates', latitude: n.lat, longitude: n.lng },
@@ -101,7 +101,7 @@ export default async function NeighborhoodSalesJobPage({ params }: { params: Pro
     directApply: true,
     industry: 'Cleaning Services',
     occupationalCategory: '41-3091.00',
-    qualifications: `NYC-area network access in or around ${n.name}. Relationship builder. Sales background helpful, not required. English required, English/Spanish a plus.`,
+    qualifications: `Long Island-area network access in or around ${n.name}. Relationship builder. Sales background helpful, not required. English required, English/Spanish a plus.`,
     responsibilities: `Sign cleaning clients and referral partners in ${n.name} and the surrounding ${areaName} area. Build and maintain a recurring book of business.`,
     skills: 'Relationship building, prospecting, referral network development, communication, follow-through',
     incentiveCompensation: '10% recurring commission on every completed cleaning from direct clients and referrer networks. Paid daily via Stripe Connect. Tier upgrades at 50 and 100 clients. Sales Manager override.',
@@ -118,7 +118,7 @@ export default async function NeighborhoodSalesJobPage({ params }: { params: Pro
         localBusinessSchema(),
         breadcrumbSchema([
           { name: 'Home', url: 'https://www.thelongislandmaid.com' },
-          { name: 'Careers', url: 'https://www.thelongislandmaid.com/available-nyc-maid-jobs' },
+          { name: 'Careers', url: 'https://www.thelongislandmaid.com/available-long-island-maid-jobs' },
           { name: 'Sales Partner', url: 'https://www.thelongislandmaid.com/careers/commission-sales-partner' },
           { name: `Sales Partner in ${n.name}`, url: `https://www.thelongislandmaid.com/careers/commission-sales-partner/${n.slug}` },
         ]),
@@ -156,7 +156,7 @@ export default async function NeighborhoodSalesJobPage({ params }: { params: Pro
 
       <div className="max-w-4xl mx-auto px-4 py-12">
         <Breadcrumbs items={[
-          { name: 'Careers', href: '/available-nyc-maid-jobs' },
+          { name: 'Careers', href: '/available-long-island-maid-jobs' },
           { name: 'Sales Partner', href: '/careers/commission-sales-partner' },
           { name: n.name, href: `/careers/commission-sales-partner/${n.slug}` },
         ]} />

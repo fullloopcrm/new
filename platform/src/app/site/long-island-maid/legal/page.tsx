@@ -6,7 +6,7 @@ import Breadcrumbs from '@/app/site/long-island-maid/_components/Breadcrumbs'
 
 export const metadata: Metadata = {
   title: 'Legal Information | The Long Island Maid',
-  description: 'Legal information for The Long Island Maid — privacy policy, terms, refund policy & data sharing. NYC cleaning from $59/hr. (516) 202-5900',
+  description: 'Legal information for The Long Island Maid — privacy policy, terms, refund policy & data sharing. Long Island cleaning from $59/hr. (516) 202-5900',
   alternates: { canonical: 'https://www.thelongislandmaid.com/legal' },
 }
 

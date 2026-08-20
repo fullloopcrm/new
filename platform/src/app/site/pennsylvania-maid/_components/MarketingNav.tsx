@@ -4,24 +4,24 @@ import Image from 'next/image'
 import { useState, useEffect } from 'react'
 
 const serviceLinks = [
-  { name: 'Deep Cleaning', href: '/services/deep-cleaning-service-in-nyc' },
-  { name: 'Regular Apartment Cleaning', href: '/services/apartment-cleaning-service-in-nyc' },
-  { name: 'Weekly Service', href: '/services/weekly-maid-service-in-nyc' },
-  { name: 'Bi-Weekly Cleaning', href: '/services/bi-weekly-cleaning-service-in-nyc' },
-  { name: 'Move-In/Move-Out', href: '/services/move-in-move-out-cleaning-service-in-nyc' },
-  { name: 'Post-Construction', href: '/services/post-construction-cleanup-service-in-nyc' },
-  { name: 'Airbnb Cleaning', href: '/services/airbnb-cleaning-in-nyc' },
-  { name: 'Same-Day Cleaning', href: '/services/same-day-cleaning-service-in-nyc' },
-  { name: 'All Services', href: '/nyc-maid-service-services-offered-by-the-nyc-maid' },
+  { name: 'Deep Cleaning', href: '/services/deep-cleaning-service-in-pennsylvania' },
+  { name: 'Regular Apartment Cleaning', href: '/services/apartment-cleaning-service-in-pennsylvania' },
+  { name: 'Weekly Service', href: '/services/weekly-maid-service-in-pennsylvania' },
+  { name: 'Bi-Weekly Cleaning', href: '/services/bi-weekly-cleaning-service-in-pennsylvania' },
+  { name: 'Move-In/Move-Out', href: '/services/move-in-move-out-cleaning-service-in-pennsylvania' },
+  { name: 'Post-Construction', href: '/services/post-construction-cleanup-service-in-pennsylvania' },
+  { name: 'Airbnb Cleaning', href: '/services/airbnb-cleaning-in-pennsylvania' },
+  { name: 'Same-Day Cleaning', href: '/services/same-day-cleaning-service-in-pennsylvania' },
+  { name: 'All Services', href: '/pennsylvania-maid-service-services-offered-by-the-pennsylvania-maid' },
 ]
 
 const moreLinks = [
-  { name: 'About', href: '/about-the-nyc-maid-service-company' },
-  { name: 'FAQ', href: '/nyc-cleaning-service-frequently-asked-questions-in-2025' },
+  { name: 'About', href: '/about-the-pennsylvania-maid-service-company' },
+  { name: 'FAQ', href: '/pennsylvania-cleaning-service-frequently-asked-questions-in-2025' },
   { name: 'Careers — Administrator', href: '/careers/administrator' },
-  { name: 'Careers — Cleaning Jobs', href: '/available-nyc-maid-jobs' },
+  { name: 'Careers — Cleaning Jobs', href: '/available-pennsylvania-maid-jobs' },
   { name: 'Careers — Sales Partner', href: '/careers/commission-sales-partner' },
-  { name: 'Locations', href: '/service-areas-served-by-the-nyc-maid' },
+  { name: 'Locations', href: '/service-areas-served-by-the-pennsylvania-maid' },
   { name: 'Referral Program', href: '/get-paid-for-cleaning-referrals-every-time-they-are-serviced' },
   { name: 'Feedback | Suggestions?', href: '/feedback' },
 ]
@@ -47,13 +47,7 @@ export default function MarketingNav() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-center lg:justify-between h-9">
             <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] tracking-widest uppercase">
               <span className="text-white/80 font-semibold hidden sm:inline">Maid Service:</span>
-              <Link href="/service-areas-served-by-the-nyc-maid" className="hover:text-white transition-colors font-semibold text-white/80 hidden sm:inline">NYC</Link>
-              <span className="text-white/20 hidden sm:inline">|</span>
-              <Link href="/long-island-maid-service" className="hover:text-white transition-colors font-semibold text-white/80 hidden sm:inline">L.I.</Link>
-              <span className="text-white/20 hidden sm:inline">|</span>
-              <Link href="/westchester-maid-service" className="hover:text-white transition-colors font-semibold text-white/80 hidden md:inline">Westchester</Link>
-              <span className="text-white/20 hidden md:inline">|</span>
-              <Link href="/new-jersey-maid-service" className="hover:text-white transition-colors font-semibold text-white/80 hidden sm:inline">NJ</Link>
+              <Link href="/service-areas-served-by-the-pennsylvania-maid" className="hover:text-white transition-colors font-semibold text-white/80 hidden sm:inline">PA</Link>
               <span className="text-white/20 hidden sm:inline">-</span>
               <span className="text-white/80 font-semibold hidden sm:inline">Open 24/7</span>
               <span className="text-white/20 hidden sm:inline">·</span>
@@ -101,7 +95,7 @@ export default function MarketingNav() {
                 </div>
               </div>
 
-              <Link href="/updated-nyc-maid-service-industry-pricing" className="text-[#1E2A4A] hover:text-[#1E2A4A]/70 font-medium text-[15px] tracking-wide">Pricing</Link>
+              <Link href="/updated-pennsylvania-maid-service-industry-pricing" className="text-[#1E2A4A] hover:text-[#1E2A4A]/70 font-medium text-[15px] tracking-wide">Pricing</Link>
               <Link href="/reviews" className="text-[#1E2A4A] hover:text-[#1E2A4A]/70 font-medium text-[15px] tracking-wide flex items-center gap-1.5">
                 Reviews
                 <span className="text-yellow-400 text-xs">&#9733; 5.0</span>
@@ -190,7 +184,7 @@ export default function MarketingNav() {
                 </div>
               )}
 
-              <Link href="/updated-nyc-maid-service-industry-pricing" onClick={closeMenu} className="block py-3 text-white font-medium text-lg">Pricing</Link>
+              <Link href="/updated-pennsylvania-maid-service-industry-pricing" onClick={closeMenu} className="block py-3 text-white font-medium text-lg">Pricing</Link>
               <Link href="/reviews" onClick={closeMenu} className="flex items-center gap-2 py-3 text-white font-medium text-lg">
                 Reviews <span className="text-yellow-400 text-sm">&#9733; 5.0</span>
               </Link>

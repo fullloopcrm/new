@@ -11,7 +11,7 @@ const PLACEHOLDERS = [
   'Need help? Tell us here...',
   'I need a deep cleaning this Saturday',
   'How much for a 2 bedroom?',
-  'Do you serve Brooklyn?',
+  'Do you serve Norwalk?',
   'I need a move-out clean next week',
 ]
 

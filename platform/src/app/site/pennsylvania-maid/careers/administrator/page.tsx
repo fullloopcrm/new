@@ -7,7 +7,7 @@ import { getPosition } from '@/lib/positions/catalog'
 
 const pageUrl = 'https://www.thepennsylvaniamaid.com/careers/administrator'
 const pageTitle = 'Administrator — Your Path to CEO of a Multi-Million-Dollar Company | The Pennsylvania Maid'
-const pageDescription = 'The Pennsylvania Maid is a brand-new market launch backed by the same team and platform behind The NYC Maid. We’re hiring an Administrator with a real long-term path to becoming CEO. Compensation based on experience. Remote, anywhere in the US.'
+const pageDescription = 'The Pennsylvania Maid is a brand-new market launch backed by the same team and platform behind The Pennsylvania Maid. We’re hiring an Administrator with a real long-term path to becoming CEO. Compensation based on experience. Remote, anywhere in the US.'
 
 export const metadata: Metadata = {
   title: pageTitle,
@@ -122,7 +122,7 @@ const qualifyingQuestions = [
 const faqs = [
   { question: 'Is this a General Manager role?', answer: 'Functionally, yes — full ownership of the day-to-day operation. It is titled Administrator because the platform automates most of the routine work a GM would otherwise spend hours on, so the workload is lighter than a traditional GM role while the responsibility is not. It is also Stage 1 of a real progression — this role is built to grow into General Manager, and eventually into running the company.' },
   { question: 'What does the compensation structure look like?', answer: 'Compensation is based on experience and discussed directly as part of the process. Long-term, this is a real path toward becoming CEO of a multi-million-dollar company.' },
-  { question: 'Is this a real, backed opportunity?', answer: 'The Pennsylvania Maid is a brand-new market launch from the same team and platform behind The NYC Maid, one of New York City’s highest-rated cleaning companies, backed by someone with 20 years of experience in home services marketing. This is a genuine ground-floor role in a new market, not an established operation with a track record yet — that’s exactly the opportunity: you’d be building it.' },
+  { question: 'Is this a real, backed opportunity?', answer: 'The Pennsylvania Maid is a brand-new market launch from the same team and platform behind The Pennsylvania Maid, one of Pennsylvania’s highest-rated cleaning companies, backed by someone with 20 years of experience in home services marketing. This is a genuine ground-floor role in a new market, not an established operation with a track record yet — that’s exactly the opportunity: you’d be building it.' },
   { question: 'Do I need to live in Pennsylvania?', answer: 'No. This is fully remote and open to candidates anywhere in the United States.' },
   { question: 'Will I need to know AI tools already?', answer: 'No prior AI experience required — you’ll be trained to manage and eventually help implement the AI agent that already handles voice, SMS, and web chat for the business. As we expand into new markets, this becomes one of the most important parts of the role.' },
   { question: 'Will I need to manage anyone else?', answer: 'Yes. Part of this role is training the weekend assistant administrator, who covers weekend service — so you are building a playbook someone else can run, not just running the operation yourself. As the company grows into new markets, that team-building responsibility grows with it.' },
@@ -146,13 +146,13 @@ export default function AdministratorCareersPage() {
           type: 'WebPage',
           breadcrumb: [
             { name: 'Home', url: 'https://www.thepennsylvaniamaid.com' },
-            { name: 'Careers', url: 'https://www.thepennsylvaniamaid.com/available-nyc-maid-jobs' },
+            { name: 'Careers', url: 'https://www.thepennsylvaniamaid.com/available-pennsylvania-maid-jobs' },
             { name: 'Administrator', url: pageUrl },
           ],
         }),
         breadcrumbSchema([
           { name: 'Home', url: 'https://www.thepennsylvaniamaid.com' },
-          { name: 'Careers', url: 'https://www.thepennsylvaniamaid.com/available-nyc-maid-jobs' },
+          { name: 'Careers', url: 'https://www.thepennsylvaniamaid.com/available-pennsylvania-maid-jobs' },
           { name: 'Administrator', url: pageUrl },
         ]),
         administratorJobPostingSchema(config),
@@ -220,14 +220,14 @@ export default function AdministratorCareersPage() {
 
       <div className="max-w-4xl mx-auto px-4 py-12">
         <Breadcrumbs items={[
-          { name: 'Careers', href: '/available-nyc-maid-jobs' },
+          { name: 'Careers', href: '/available-pennsylvania-maid-jobs' },
           { name: 'Administrator', href: '/careers/administrator' },
         ]} />
 
         <section className="mb-16">
           <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-4">The Bigger Picture</h2>
           <p className="text-gray-600 leading-relaxed mb-3">
-            This is a real entrepreneurial opportunity — for someone who wants to jump in and be completely all-in on a startup, not manage a stable, slow-moving company. The Pennsylvania Maid is a brand-new market launch, backed by the same team and platform behind The NYC Maid, one of New York City’s highest-rated cleaning companies. Whoever takes this role isn’t signing up to manage an established operation — you’re getting in on the ground floor and building it.
+            This is a real entrepreneurial opportunity — for someone who wants to jump in and be completely all-in on a startup, not manage a stable, slow-moving company. The Pennsylvania Maid is a brand-new market launch, backed by the same team and platform behind The Pennsylvania Maid, one of Pennsylvania’s highest-rated cleaning companies. Whoever takes this role isn’t signing up to manage an established operation — you’re getting in on the ground floor and building it.
           </p>
           <p className="text-gray-600 leading-relaxed mb-3">
             This company is backed by someone with 20 years of experience in home services marketing — the growth isn’t luck, it’s a repeatable playbook, and it’s about to be applied to three new markets. That’s the opportunity: not a job at a company that might grow, but a leadership seat in one that already is, this early.

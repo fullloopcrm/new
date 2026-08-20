@@ -6,7 +6,7 @@ import Breadcrumbs from '@/app/site/connecticut-maid/_components/Breadcrumbs'
 
 export const metadata: Metadata = {
   title: 'Privacy Policy | The Connecticut Maid',
-  description: 'The Connecticut Maid privacy policy — how we protect your data. We never sell or share your information. NYC cleaning from $59/hr. (203) 491-5600',
+  description: 'The Connecticut Maid privacy policy — how we protect your data. We never sell or share your information. Connecticut cleaning from $59/hr. (203) 491-5600',
   alternates: { canonical: 'https://www.theconnecticutmaid.com/privacy-policy' },
 }
 

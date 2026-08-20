@@ -1,55 +1,27 @@
 import Link from 'next/link'
-
-const manhattanLinks = [
-  { name: 'Upper East Side', href: '/upper-east-side-maid-service' },
-  { name: 'Upper West Side', href: '/upper-west-side-maid-service' },
-  { name: 'Midtown', href: '/midtown-manhattan-maid-service' },
-  { name: "Hell's Kitchen", href: '/hells-kitchen-maid-service' },
-  { name: 'Chelsea', href: '/chelsea-maid-service' },
-  { name: 'SoHo', href: '/soho-maid-service' },
-  { name: 'Tribeca', href: '/tribeca-maid-service' },
-  { name: 'West Village', href: '/west-village-maid-service' },
-  { name: 'East Village', href: '/east-village-maid-service' },
-  { name: 'Financial District', href: '/financial-district-maid-service' },
-  { name: 'Gramercy', href: '/gramercy-maid-service' },
-  { name: 'Murray Hill', href: '/murray-hill-maid-service' },
-]
-
-const otherAreaLinks = [
-  { name: 'Brooklyn Heights', href: '/brooklyn-heights-maid-service' },
-  { name: 'Park Slope', href: '/park-slope-maid-service' },
-  { name: 'Williamsburg', href: '/williamsburg-maid-service' },
-  { name: 'Long Island City', href: '/long-island-city-maid-service' },
-  { name: 'Astoria', href: '/astoria-maid-service' },
-  { name: 'Forest Hills', href: '/forest-hills-maid-service' },
-  { name: 'Riverdale', href: '/riverdale-maid-service' },
-  { name: 'Throgs Neck', href: '/throgs-neck-maid-service' },
-  { name: 'City Island', href: '/city-island-maid-service' },
-  { name: 'St. George', href: '/st-george-maid-service' },
-  { name: 'Todt Hill', href: '/todt-hill-maid-service' },
-  { name: 'Great Kills', href: '/great-kills-maid-service' },
-  { name: 'Tottenville', href: '/tottenville-maid-service' },
-  { name: 'Great Neck', href: '/great-neck-maid-service' },
-  { name: 'Garden City', href: '/garden-city-maid-service' },
-  { name: 'Yonkers', href: '/yonkers-maid-service' },
-  { name: 'Bronxville', href: '/bronxville-maid-service' },
-  { name: 'Scarsdale', href: '/scarsdale-maid-service' },
-  { name: 'White Plains', href: '/white-plains-maid-service' },
-  { name: 'Hoboken', href: '/hoboken-maid-service' },
-  { name: 'Jersey City', href: '/jersey-city-maid-service' },
-]
+import { AREAS } from '../_lib/seo/data/areas'
+import { getNeighborhoodsByArea } from '../_lib/seo/locations'
 
 const serviceFooterLinks = [
-  { name: 'Deep Cleaning', href: '/services/deep-cleaning-service-in-nyc' },
-  { name: 'Regular Cleaning', href: '/services/apartment-cleaning-service-in-nyc' },
-  { name: 'Weekly Service', href: '/services/weekly-maid-service-in-nyc' },
-  { name: 'Move-In/Move-Out', href: '/services/move-in-move-out-cleaning-service-in-nyc' },
-  { name: 'Post-Construction', href: '/services/post-construction-cleanup-service-in-nyc' },
-  { name: 'Airbnb Cleaning', href: '/services/airbnb-cleaning-in-nyc' },
-  { name: 'Same-Day Cleaning', href: '/services/same-day-cleaning-service-in-nyc' },
+  { name: 'Deep Cleaning', href: '/services/deep-cleaning-service-in-new-jersey' },
+  { name: 'Regular Cleaning', href: '/services/apartment-cleaning-service-in-new-jersey' },
+  { name: 'Weekly Service', href: '/services/weekly-maid-service-in-new-jersey' },
+  { name: 'Move-In/Move-Out', href: '/services/move-in-move-out-cleaning-service-in-new-jersey' },
+  { name: 'Post-Construction', href: '/services/post-construction-cleanup-service-in-new-jersey' },
+  { name: 'Airbnb Cleaning', href: '/services/airbnb-cleaning-in-new-jersey' },
+  { name: 'Same-Day Cleaning', href: '/services/same-day-cleaning-service-in-new-jersey' },
 ]
 
 export default function MarketingFooter() {
+  const areaNeighborhoods = AREAS.map(area => ({
+    area,
+    neighborhoods: getNeighborhoodsByArea(area.slug),
+  }))
+  const midpoint = Math.ceil(areaNeighborhoods.reduce((n, a) => n + a.neighborhoods.length, 0) / 2)
+  const allNeighborhoods = areaNeighborhoods.flatMap(a => a.neighborhoods)
+  const firstHalf = allNeighborhoods.slice(0, midpoint)
+  const secondHalf = allNeighborhoods.slice(midpoint)
+
   return (
     <footer className="bg-[#1E2A4A] text-gray-400">
       {/* Main footer brand */}
@@ -59,7 +31,7 @@ export default function MarketingFooter() {
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-12">
           <Link href="/reviews" className="flex items-center gap-1.5 hover:opacity-80 transition-opacity">
             <span className="text-yellow-400">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
-            <span className="text-gray-300 text-sm font-medium">5.0 from 50+ verified reviews</span>
+            <span className="text-gray-300 text-sm font-medium">5.0 from verified reviews</span>
           </Link>
           <span className="text-white/20 hidden sm:inline">|</span>
           <Link href="https://g.page/r/CSX9IqciUG9SEAE/review" className="text-[#A8F0DC] text-sm font-semibold hover:text-white transition-colors">Write a Review</Link>
@@ -70,18 +42,18 @@ export default function MarketingFooter() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-10">
           <div>
-            <h3 className="text-xs font-semibold text-gray-300 tracking-[0.2em] uppercase mb-5">Manhattan</h3>
+            <h3 className="text-xs font-semibold text-gray-300 tracking-[0.2em] uppercase mb-5">Where We Serve</h3>
             <ul className="space-y-2.5">
-              {manhattanLinks.map(link => (
-                <li key={link.href}><Link href={link.href} className="text-sm hover:text-white transition-colors">{link.name}</Link></li>
+              {firstHalf.map(n => (
+                <li key={n.urlSlug}><Link href={`/${n.urlSlug}`} className="text-sm hover:text-white transition-colors">{n.name}</Link></li>
               ))}
             </ul>
           </div>
           <div>
             <h3 className="text-xs font-semibold text-gray-300 tracking-[0.2em] uppercase mb-5">More Areas</h3>
             <ul className="space-y-2.5">
-              {otherAreaLinks.map(link => (
-                <li key={link.href}><Link href={link.href} className="text-sm hover:text-white transition-colors">{link.name}</Link></li>
+              {secondHalf.map(n => (
+                <li key={n.urlSlug}><Link href={`/${n.urlSlug}`} className="text-sm hover:text-white transition-colors">{n.name}</Link></li>
               ))}
             </ul>
           </div>
@@ -96,10 +68,10 @@ export default function MarketingFooter() {
           <div>
             <h3 className="text-xs font-semibold text-gray-300 tracking-[0.2em] uppercase mb-5">Company</h3>
             <ul className="space-y-2.5">
-              <li><Link href="/about-the-nyc-maid-service-company" className="text-sm hover:text-white transition-colors">About Us</Link></li>
-              <li><Link href="/updated-nyc-maid-service-industry-pricing" className="text-sm hover:text-white transition-colors">Pricing</Link></li>
+              <li><Link href="/about-the-new-jersey-maid-service-company" className="text-sm hover:text-white transition-colors">About Us</Link></li>
+              <li><Link href="/updated-new-jersey-maid-service-industry-pricing" className="text-sm hover:text-white transition-colors">Pricing</Link></li>
               <li><Link href="/reviews" className="text-sm hover:text-white transition-colors">Reviews</Link></li>
-              <li><Link href="/available-nyc-maid-jobs" className="text-sm hover:text-white transition-colors">Careers</Link></li>
+              <li><Link href="/available-new-jersey-maid-jobs" className="text-sm hover:text-white transition-colors">Careers</Link></li>
             </ul>
           </div>
           <div>
@@ -109,10 +81,10 @@ export default function MarketingFooter() {
               <li><Link href="/get-paid-for-cleaning-referrals-every-time-they-are-serviced" target="_blank" className="text-sm hover:text-white transition-colors">Referral Program</Link></li>
               <li><Link href="/book/new" className="text-sm hover:text-white transition-colors">Book a Cleaning</Link></li>
               <li><a href="sms:9733708800" className="text-sm hover:text-white transition-colors">Text Sales &amp; Customer Service: (973) 370-8800</a></li>
-              <li><Link href="/nyc-cleaning-service-frequently-asked-questions-in-2025" className="text-sm hover:text-white transition-colors">FAQ</Link></li>
-              <li><Link href="/nyc-maid-service-blog" className="text-sm hover:text-white transition-colors">Blog</Link></li>
-              <li><Link href="/nyc-maid-and-cleaning-tips-and-advice-by-the-nyc-maid" className="text-sm hover:text-white transition-colors">Cleaning Tips</Link></li>
-              <li><Link href="/service/nyc-emergency-cleaning-service" className="text-sm hover:text-white transition-colors">Emergency Cleaning</Link></li>
+              <li><Link href="/new-jersey-cleaning-service-frequently-asked-questions-in-2025" className="text-sm hover:text-white transition-colors">FAQ</Link></li>
+              <li><Link href="/new-jersey-maid-service-blog" className="text-sm hover:text-white transition-colors">Blog</Link></li>
+              <li><Link href="/new-jersey-maid-and-cleaning-tips-and-advice-by-the-new-jersey-maid" className="text-sm hover:text-white transition-colors">Cleaning Tips</Link></li>
+              <li><Link href="/service/new-jersey-emergency-cleaning-service" className="text-sm hover:text-white transition-colors">Emergency Cleaning</Link></li>
               <li><Link href="/apply" className="text-sm hover:text-white transition-colors">Apply to Clean</Link></li>
               <li><Link href="/feedback" className="inline-block bg-red-600 text-yellow-300 px-3 py-1.5 rounded font-bold text-xs uppercase tracking-wide hover:bg-red-700 transition-colors">Feedback | Suggestions?</Link></li>
             </ul>

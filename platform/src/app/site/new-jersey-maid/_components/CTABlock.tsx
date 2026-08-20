@@ -9,7 +9,7 @@ export default function CTABlock({ title, subtitle }: { title?: string; subtitle
             {title || 'Ready for a Spotless Home?'}
           </h2>
           <p className="text-[#1E2A4A]/70 text-lg mt-2">
-            {subtitle || 'Book online in under a minute — trusted by thousands of NYC residents.'}
+            {subtitle || 'Book online in under a minute — trusted by New Jersey residents.'}
           </p>
           <div className="flex items-center gap-3 mt-3">
             <Link href="/reviews" className="flex items-center gap-1.5 hover:opacity-80 transition-opacity">

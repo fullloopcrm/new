@@ -149,8 +149,8 @@ export default function ApplyPage() {
         <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
           <div>
             <h2 className="text-xl font-bold text-[#1E2A4A]">Apply to Join Our Team / Solicite Unirse a Nuestro Equipo</h2>
-            <p className="text-gray-500 text-sm mt-1">We&apos;re looking for reliable, detail-oriented cleaners in NYC.</p>
-            <p className="text-gray-500 text-sm">Buscamos limpiadores confiables y detallistas en NYC.</p>
+            <p className="text-gray-500 text-sm mt-1">We&apos;re looking for reliable, detail-oriented cleaners in Pennsylvania.</p>
+            <p className="text-gray-500 text-sm">Buscamos limpiadores confiables y detallistas en Pennsylvania.</p>
           </div>
 
           <div>
@@ -321,9 +321,9 @@ export default function ApplyPage() {
               />
               <div>
                 <span className="text-sm font-medium text-[#1E2A4A]">Do you have a car? / ¿Tiene auto?</span>
-                <p className="text-xs text-gray-500">Required for Long Island, Staten Island, Westchester, and some outer borough areas</p>
-                <p className="text-xs text-gray-500">Requerido para Long Island, Staten Island, Westchester, y algunas áreas exteriores</p>
-                <p className="text-xs text-green-600 font-medium mt-1">+$5/hr bonus for car-required locations (Staten Island, Long Island, Westchester, NJ) / +$5/hr bonificación para ubicaciones que requieren auto</p>
+                <p className="text-xs text-gray-500">Required for Pennsylvania, and some outer borough areas</p>
+                <p className="text-xs text-gray-500">Requerido para Pennsylvania, y algunas áreas exteriores</p>
+                <p className="text-xs text-green-600 font-medium mt-1">+$5/hr bonus for car-required locations (Pennsylvania, NJ) / +$5/hr bonificación para ubicaciones que requieren auto</p>
               </div>
             </label>
           </div>

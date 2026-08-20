@@ -14,11 +14,10 @@ const BUSINESS = {
   logo: 'https://www.theconnecticutmaid.com/icon-512.png',
   image: 'https://www.theconnecticutmaid.com/icon-512.png',
   priceRange: '$$',
-  foundingDate: '2018',
   currenciesAccepted: 'USD',
   paymentAccepted: 'Cash, Credit Card, Debit Card, Apple Pay, Cash App',
-  description: 'Professional house cleaning services across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester County, and Northern New Jersey. Deep cleaning, regular apartment cleaning, move-in/move-out, post-construction cleanup, weekly maid service, same-day cleaning, Airbnb turnover, and office cleaning. Licensed, insured, and background-checked cleaners. Serving the NYC metro since 2018.',
-  slogan: "New York City's Most Trusted Cleaning Service",
+  description: 'Professional house cleaning services across Connecticut. Deep cleaning, regular apartment cleaning, move-in/move-out, post-construction cleanup, weekly maid service, same-day cleaning, Airbnb turnover, and office cleaning. Licensed, insured, and background-checked cleaners.',
+  slogan: "Connecticut's Trusted Cleaning Service",
   knowsLanguage: ['en', 'es'],
   numberOfEmployees: { '@type': 'QuantitativeValue' as const, minValue: 10, maxValue: 25 },
   address: {
@@ -43,8 +42,8 @@ const addressObj = {
 
 const geoObj = {
   '@type': 'GeoCoordinates' as const,
-  latitude: 40.7589,
-  longitude: -73.9851,
+  latitude: 41.6032,
+  longitude: -73.0877,
 }
 
 const logoObj = {
@@ -87,21 +86,12 @@ const contactPoints = [
 ]
 
 const fullAreaServed = [
-  { '@type': 'City' as const, name: 'New York', '@id': 'https://en.wikipedia.org/wiki/New_York_City' },
-  { '@type': 'AdministrativeArea' as const, name: 'Manhattan, New York' },
-  { '@type': 'AdministrativeArea' as const, name: 'Brooklyn, New York' },
-  { '@type': 'AdministrativeArea' as const, name: 'Queens, New York' },
-  { '@type': 'AdministrativeArea' as const, name: 'Bronx, New York' },
-  { '@type': 'AdministrativeArea' as const, name: 'Staten Island, New York' },
-  { '@type': 'AdministrativeArea' as const, name: 'Nassau County, New York' },
-  { '@type': 'AdministrativeArea' as const, name: 'Suffolk County, New York' },
-  { '@type': 'AdministrativeArea' as const, name: 'Westchester County, New York' },
-  { '@type': 'AdministrativeArea' as const, name: 'New Jersey' },
+  { '@type': 'AdministrativeArea' as const, name: 'Connecticut' },
 ]
 
 const serviceAreaObj = {
   '@type': 'GeoCircle' as const,
-  geoMidpoint: { '@type': 'GeoCoordinates' as const, latitude: 40.7589, longitude: -73.9851 },
+  geoMidpoint: { '@type': 'GeoCoordinates' as const, latitude: 41.6032, longitude: -73.0877 },
   geoRadius: '80000',
 }
 
@@ -129,11 +119,6 @@ export function organizationSchema() {
     telephone: BUSINESS.phone,
     description: BUSINESS.description,
     slogan: BUSINESS.slogan,
-    foundingDate: BUSINESS.foundingDate,
-    foundingLocation: {
-      '@type': 'Place',
-      name: 'New York City, NY',
-    },
     knowsLanguage: BUSINESS.knowsLanguage,
     numberOfEmployees: BUSINESS.numberOfEmployees,
     address: addressObj,
@@ -158,7 +143,7 @@ export function organizationSchema() {
       'Maid Service',
       'Residential Cleaning',
       'Commercial Cleaning',
-      'NYC Apartment Cleaning',
+      'Recurring Maid Service',
       'Brownstone Cleaning',
       'High-Rise Cleaning',
     ],
@@ -189,7 +174,7 @@ export function webSiteSchema() {
       '@type': 'SearchAction',
       target: {
         '@type': 'EntryPoint',
-        urlTemplate: `${BUSINESS.url}/service-areas-served-by-the-nyc-maid?q={search_term_string}`,
+        urlTemplate: `${BUSINESS.url}/service-areas-served-by-the-connecticut-maid?q={search_term_string}`,
       },
       'query-input': 'required name=search_term_string',
     },
@@ -260,7 +245,7 @@ export function localBusinessSchema(neighborhood?: Neighborhood, area?: Area) {
     ? [
         { '@type': 'Place' as const, name: `${neighborhood.name}${area ? `, ${area.name}` : ''}` },
         ...(area ? [{ '@type': 'Place' as const, name: area.name }] : []),
-        { '@type': 'City' as const, name: 'New York City' },
+        { '@type': 'AdministrativeArea' as const, name: 'Connecticut' },
       ]
     : fullAreaServed
 
@@ -280,7 +265,6 @@ export function localBusinessSchema(neighborhood?: Neighborhood, area?: Area) {
     priceRange: BUSINESS.priceRange,
     currenciesAccepted: BUSINESS.currenciesAccepted,
     paymentAccepted: BUSINESS.paymentAccepted,
-    foundingDate: BUSINESS.foundingDate,
     knowsLanguage: BUSINESS.knowsLanguage,
     numberOfEmployees: BUSINESS.numberOfEmployees,
     address: addressObj,
@@ -289,7 +273,7 @@ export function localBusinessSchema(neighborhood?: Neighborhood, area?: Area) {
       latitude: neighborhood.lat,
       longitude: neighborhood.lng,
     } : geoObj,
-    hasMap: 'https://maps.google.com/?q=The+NYC+Maid+150+W+47th+St+New+York+NY+10036',
+    hasMap: 'https://maps.google.com/?q=The+Connecticut+Maid+Norwalk+CT',
     areaServed,
     serviceArea: serviceAreaObj,
     openingHoursSpecification: openingHoursObj,
@@ -302,22 +286,22 @@ export function localBusinessSchema(neighborhood?: Neighborhood, area?: Area) {
           '@type': 'OfferCatalog',
           name: 'Residential Cleaning',
           itemListElement: [
-            { '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'Deep Cleaning', url: `${BUSINESS.url}/services/deep-cleaning-service-in-nyc` } },
-            { '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'Regular Apartment Cleaning', url: `${BUSINESS.url}/services/apartment-cleaning-service-in-nyc` } },
-            { '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'Weekly Maid Service', url: `${BUSINESS.url}/services/weekly-maid-service-in-nyc` } },
-            { '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'Bi-Weekly Cleaning', url: `${BUSINESS.url}/services/bi-weekly-cleaning-service-in-nyc` } },
-            { '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'Monthly Cleaning', url: `${BUSINESS.url}/services/monthly-cleaning-service-in-nyc` } },
-            { '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'Move-In/Move-Out Cleaning', url: `${BUSINESS.url}/services/move-in-move-out-cleaning-service-in-nyc` } },
-            { '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'Post-Construction Cleanup', url: `${BUSINESS.url}/services/post-construction-cleanup-service-in-nyc` } },
-            { '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'Same-Day Cleaning', url: `${BUSINESS.url}/services/same-day-cleaning-service-in-nyc` } },
+            { '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'Deep Cleaning', url: `${BUSINESS.url}/services/deep-cleaning-service-in-connecticut` } },
+            { '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'Regular Apartment Cleaning', url: `${BUSINESS.url}/services/apartment-cleaning-service-in-connecticut` } },
+            { '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'Weekly Maid Service', url: `${BUSINESS.url}/services/weekly-maid-service-in-connecticut` } },
+            { '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'Bi-Weekly Cleaning', url: `${BUSINESS.url}/services/bi-weekly-cleaning-service-in-connecticut` } },
+            { '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'Monthly Cleaning', url: `${BUSINESS.url}/services/monthly-cleaning-service-in-connecticut` } },
+            { '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'Move-In/Move-Out Cleaning', url: `${BUSINESS.url}/services/move-in-move-out-cleaning-service-in-connecticut` } },
+            { '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'Post-Construction Cleanup', url: `${BUSINESS.url}/services/post-construction-cleanup-service-in-connecticut` } },
+            { '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'Same-Day Cleaning', url: `${BUSINESS.url}/services/same-day-cleaning-service-in-connecticut` } },
           ],
         },
         {
           '@type': 'OfferCatalog',
           name: 'Commercial Cleaning',
           itemListElement: [
-            { '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'Office Cleaning', url: `${BUSINESS.url}/services/office-cleaning-service-in-nyc` } },
-            { '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'Airbnb & Short-Term Rental Cleaning', url: `${BUSINESS.url}/services/airbnb-cleaning-in-nyc` } },
+            { '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'Office Cleaning', url: `${BUSINESS.url}/services/office-cleaning-service-in-connecticut` } },
+            { '@type': 'Offer', itemOffered: { '@type': 'Service', name: 'Airbnb & Short-Term Rental Cleaning', url: `${BUSINESS.url}/services/airbnb-cleaning-in-connecticut` } },
           ],
         },
       ],
@@ -352,7 +336,7 @@ export function localBusinessSchema(neighborhood?: Neighborhood, area?: Area) {
         '@type': 'ReserveAction',
         target: {
           '@type': 'EntryPoint',
-          urlTemplate: `${BUSINESS.url}/contact-the-nyc-maid-service-today`,
+          urlTemplate: `${BUSINESS.url}/contact-the-connecticut-maid-service-today`,
           actionPlatform: ['http://schema.org/DesktopWebPlatform', 'http://schema.org/IOSPlatform', 'http://schema.org/AndroidPlatform'],
         },
         result: { '@type': 'Reservation', name: 'Book Cleaning Service' },
@@ -361,7 +345,7 @@ export function localBusinessSchema(neighborhood?: Neighborhood, area?: Area) {
         '@type': 'OrderAction',
         target: {
           '@type': 'EntryPoint',
-          urlTemplate: `${BUSINESS.url}/contact-the-nyc-maid-service-today`,
+          urlTemplate: `${BUSINESS.url}/contact-the-connecticut-maid-service-today`,
           actionPlatform: 'http://schema.org/MobileWebPlatform',
         },
       },
@@ -375,7 +359,7 @@ export function localBusinessSchema(neighborhood?: Neighborhood, area?: Area) {
 // ================================================================
 
 export function serviceSchema(service: Service, neighborhood?: Neighborhood, area?: Area) {
-  const location = neighborhood ? `${neighborhood.name}, ${area?.name || ''}` : 'New York City'
+  const location = neighborhood ? `${neighborhood.name}, ${area?.name || ''}` : 'Connecticut'
   const serviceUrl = neighborhood
     ? `${BUSINESS.url}/${neighborhood.urlSlug}/${service.slug}`
     : `${BUSINESS.url}/services/${service.urlSlug}`
@@ -427,7 +411,7 @@ export function serviceSchema(service: Service, neighborhood?: Neighborhood, are
       '@type': 'ReserveAction',
       target: {
         '@type': 'EntryPoint',
-        urlTemplate: `${BUSINESS.url}/contact-the-nyc-maid-service-today`,
+        urlTemplate: `${BUSINESS.url}/contact-the-connecticut-maid-service-today`,
         actionPlatform: ['http://schema.org/DesktopWebPlatform', 'http://schema.org/IOSPlatform', 'http://schema.org/AndroidPlatform'],
       },
       result: { '@type': 'Reservation', name: `Book ${service.name}` },
@@ -623,16 +607,16 @@ export function siteNavigationSchema() {
     '@type': 'SiteNavigationElement',
     name: 'Main Navigation',
     hasPart: [
-      { '@type': 'WebPage', name: 'Contact', url: `${BUSINESS.url}/contact-the-nyc-maid-service-today`, position: 1 },
-      { '@type': 'WebPage', name: 'Services', url: `${BUSINESS.url}/nyc-maid-service-services-offered-by-the-nyc-maid`, position: 2 },
-      { '@type': 'WebPage', name: 'Pricing', url: `${BUSINESS.url}/updated-nyc-maid-service-industry-pricing`, position: 3 },
-      { '@type': 'WebPage', name: 'Service Areas', url: `${BUSINESS.url}/service-areas-served-by-the-nyc-maid`, position: 4 },
+      { '@type': 'WebPage', name: 'Contact', url: `${BUSINESS.url}/contact-the-connecticut-maid-service-today`, position: 1 },
+      { '@type': 'WebPage', name: 'Services', url: `${BUSINESS.url}/connecticut-maid-service-services-offered-by-the-connecticut-maid`, position: 2 },
+      { '@type': 'WebPage', name: 'Pricing', url: `${BUSINESS.url}/updated-connecticut-maid-service-industry-pricing`, position: 3 },
+      { '@type': 'WebPage', name: 'Service Areas', url: `${BUSINESS.url}/service-areas-served-by-the-connecticut-maid`, position: 4 },
       { '@type': 'WebPage', name: 'Reviews', url: `${BUSINESS.url}/reviews`, position: 5 },
-      { '@type': 'WebPage', name: 'Now Hiring Cleaners', url: `${BUSINESS.url}/available-nyc-maid-jobs`, position: 6 },
-      { '@type': 'WebPage', name: 'Contact', url: `${BUSINESS.url}/contact-the-nyc-maid-service-today`, position: 7 },
-      { '@type': 'WebPage', name: 'FAQ', url: `${BUSINESS.url}/nyc-cleaning-service-frequently-asked-questions-in-2025`, position: 8 },
-      { '@type': 'WebPage', name: 'About', url: `${BUSINESS.url}/about-the-nyc-maid-service-company`, position: 9 },
-      { '@type': 'WebPage', name: 'Blog & Tips', url: `${BUSINESS.url}/nyc-maid-service-blog`, position: 10 },
+      { '@type': 'WebPage', name: 'Now Hiring Cleaners', url: `${BUSINESS.url}/available-connecticut-maid-jobs`, position: 6 },
+      { '@type': 'WebPage', name: 'Contact', url: `${BUSINESS.url}/contact-the-connecticut-maid-service-today`, position: 7 },
+      { '@type': 'WebPage', name: 'FAQ', url: `${BUSINESS.url}/connecticut-cleaning-service-frequently-asked-questions-in-2025`, position: 8 },
+      { '@type': 'WebPage', name: 'About', url: `${BUSINESS.url}/about-the-connecticut-maid-service-company`, position: 9 },
+      { '@type': 'WebPage', name: 'Blog & Tips', url: `${BUSINESS.url}/connecticut-maid-service-blog`, position: 10 },
     ],
   }
 }
@@ -654,7 +638,7 @@ export function howToBookSchema() {
         '@type': 'HowToStep',
         name: 'Contact Us',
         text: 'Text (203) 491-5600 to schedule your cleaning.',
-        url: `${BUSINESS.url}/contact-the-nyc-maid-service-today`,
+        url: `${BUSINESS.url}/contact-the-connecticut-maid-service-today`,
         position: 1,
       },
       {
@@ -685,7 +669,7 @@ export function serviceItemListSchema() {
     '@context': 'https://schema.org',
     '@type': 'ItemList',
     name: 'Cleaning Services Offered by The Connecticut Maid',
-    description: 'Complete list of professional cleaning services available across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester, and New Jersey.',
+    description: 'Complete list of professional cleaning services available across Connecticut.',
     numberOfItems: SERVICES.length,
     itemListElement: SERVICES.map((s, i) => ({
       '@type': 'ListItem',
@@ -716,7 +700,7 @@ export function areaItemListSchema() {
     '@context': 'https://schema.org',
     '@type': 'ItemList',
     name: 'Service Areas Covered by The Connecticut Maid',
-    description: 'We serve hundreds of neighborhoods across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester, and New Jersey.',
+    description: 'We serve Connecticut and the surrounding area.',
     numberOfItems: AREAS.length,
     itemListElement: AREAS.map((a, i) => ({
       '@type': 'ListItem',
@@ -737,7 +721,7 @@ export function areaItemListSchema() {
 // ================================================================
 
 export function professionalServiceSchema(service: Service, neighborhood?: Neighborhood, area?: Area) {
-  const location = neighborhood ? `${neighborhood.name}, ${area?.name || ''}` : 'NYC Metro Area'
+  const location = neighborhood ? `${neighborhood.name}, ${area?.name || ''}` : 'Connecticut'
   return {
     '@context': 'https://schema.org',
     '@type': 'ProfessionalService',
@@ -765,9 +749,9 @@ const VIDEO_REVIEW_UPLOAD_DATE = '2026-02-15'
 
 export function videoReviewsSchemas() {
   const videos = [
-    { id: 'review-1', title: 'NYC Cleaning Client Review — Manhattan Apartment', description: 'Real client testimonial from a verified NYC apartment cleaning booked with The Connecticut Maid.' },
-    { id: 'review-2', title: 'NYC Cleaning Client Review — Brooklyn Home', description: 'Brooklyn client shares their honest experience with professional deep cleaning from The Connecticut Maid.' },
-    { id: 'review-3', title: 'NYC Cleaning Client Review — Weekly Maid Service', description: 'Weekly maid service client reviews on-camera their recurring cleaning experience in New York City.' },
+    { id: 'review-1', title: 'Cleaning Client Review — Apartment', description: 'Real client testimonial from a verified cleaning booking.' },
+    { id: 'review-2', title: 'Cleaning Client Review — Home', description: 'Client shares their honest experience with professional deep cleaning.' },
+    { id: 'review-3', title: 'Cleaning Client Review — Weekly Maid Service', description: 'Weekly maid service client reviews on-camera their recurring cleaning experience.' },
   ]
   return videos.map(v => ({
     '@context': 'https://schema.org',
@@ -908,8 +892,8 @@ export function neighborhoodServicePageSchemas(neighborhood: Neighborhood, servi
 
 export function servicePageSchemas(service: Service) {
   const url = `${BUSINESS.url}/services/${service.urlSlug}`
-  const title = `${service.name} in NYC From ${service.priceRange.split('–')[0]} | 5-Star Rated | The Connecticut Maid`
-  const description = `Professional ${service.name.toLowerCase()} across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester & NJ. ${service.features.slice(0, 3).join(', ')} & more. From ${service.priceRange.split('–')[0]}. 5.0★ Rated. ${BUSINESS.phoneDisplay}`
+  const title = `${service.name} From ${service.priceRange.split('–')[0]} | 5-Star Rated | ${BUSINESS.name}`
+  const description = `Professional ${service.name.toLowerCase()} across Connecticut. ${service.features.slice(0, 3).join(', ')} & more. From ${service.priceRange.split('–')[0]}. 5.0★ Rated. ${BUSINESS.phoneDisplay}`
   return [
     organizationSchema(),
     webSiteSchema(),
@@ -919,7 +903,7 @@ export function servicePageSchemas(service: Service) {
       description,
       breadcrumb: [
         { name: 'Home', url: BUSINESS.url },
-        { name: 'Services', url: `${BUSINESS.url}/nyc-maid-service-services-offered-by-the-nyc-maid` },
+        { name: 'Services', url: `${BUSINESS.url}/connecticut-maid-service-services-offered-by-the-connecticut-maid` },
         { name: service.name, url },
       ],
     }),
@@ -928,7 +912,7 @@ export function servicePageSchemas(service: Service) {
     professionalServiceSchema(service),
     breadcrumbSchema([
       { name: 'Home', url: BUSINESS.url },
-      { name: 'Services', url: `${BUSINESS.url}/nyc-maid-service-services-offered-by-the-nyc-maid` },
+      { name: 'Services', url: `${BUSINESS.url}/connecticut-maid-service-services-offered-by-the-connecticut-maid` },
       { name: service.name, url },
     ]),
     howToBookSchema(),

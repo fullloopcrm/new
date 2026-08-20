@@ -6,7 +6,7 @@ import Breadcrumbs from '@/app/site/connecticut-maid/_components/Breadcrumbs'
 
 export const metadata: Metadata = {
   title: 'Legal Information | The Connecticut Maid',
-  description: 'Legal information for The Connecticut Maid — privacy policy, terms, refund policy & data sharing. NYC cleaning from $59/hr. (203) 491-5600',
+  description: 'Legal information for The Connecticut Maid — privacy policy, terms, refund policy & data sharing. Connecticut cleaning from $59/hr. (203) 491-5600',
   alternates: { canonical: 'https://www.theconnecticutmaid.com/legal' },
 }
 

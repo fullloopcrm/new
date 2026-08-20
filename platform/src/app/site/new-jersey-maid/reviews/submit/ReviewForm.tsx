@@ -181,7 +181,7 @@ export default function ReviewForm() {
           </div>
           <div>
             <h2 className="text-gray-900 font-semibold text-lg">The New Jersey Maid</h2>
-            <p className="text-gray-400 text-sm">Verified Business &middot; NYC Since 2018</p>
+            <p className="text-gray-400 text-sm">Verified Business &middot; New Jersey Since 2018</p>
           </div>
         </div>
       </div>
@@ -363,7 +363,7 @@ export default function ReviewForm() {
               type="text"
               value={neighborhood}
               onChange={(e) => setNeighborhood(e.target.value)}
-              placeholder="e.g. Hell's Kitchen"
+              placeholder="e.g. New Brunswick"
               className="w-full px-4 py-3 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1E2A4A] focus:border-transparent"
             />
           </div>

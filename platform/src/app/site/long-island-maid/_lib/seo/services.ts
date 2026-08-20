@@ -13,7 +13,7 @@ export interface Service {
 export const SERVICES: Service[] = [
   {
     slug: 'deep-cleaning',
-    urlSlug: 'deep-cleaning-service-in-nyc',
+    urlSlug: 'deep-cleaning-service-in-long-island',
     name: 'Deep Cleaning',
     shortName: 'Deep Clean',
     description: 'Our most thorough cleaning service — we tackle every corner, from baseboards to ceiling fans. Perfect for first-time cleanings or seasonal refreshes.',
@@ -24,7 +24,7 @@ export const SERVICES: Service[] = [
   },
   {
     slug: 'regular-cleaning',
-    urlSlug: 'apartment-cleaning-service-in-nyc',
+    urlSlug: 'apartment-cleaning-service-in-long-island',
     name: 'Regular Apartment Cleaning',
     shortName: 'Regular',
     description: 'Consistent, reliable cleaning on your schedule. Our recurring service keeps your home spotless week after week so you never come home to a mess.',
@@ -35,7 +35,7 @@ export const SERVICES: Service[] = [
   },
   {
     slug: 'weekly-cleaning',
-    urlSlug: 'weekly-maid-service-in-nyc',
+    urlSlug: 'weekly-maid-service-in-long-island',
     name: 'Weekly Maid Service',
     shortName: 'Weekly',
     description: 'Keep your home consistently clean with our weekly maid service. The same trusted cleaner every week, maintaining your home to the highest standard.',
@@ -46,7 +46,7 @@ export const SERVICES: Service[] = [
   },
   {
     slug: 'bi-weekly-cleaning',
-    urlSlug: 'bi-weekly-cleaning-service-in-nyc',
+    urlSlug: 'bi-weekly-cleaning-service-in-long-island',
     name: 'Bi-Weekly Cleaning',
     shortName: 'Bi-Weekly',
     description: 'The perfect balance of cleanliness and budget. Our bi-weekly cleaning keeps your home fresh without the weekly commitment.',
@@ -57,7 +57,7 @@ export const SERVICES: Service[] = [
   },
   {
     slug: 'monthly-cleaning',
-    urlSlug: 'monthly-cleaning-service-in-nyc',
+    urlSlug: 'monthly-cleaning-service-in-long-island',
     name: 'Monthly Cleaning',
     shortName: 'Monthly',
     description: 'A thorough monthly cleaning that goes deeper than your average tidy-up. We rotate through detailed tasks to keep every corner of your home spotless.',
@@ -68,7 +68,7 @@ export const SERVICES: Service[] = [
   },
   {
     slug: 'move-in-move-out-cleaning',
-    urlSlug: 'move-in-move-out-cleaning-service-in-nyc',
+    urlSlug: 'move-in-move-out-cleaning-service-in-long-island',
     name: 'Move-In/Move-Out Cleaning',
     shortName: 'Move Clean',
     description: 'Get your full deposit back or move into a pristine home. We clean every inch of the empty space — inside cabinets, appliances, closets, and more.',
@@ -79,7 +79,7 @@ export const SERVICES: Service[] = [
   },
   {
     slug: 'post-renovation-cleaning',
-    urlSlug: 'post-construction-cleanup-service-in-nyc',
+    urlSlug: 'post-construction-cleanup-service-in-long-island',
     name: 'Post-Construction Cleanup',
     shortName: 'Post-Reno',
     description: 'Construction dust gets everywhere. Our post-renovation cleaning removes fine dust, debris, and residue from every surface to make your newly renovated space livable.',
@@ -90,7 +90,7 @@ export const SERVICES: Service[] = [
   },
   {
     slug: 'same-day-cleaning',
-    urlSlug: 'same-day-cleaning-service-in-nyc',
+    urlSlug: 'same-day-cleaning-service-in-long-island',
     name: 'Same-Day Cleaning',
     shortName: 'Same-Day',
     description: 'Need a clean home today? Our same-day cleaning service dispatches a professional cleaner to your door within hours. Perfect for unexpected guests or emergencies.',
@@ -101,7 +101,7 @@ export const SERVICES: Service[] = [
   },
   {
     slug: 'airbnb-cleaning',
-    urlSlug: 'airbnb-cleaning-in-nyc',
+    urlSlug: 'airbnb-cleaning-in-long-island',
     name: 'Airbnb & Short-Term Rental Cleaning',
     shortName: 'Airbnb',
     description: 'Fast, reliable turnover cleaning between guests. We follow a strict checklist to ensure 5-star reviews every time — linens, restocking, and photo-ready finish.',
@@ -112,7 +112,7 @@ export const SERVICES: Service[] = [
   },
   {
     slug: 'office-cleaning',
-    urlSlug: 'office-cleaning-service-in-nyc',
+    urlSlug: 'office-cleaning-service-in-long-island',
     name: 'Office Cleaning',
     shortName: 'Office',
     description: 'Professional workspace cleaning for small offices, co-working spaces, and commercial suites. We keep your workspace healthy and presentable.',

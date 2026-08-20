@@ -225,7 +225,7 @@ export default function ApplySalesPartnerPage() {
 
           {/* Location */}
           <div>
-            <label className="block text-sm font-medium text-[#1E2A4A] mb-1">Your Location (NYC area) *</label>
+            <label className="block text-sm font-medium text-[#1E2A4A] mb-1">Your Location (Pennsylvania area) *</label>
             <input
               type="text"
               required

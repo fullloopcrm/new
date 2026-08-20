@@ -44,20 +44,20 @@ export async function GET() {
 
   // Static pages
   const staticPages = [
-    { path: '/nyc-maid-service-services-offered-by-the-nyc-maid', freq: 'weekly', pri: '0.9' },
-    { path: '/service-areas-served-by-the-nyc-maid', freq: 'weekly', pri: '0.9' },
-    { path: '/about-the-nyc-maid-service-company', freq: 'monthly', pri: '0.7' },
-    { path: '/contact-the-nyc-maid-service-today', freq: 'monthly', pri: '0.8' },
-    { path: '/updated-nyc-maid-service-industry-pricing', freq: 'weekly', pri: '0.9' },
-    { path: '/nyc-cleaning-service-frequently-asked-questions-in-2025', freq: 'monthly', pri: '0.8' },
+    { path: '/long-island-maid-service-services-offered-by-the-long-island-maid', freq: 'weekly', pri: '0.9' },
+    { path: '/service-areas-served-by-the-long-island-maid', freq: 'weekly', pri: '0.9' },
+    { path: '/about-the-long-island-maid-service-company', freq: 'monthly', pri: '0.7' },
+    { path: '/contact-the-long-island-maid-service-today', freq: 'monthly', pri: '0.8' },
+    { path: '/updated-long-island-maid-service-industry-pricing', freq: 'weekly', pri: '0.9' },
+    { path: '/long-island-cleaning-service-frequently-asked-questions-in-2025', freq: 'monthly', pri: '0.8' },
     { path: '/reviews', freq: 'weekly', pri: '0.8' },
     { path: '/reviews/submit', freq: 'monthly', pri: '0.7' },
-    { path: '/available-nyc-maid-jobs', freq: 'daily', pri: '0.8' },
+    { path: '/available-long-island-maid-jobs', freq: 'daily', pri: '0.8' },
     { path: '/careers/operations-coordinator', freq: 'daily', pri: '0.8' },
     { path: '/careers/commission-sales-partner', freq: 'daily', pri: '0.8' },
-    { path: '/nyc-maid-service-blog', freq: 'weekly', pri: '0.7' },
-    { path: '/nyc-maid-and-cleaning-tips-and-advice-by-the-nyc-maid', freq: 'weekly', pri: '0.7' },
-    { path: '/service/nyc-emergency-cleaning-service', freq: 'monthly', pri: '0.7' },
+    { path: '/long-island-maid-service-blog', freq: 'weekly', pri: '0.7' },
+    { path: '/long-island-maid-and-cleaning-tips-and-advice-by-the-long-island-maid', freq: 'weekly', pri: '0.7' },
+    { path: '/service/long-island-emergency-cleaning-service', freq: 'monthly', pri: '0.7' },
     { path: '/get-paid-for-cleaning-referrals-every-time-they-are-serviced', freq: 'monthly', pri: '0.5' },
     { path: '/privacy-policy', freq: 'yearly', pri: '0.3' },
     { path: '/terms-conditions', freq: 'yearly', pri: '0.3' },
@@ -109,7 +109,7 @@ export async function GET() {
   for (const post of BLOG_POSTS) {
     const photo = pickLifestylePhoto(post.slug)
     urls.push({
-      loc: `${BASE_URL}/nyc-maid-service-blog/${post.slug}`,
+      loc: `${BASE_URL}/long-island-maid-service-blog/${post.slug}`,
       lastmod: post.date,
       changefreq: 'monthly',
       priority: '0.7',
@@ -121,7 +121,7 @@ export async function GET() {
   for (const n of ALL_NEIGHBORHOODS) {
     const photo = pickTeamPhoto(n.slug)
     urls.push({
-      loc: `${BASE_URL}/available-nyc-maid-jobs/${n.slug}`,
+      loc: `${BASE_URL}/available-long-island-maid-jobs/${n.slug}`,
       lastmod: now,
       changefreq: 'daily',
       priority: '0.8',

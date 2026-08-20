@@ -6,7 +6,7 @@ import Breadcrumbs from '@/app/site/new-jersey-maid/_components/Breadcrumbs'
 
 export const metadata: Metadata = {
   title: 'Do Not Share Policy | The New Jersey Maid',
-  description: 'The New Jersey Maid does not sell, share, or distribute your personal information. Your data stays with us. NYC cleaning from $59/hr. (973) 370-8800',
+  description: 'The New Jersey Maid does not sell, share, or distribute your personal information. Your data stays with us. New Jersey cleaning from $59/hr. (973) 370-8800',
   alternates: { canonical: 'https://www.thenewjerseymaid.com/do-not-share-policy' },
 }
 
