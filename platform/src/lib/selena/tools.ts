@@ -21,6 +21,7 @@ import { generateInvoicePublicToken, generateInvoiceNumber, logInvoiceEvent } fr
 import { getDefaultEntityId, isEntityOwnedByTenant } from '@/lib/entity'
 import { convertSaleToJob } from '@/lib/jobs'
 import { isTerminalStatus as isDocTerminalStatus, logDocEvent } from '@/lib/documents'
+import { getClientLifecycleMap, filterClientsByRecipientFilter } from '@/lib/client-lifecycle'
 
 const ymd = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
 
@@ -3353,13 +3354,26 @@ async function handleSendCampaign(input: { campaign_id: string; client_ids?: str
 
   await supabaseAdmin.from('campaigns').update({ status: 'sending' }).eq('id', input.campaign_id)
 
-  let query = supabaseAdmin.from('clients').select('id, name, email, phone, email_marketing_opt_out, sms_marketing_opt_out, sms_consent').eq('tenant_id', tid)
+  // DNS (do_not_service) clients are excluded unconditionally — even an
+  // explicit client_ids selection must never include them.
+  let query = supabaseAdmin
+    .from('clients')
+    .select('id, name, email, phone, email_marketing_opt_out, sms_marketing_opt_out, sms_consent, created_at')
+    .eq('tenant_id', tid)
+    .eq('do_not_service', false)
   if (input.client_ids && input.client_ids.length > 0) {
     query = query.in('id', input.client_ids)
-  } else if ((campaign.recipient_filter || 'all') === 'active') {
-    query = query.eq('status', 'active')
   }
-  const { data: clients } = await query
+  const { data: allClients } = await query
+
+  let clients = allClients || []
+  if (!input.client_ids || input.client_ids.length === 0) {
+    const filter = campaign.recipient_filter || 'all'
+    const lifecycleMap = ['active', 'at_risk', 'churned'].includes(filter)
+      ? await getClientLifecycleMap(tid)
+      : new Map()
+    clients = filterClientsByRecipientFilter(clients, filter, lifecycleMap)
+  }
 
   if (!clients || clients.length === 0) {
     await supabaseAdmin.from('campaigns').update({ status: 'sent', total_recipients: 0, sent_count: 0, failed_count: 0, sent_at: new Date().toISOString() }).eq('id', input.campaign_id)

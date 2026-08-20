@@ -45,8 +45,8 @@ function seed() {
       { id: 'camp-b', tenant_id: B, status: 'draft', type: 'sms', name: 'B', subject: 's', body: 'Hi {name}' },
     ],
     clients: [
-      { id: 'cli-a', tenant_id: A, name: 'A client', email: 'a@x.com', phone: '5551110000', status: 'active', sms_consent: true },
-      { id: 'cli-b', tenant_id: B, name: 'B client', email: 'b@x.com', phone: '5559990000', status: 'active', sms_consent: true },
+      { id: 'cli-a', tenant_id: A, name: 'A client', email: 'a@x.com', phone: '5551110000', status: 'active', sms_consent: true, do_not_service: false, created_at: '2026-01-01' },
+      { id: 'cli-b', tenant_id: B, name: 'B client', email: 'b@x.com', phone: '5559990000', status: 'active', sms_consent: true, do_not_service: false, created_at: '2026-01-01' },
     ],
   }
 }

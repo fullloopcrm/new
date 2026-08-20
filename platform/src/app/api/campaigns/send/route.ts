@@ -5,6 +5,7 @@ import { tenantDb } from '@/lib/tenant-db'
 import { AuthError } from '@/lib/tenant-query'
 import { notify } from '@/lib/notify'
 import { getSettings } from '@/lib/settings'
+import { getClientLifecycleMap, filterClientsByRecipientFilter } from '@/lib/client-lifecycle'
 
 export const maxDuration = 300
 
@@ -55,24 +56,29 @@ export async function POST(request: Request) {
       .update({ status: 'sending' })
       .eq('id', campaign_id)
 
-    // Fetch audience
+    // Fetch audience. DNS (do_not_service) clients are excluded unconditionally
+    // — even an explicit client_ids selection must never include them.
     let query = db
       .from('clients')
-      .select('id, name, email, phone, email_marketing_opt_out, sms_marketing_opt_out, sms_consent')
+      .select('id, name, email, phone, email_marketing_opt_out, sms_marketing_opt_out, sms_consent, created_at')
       .eq('tenant_id', tenantId)
+      .eq('do_not_service', false)
 
     if (client_ids && client_ids.length > 0) {
       query = query.in('id', client_ids)
-    } else {
-      // Filter by campaign's recipient_filter
-      const filter = campaign.recipient_filter || 'all'
-      if (filter === 'active') {
-        query = query.eq('status', 'active')
-      }
-      // 'all' = no additional filter
     }
 
-    const { data: clients } = await query
+    const { data: allClients } = await query
+
+    let clients = allClients || []
+    if (!client_ids || client_ids.length === 0) {
+      // Filter by campaign's recipient_filter (all/active/at_risk/churned/new)
+      const filter = campaign.recipient_filter || 'all'
+      const lifecycleMap = ['active', 'at_risk', 'churned'].includes(filter)
+        ? await getClientLifecycleMap(tenantId)
+        : new Map()
+      clients = filterClientsByRecipientFilter(clients, filter, lifecycleMap)
+    }
 
     if (!clients || clients.length === 0) {
       await db

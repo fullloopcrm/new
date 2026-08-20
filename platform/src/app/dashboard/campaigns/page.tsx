@@ -254,7 +254,7 @@ export default function CampaignsPage() {
                       ? 'border-blue-500 bg-blue-500/20'
                       : 'border-slate-200 hover:border-slate-200'
                   }`}>
-                  <p className="text-sm font-medium text-slate-200">{f.label}</p>
+                  <p className="text-sm font-medium text-slate-900">{f.label}</p>
                   <p className="text-[10px] text-slate-400 mt-0.5">{f.desc}</p>
                 </button>
               ))}

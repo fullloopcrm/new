@@ -5,6 +5,7 @@ import { sendEmail } from '@/lib/email'
 import { sendSMS } from '@/lib/sms'
 import { getSettings } from '@/lib/settings'
 import { audit } from '@/lib/audit'
+import { getClientLifecycleMap, filterClientsByRecipientFilter } from '@/lib/client-lifecycle'
 
 export async function POST(
   _request: Request,
@@ -41,14 +42,23 @@ export async function POST(
       )
     }
 
-    // Get recipients (active clients). Per-channel marketing opt-outs are
-    // enforced below so a client who opted out of SMS/email marketing is never
-    // sent a campaign on that channel (CAN-SPAM / TCPA).
-    const { data: clients } = await db
+    // Get recipients, honoring the campaign's recipient_filter (all/active/
+    // at_risk/churned/new) and excluding do_not_service (DNS) clients — DNS
+    // clients must never receive any outreach, marketing included, no
+    // exceptions. Per-channel marketing opt-outs are enforced below so a
+    // client who opted out of SMS/email marketing is never sent a campaign
+    // on that channel (CAN-SPAM / TCPA).
+    const { data: allClients } = await db
       .from('clients')
-      .select('id, name, email, phone, sms_marketing_opt_out, email_marketing_opt_out, sms_consent')
+      .select('id, name, email, phone, sms_marketing_opt_out, email_marketing_opt_out, sms_consent, created_at')
       .eq('tenant_id', tenantId)
-      .eq('status', 'active')
+      .eq('do_not_service', false)
+
+    const recipientFilter = campaign.recipient_filter || 'all'
+    const lifecycleMap = ['active', 'at_risk', 'churned'].includes(recipientFilter)
+      ? await getClientLifecycleMap(tenantId)
+      : new Map()
+    const clients = filterClientsByRecipientFilter(allClients || [], recipientFilter, lifecycleMap)
 
     if (!clients || clients.length === 0) {
       return NextResponse.json({ error: 'No eligible recipients' }, { status: 400 })
