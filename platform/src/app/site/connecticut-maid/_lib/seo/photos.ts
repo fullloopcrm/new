@@ -36,7 +36,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6196575,
-    "src": "/photos/nyc-maid-mopping-tiled-apartment-floor.jpg",
+    "src": "/photos/connecticut-maid-mopping-tiled-apartment-floor.jpg",
     "alt": "A maid from The Connecticut Maid mopping a tiled floor in a cozy Connecticut apartment",
     "caption": "Tile floor cleaning in an apartment",
     "pool": "lifestyle",
@@ -88,7 +88,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6195198,
-    "src": "/photos/nyc-maid-wiping-table-modern-living-room.jpg",
+    "src": "/photos/connecticut-maid-wiping-table-modern-living-room.jpg",
     "alt": "A Connecticut maid wearing gloves wiping a coffee table in a modern Connecticut living room",
     "caption": "Detail dusting, Connecticut living room",
     "pool": "lifestyle",
@@ -114,7 +114,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6195194,
-    "src": "/photos/nyc-maid-service-table-cleaning.jpg",
+    "src": "/photos/connecticut-maid-service-table-cleaning.jpg",
     "alt": "The Connecticut Maid cleaner wiping a table in a Connecticut apartment",
     "caption": "Connecticut table cleaning detail",
     "pool": "lifestyle",
@@ -127,7 +127,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6195212,
-    "src": "/photos/nyc-maid-making-bed-bright-bedroom.jpg",
+    "src": "/photos/connecticut-maid-making-bed-bright-bedroom.jpg",
     "alt": "Connecticut maid service making the bed in a bright, monochrome bedroom",
     "caption": "Bedroom turndown, Connecticut apartment",
     "pool": "lifestyle",
@@ -153,7 +153,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6195207,
-    "src": "/photos/nyc-maid-washing-dishes-modern-kitchen.jpg",
+    "src": "/photos/connecticut-maid-washing-dishes-modern-kitchen.jpg",
     "alt": "Connecticut maid wearing rubber gloves washing dishes in a modern Connecticut kitchen",
     "caption": "Dish cleaning in a Connecticut kitchen",
     "pool": "lifestyle",
@@ -179,7 +179,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6195118,
-    "src": "/photos/nyc-maid-professional-cleaner-red-uniform.jpg",
+    "src": "/photos/connecticut-maid-professional-cleaner-red-uniform.jpg",
     "alt": "Professional cleaner from The Connecticut Maid in red uniform cleaning an Connecticut apartment with a bucket",
     "caption": "Connecticut Maid team member at work",
     "pool": "team",
@@ -192,7 +192,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6195125,
-    "src": "/photos/nyc-cleaning-team-red-uniforms-living-room.jpg",
+    "src": "/photos/connecticut-cleaning-team-red-uniforms-living-room.jpg",
     "alt": "The Connecticut Maid cleaning team in red uniforms ready to sanitize a modern Connecticut living room",
     "caption": "Connecticut Maid cleaning crew",
     "pool": "team",
@@ -205,7 +205,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6195120,
-    "src": "/photos/nyc-maid-professional-cleaning-team-equipment.jpg",
+    "src": "/photos/connecticut-maid-professional-cleaning-team-equipment.jpg",
     "alt": "Three professional Connecticut Maid cleaners in uniform with equipment, ready for a job",
     "caption": "Connecticut Maid team with equipment",
     "pool": "team",
@@ -218,7 +218,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6195122,
-    "src": "/photos/nyc-cleaning-team-vacuuming-red-uniforms.jpg",
+    "src": "/photos/connecticut-cleaning-team-vacuuming-red-uniforms.jpg",
     "alt": "A team of professional Connecticut Maid cleaners in red uniforms using a vacuum",
     "caption": "The Connecticut Maid team vacuuming",
     "pool": "team",
@@ -231,7 +231,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6195277,
-    "src": "/photos/nyc-maid-crew-sweeping-mopping-red-overalls.jpg",
+    "src": "/photos/connecticut-maid-crew-sweeping-mopping-red-overalls.jpg",
     "alt": "Two Connecticut Maid cleaners in red overalls vacuuming and sweeping a modern Connecticut living room",
     "caption": "Connecticut Maid crew mid-service",
     "pool": "team",
@@ -257,7 +257,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6197108,
-    "src": "/photos/nyc-cleaning-crew-mopping-dining-room.jpg",
+    "src": "/photos/connecticut-cleaning-crew-mopping-dining-room.jpg",
     "alt": "The Connecticut Maid cleaning crew in red uniforms mopping and wiping glass in a dining room",
     "caption": "Dining room detail, Connecticut Maid",
     "pool": "team",
@@ -270,7 +270,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6196682,
-    "src": "/photos/nyc-maid-team-professional-dining-room.jpg",
+    "src": "/photos/connecticut-maid-team-professional-dining-room.jpg",
     "alt": "Professional Connecticut Maid team working in a modern dining room in Connecticut",
     "caption": "Team service, Connecticut Maid",
     "pool": "team",

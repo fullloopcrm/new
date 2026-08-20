@@ -36,7 +36,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6196575,
-    "src": "/photos/nyc-maid-mopping-tiled-apartment-floor.jpg",
+    "src": "/photos/new-jersey-maid-mopping-tiled-apartment-floor.jpg",
     "alt": "A maid from The New Jersey Maid mopping a tiled floor in a cozy New Jersey apartment",
     "caption": "Tile floor cleaning in an apartment",
     "pool": "lifestyle",
@@ -88,7 +88,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6195198,
-    "src": "/photos/nyc-maid-wiping-table-modern-living-room.jpg",
+    "src": "/photos/new-jersey-maid-wiping-table-modern-living-room.jpg",
     "alt": "A New Jersey maid wearing gloves wiping a coffee table in a modern New Jersey living room",
     "caption": "Detail dusting, New Jersey living room",
     "pool": "lifestyle",
@@ -114,7 +114,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6195194,
-    "src": "/photos/nyc-maid-service-table-cleaning.jpg",
+    "src": "/photos/new-jersey-maid-service-table-cleaning.jpg",
     "alt": "The New Jersey Maid cleaner wiping a table in a New Jersey apartment",
     "caption": "New Jersey table cleaning detail",
     "pool": "lifestyle",
@@ -127,7 +127,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6195212,
-    "src": "/photos/nyc-maid-making-bed-bright-bedroom.jpg",
+    "src": "/photos/new-jersey-maid-making-bed-bright-bedroom.jpg",
     "alt": "New Jersey maid service making the bed in a bright, monochrome bedroom",
     "caption": "Bedroom turndown, New Jersey apartment",
     "pool": "lifestyle",
@@ -153,7 +153,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6195207,
-    "src": "/photos/nyc-maid-washing-dishes-modern-kitchen.jpg",
+    "src": "/photos/new-jersey-maid-washing-dishes-modern-kitchen.jpg",
     "alt": "New Jersey maid wearing rubber gloves washing dishes in a modern New Jersey kitchen",
     "caption": "Dish cleaning in a New Jersey kitchen",
     "pool": "lifestyle",
@@ -179,7 +179,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6195118,
-    "src": "/photos/nyc-maid-professional-cleaner-red-uniform.jpg",
+    "src": "/photos/new-jersey-maid-professional-cleaner-red-uniform.jpg",
     "alt": "Professional cleaner from The New Jersey Maid in red uniform cleaning an New Jersey apartment with a bucket",
     "caption": "New Jersey Maid team member at work",
     "pool": "team",
@@ -192,7 +192,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6195125,
-    "src": "/photos/nyc-cleaning-team-red-uniforms-living-room.jpg",
+    "src": "/photos/new-jersey-cleaning-team-red-uniforms-living-room.jpg",
     "alt": "The New Jersey Maid cleaning team in red uniforms ready to sanitize a modern New Jersey living room",
     "caption": "New Jersey Maid cleaning crew",
     "pool": "team",
@@ -205,7 +205,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6195120,
-    "src": "/photos/nyc-maid-professional-cleaning-team-equipment.jpg",
+    "src": "/photos/new-jersey-maid-professional-cleaning-team-equipment.jpg",
     "alt": "Three professional New Jersey Maid cleaners in uniform with equipment, ready for a job",
     "caption": "New Jersey Maid team with equipment",
     "pool": "team",
@@ -218,7 +218,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6195122,
-    "src": "/photos/nyc-cleaning-team-vacuuming-red-uniforms.jpg",
+    "src": "/photos/new-jersey-cleaning-team-vacuuming-red-uniforms.jpg",
     "alt": "A team of professional New Jersey Maid cleaners in red uniforms using a vacuum",
     "caption": "New Jersey Maid team vacuuming",
     "pool": "team",
@@ -231,7 +231,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6195277,
-    "src": "/photos/nyc-maid-crew-sweeping-mopping-red-overalls.jpg",
+    "src": "/photos/new-jersey-maid-crew-sweeping-mopping-red-overalls.jpg",
     "alt": "Two New Jersey Maid cleaners in red overalls vacuuming and sweeping a modern New Jersey living room",
     "caption": "New Jersey Maid crew mid-service",
     "pool": "team",
@@ -257,7 +257,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6197108,
-    "src": "/photos/nyc-cleaning-crew-mopping-dining-room.jpg",
+    "src": "/photos/new-jersey-cleaning-crew-mopping-dining-room.jpg",
     "alt": "The New Jersey Maid cleaning crew in red uniforms mopping and wiping glass in a dining room",
     "caption": "Dining room detail, New Jersey Maid",
     "pool": "team",
@@ -270,7 +270,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6196682,
-    "src": "/photos/nyc-maid-team-professional-dining-room.jpg",
+    "src": "/photos/new-jersey-maid-team-professional-dining-room.jpg",
     "alt": "Professional New Jersey Maid team working in a modern dining room in New Jersey",
     "caption": "Team service, New Jersey Maid",
     "pool": "team",

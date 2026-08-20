@@ -169,7 +169,7 @@ export default async function ServicePage({ params }: Props) {
 
       <div className="max-w-7xl mx-auto px-4 py-8">
         <Breadcrumbs items={[
-          { name: 'Services', href: '/nyc-maid-service-services-offered-by-the-nyc-maid' },
+          { name: 'Services', href: '/new-jersey-maid-service-services-offered-by-the-new-jersey-maid' },
           { name: service.name, href: `/services/${service.urlSlug}` },
         ]} />
       </div>
@@ -355,7 +355,7 @@ export default async function ServicePage({ params }: Props) {
             <div>
               <h3 className="font-[family-name:var(--font-bebas)] text-xl text-[#1E2A4A] tracking-wide mb-2">{service.name} Cost Summary</h3>
               <p className="text-[#1E2A4A]/80 leading-relaxed">{rich.pricingNote}</p>
-              <Link href="/updated-nyc-maid-service-industry-pricing" className="inline-block mt-3 text-[#1E2A4A] font-semibold text-sm underline underline-offset-4">Full pricing details &rarr;</Link>
+              <Link href="/updated-new-jersey-maid-service-industry-pricing" className="inline-block mt-3 text-[#1E2A4A] font-semibold text-sm underline underline-offset-4">Full pricing details &rarr;</Link>
             </div>
           </div>
         </section>
@@ -460,7 +460,7 @@ export default async function ServicePage({ params }: Props) {
           </div>
 
           <div className="text-center mt-10">
-            <Link href="/service-areas-served-by-the-nyc-maid" className="inline-block bg-[#1E2A4A] text-white px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
+            <Link href="/service-areas-served-by-the-new-jersey-maid" className="inline-block bg-[#1E2A4A] text-white px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
               Browse All 225+ Neighborhoods &rarr;
             </Link>
           </div>
@@ -500,7 +500,7 @@ export default async function ServicePage({ params }: Props) {
             ))}
           </div>
           <div className="text-center mt-10">
-            <Link href="/nyc-maid-service-services-offered-by-the-nyc-maid" className="inline-block bg-[#A8F0DC] text-[#1E2A4A] px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
+            <Link href="/new-jersey-maid-service-services-offered-by-the-new-jersey-maid" className="inline-block bg-[#A8F0DC] text-[#1E2A4A] px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
               View All Services &amp; Pricing
             </Link>
           </div>

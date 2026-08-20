@@ -210,10 +210,10 @@ export default function HomePage() {
                 We&apos;re a small, dedicated cleaning company that treats every home like our own. No apps, no algorithms, no random strangers — just experienced, professional cleaners who show up on time, do beautiful work, and earn your trust visit after visit.
               </p>
               <p className="text-gray-600 leading-relaxed mb-5">
-                Whether it&apos;s a <Link href="/services/weekly-maid-service-in-nyc" className="text-[#1E2A4A] underline underline-offset-2">weekly cleaning</Link> for your apartment, a <Link href="/services/deep-cleaning-service-in-nyc" className="text-[#1E2A4A] underline underline-offset-2">deep clean</Link> before guests arrive, or a <Link href="/services/move-in-move-out-cleaning-service-in-nyc" className="text-[#1E2A4A] underline underline-offset-2">move-out clean</Link> — we handle it all with care, attention to detail, and genuine pride in what we do.
+                Whether it&apos;s a <Link href="/services/weekly-maid-service-in-new-jersey" className="text-[#1E2A4A] underline underline-offset-2">weekly cleaning</Link> for your apartment, a <Link href="/services/deep-cleaning-service-in-new-jersey" className="text-[#1E2A4A] underline underline-offset-2">deep clean</Link> before guests arrive, or a <Link href="/services/move-in-move-out-cleaning-service-in-new-jersey" className="text-[#1E2A4A] underline underline-offset-2">move-out clean</Link> — we handle it all with care, attention to detail, and genuine pride in what we do.
               </p>
               <p className="text-gray-600 leading-relaxed mb-5">
-                We serve <Link href="/service-areas-served-by-the-nyc-maid" className="text-[#1E2A4A] underline underline-offset-2">New Jersey</Link>. Every cleaner is background-checked, insured, and paid fairly. We don&apos;t cut corners — on your home or on our people.
+                We serve <Link href="/service-areas-served-by-the-new-jersey-maid" className="text-[#1E2A4A] underline underline-offset-2">New Jersey</Link>. Every cleaner is background-checked, insured, and paid fairly. We don&apos;t cut corners — on your home or on our people.
               </p>
               <p className="text-gray-600 leading-relaxed mb-5">
                 Our clients aren&apos;t looking for the cheapest option — they&apos;re looking for someone they can rely on. Someone who remembers how they like their kitchen cleaned, who notices the details, and who treats their space with respect. That&apos;s what earns repeat bookings week after week.
@@ -228,7 +228,7 @@ export default function HomePage() {
                 <a href="sms:9733708800" className="inline-block bg-[#1E2A4A] text-white px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
                   Text (973) 370-8800
                 </a>
-                <Link href="/about-the-nyc-maid-service-company" className="text-[#1E2A4A] font-semibold hover:underline underline-offset-4">
+                <Link href="/about-the-new-jersey-maid-service-company" className="text-[#1E2A4A] font-semibold hover:underline underline-offset-4">
                   Learn more &rarr;
                 </Link>
               </div>
@@ -288,7 +288,7 @@ export default function HomePage() {
           <p className="text-xs font-semibold text-[#1E2A4A]/50 tracking-[0.25em] uppercase mb-3 text-center">New Jersey Maid Service Pricing Explained — Hourly Rates, Average Costs &amp; What to Expect</p>
           <h2 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-[#1E2A4A] tracking-wide text-center mb-4">How Much Does House Cleaning Cost in New Jersey?</h2>
           <p className="text-[#1E2A4A]/70 text-center max-w-3xl mx-auto mb-14">
-            We keep it simple: flat hourly rates, no hidden fees, no contracts. Choose the option that fits your situation. Every tier includes the same professional, <Link href="/about-the-nyc-maid-service-company" className="text-[#1E2A4A] font-semibold underline underline-offset-2">background-checked cleaners</Link> — the only difference is who brings the supplies. See our full <Link href="/updated-nyc-maid-service-industry-pricing" className="text-[#1E2A4A] font-semibold underline underline-offset-2">pricing page</Link> for more details.
+            We keep it simple: flat hourly rates, no hidden fees, no contracts. Choose the option that fits your situation. Every tier includes the same professional, <Link href="/about-the-new-jersey-maid-service-company" className="text-[#1E2A4A] font-semibold underline underline-offset-2">background-checked cleaners</Link> — the only difference is who brings the supplies. See our full <Link href="/updated-new-jersey-maid-service-industry-pricing" className="text-[#1E2A4A] font-semibold underline underline-offset-2">pricing page</Link> for more details.
           </p>
 
           {/* 3 pricing cards */}
@@ -366,7 +366,7 @@ export default function HomePage() {
               <p className="font-[family-name:var(--font-bebas)] text-5xl sm:text-6xl lg:text-7xl text-[#1E2A4A] tracking-wide leading-none mb-1">$89<span className="text-2xl sm:text-3xl text-gray-300">/hr</span></p>
               <div className="w-10 h-[2px] bg-[#A8F0DC] mt-4 mb-5" />
               <p className="text-gray-600 text-sm leading-relaxed mb-5">
-                Need a cleaner today? We dispatch a professional to your door within hours. Includes all supplies and equipment — <Link href="/services/same-day-cleaning-service-in-nyc" className="text-[#1E2A4A] underline underline-offset-2">same-day cleaning</Link> when you need it most.
+                Need a cleaner today? We dispatch a professional to your door within hours. Includes all supplies and equipment — <Link href="/services/same-day-cleaning-service-in-new-jersey" className="text-[#1E2A4A] underline underline-offset-2">same-day cleaning</Link> when you need it most.
               </p>
               <p className="text-xs font-semibold text-gray-400 tracking-[0.15em] uppercase mb-3">Best For</p>
               <ul className="space-y-2 mb-6">
@@ -459,7 +459,7 @@ export default function HomePage() {
               <a href="sms:9733708800" className="inline-block bg-[#1E2A4A] text-white px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
                 Text (973) 370-8800
               </a>
-              <Link href="/updated-nyc-maid-service-industry-pricing" className="text-[#1E2A4A] font-semibold hover:underline underline-offset-4 text-sm">
+              <Link href="/updated-new-jersey-maid-service-industry-pricing" className="text-[#1E2A4A] font-semibold hover:underline underline-offset-4 text-sm">
                 View pricing &rarr;
               </Link>
             </div>
@@ -473,11 +473,11 @@ export default function HomePage() {
           <p className="text-xs font-semibold text-[#A8F0DC]/70 tracking-[0.25em] uppercase mb-3 text-center">Professional New Jersey House Cleaning Services</p>
           <h2 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-white tracking-wide text-center mb-4">Deep Cleaning, Regular Maid Service &amp; More in New Jersey</h2>
           <p className="text-blue-200/60 text-center max-w-3xl mx-auto mb-14">
-            From <Link href="/services/weekly-maid-service-in-nyc" className="text-[#A8F0DC] underline underline-offset-2">weekly maid service</Link> and <Link href="/services/deep-cleaning-service-in-nyc" className="text-[#A8F0DC] underline underline-offset-2">deep cleaning</Link> to <Link href="/services/move-in-move-out-cleaning-service-in-nyc" className="text-[#A8F0DC] underline underline-offset-2">move-in/move-out cleaning</Link>, <Link href="/services/post-construction-cleanup-service-in-nyc" className="text-[#A8F0DC] underline underline-offset-2">post-renovation cleanup</Link>, and <Link href="/services/same-day-cleaning-service-in-nyc" className="text-[#A8F0DC] underline underline-offset-2">same-day emergency cleaning</Link> — we handle every type of residential cleaning across New Jersey. All cleaners are background-checked, licensed, and insured.
+            From <Link href="/services/weekly-maid-service-in-new-jersey" className="text-[#A8F0DC] underline underline-offset-2">weekly maid service</Link> and <Link href="/services/deep-cleaning-service-in-new-jersey" className="text-[#A8F0DC] underline underline-offset-2">deep cleaning</Link> to <Link href="/services/move-in-move-out-cleaning-service-in-new-jersey" className="text-[#A8F0DC] underline underline-offset-2">move-in/move-out cleaning</Link>, <Link href="/services/post-construction-cleanup-service-in-new-jersey" className="text-[#A8F0DC] underline underline-offset-2">post-renovation cleanup</Link>, and <Link href="/services/same-day-cleaning-service-in-new-jersey" className="text-[#A8F0DC] underline underline-offset-2">same-day emergency cleaning</Link> — we handle every type of residential cleaning across New Jersey. All cleaners are background-checked, licensed, and insured.
           </p>
           <ServiceGrid />
           <div className="text-center mt-10">
-            <Link href="/nyc-maid-service-services-offered-by-the-nyc-maid" className="text-[#A8F0DC] font-semibold hover:underline underline-offset-4">Browse All Cleaning Services &rarr;</Link>
+            <Link href="/new-jersey-maid-service-services-offered-by-the-new-jersey-maid" className="text-[#A8F0DC] font-semibold hover:underline underline-offset-4">Browse All Cleaning Services &rarr;</Link>
           </div>
         </div>
       </section>
@@ -490,10 +490,10 @@ export default function HomePage() {
             <h2 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-[#1E2A4A] tracking-wide leading-tight mb-6">Why New Jersey Trusts The New Jersey Maid</h2>
             <div className="w-12 h-[2px] bg-[#A8F0DC] mb-6" />
             <p className="text-gray-600 text-lg leading-relaxed mb-4">
-              We provide personalized, hourly <Link href="/updated-nyc-maid-service-industry-pricing" className="text-[#1E2A4A] underline underline-offset-2">cleaning service pricing</Link> for each unique space — ensuring high-quality cleaning tailored to your needs. No contracts, no hidden fees, no surprises.
+              We provide personalized, hourly <Link href="/updated-new-jersey-maid-service-industry-pricing" className="text-[#1E2A4A] underline underline-offset-2">cleaning service pricing</Link> for each unique space — ensuring high-quality cleaning tailored to your needs. No contracts, no hidden fees, no surprises.
             </p>
             <p className="text-gray-600 leading-relaxed mb-6">
-              Every cleaner on our team is fully background-checked and insured. Whether you need a <Link href="/services/apartment-cleaning-service-in-nyc" className="text-[#1E2A4A] underline underline-offset-2">regular apartment cleaning</Link>, a <Link href="/services/deep-cleaning-service-in-nyc" className="text-[#1E2A4A] underline underline-offset-2">deep clean</Link>, or <Link href="/services/airbnb-cleaning-in-nyc" className="text-[#1E2A4A] underline underline-offset-2">Airbnb turnover cleaning</Link> — we&apos;ve got you covered. <Link href="/about-the-nyc-maid-service-company" className="text-[#1E2A4A] underline underline-offset-2">Learn more about our company</Link>.
+              Every cleaner on our team is fully background-checked and insured. Whether you need a <Link href="/services/apartment-cleaning-service-in-new-jersey" className="text-[#1E2A4A] underline underline-offset-2">regular apartment cleaning</Link>, a <Link href="/services/deep-cleaning-service-in-new-jersey" className="text-[#1E2A4A] underline underline-offset-2">deep clean</Link>, or <Link href="/services/airbnb-cleaning-in-new-jersey" className="text-[#1E2A4A] underline underline-offset-2">Airbnb turnover cleaning</Link> — we&apos;ve got you covered. <Link href="/about-the-new-jersey-maid-service-company" className="text-[#1E2A4A] underline underline-offset-2">Learn more about our company</Link>.
             </p>
             <div className="flex flex-col sm:flex-row items-start gap-4">
               <Link href="/book/new" className="inline-block bg-[#A8F0DC] text-[#1E2A4A] px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
@@ -533,7 +533,7 @@ export default function HomePage() {
           <p className="text-xs font-semibold text-gray-400 tracking-[0.25em] uppercase mb-3 text-center">What Makes The New Jersey Maid Different From Other Cleaning Services</p>
           <h2 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-[#1E2A4A] tracking-wide text-center mb-4">Why Clients Choose The New Jersey Maid Over Every Other Cleaning Company</h2>
           <p className="text-gray-500 text-center max-w-3xl mx-auto mb-14">
-            No money upfront — you pay only after your cleaning is complete. Flat <Link href="/updated-nyc-maid-service-industry-pricing" className="text-[#1E2A4A] underline underline-offset-2">hourly pricing</Link> with no surprise fees. Experienced, professional cleaners — not random gig workers. <Link href="/services/weekly-maid-service-in-nyc" className="text-[#1E2A4A] underline underline-offset-2">Weekly</Link> and <Link href="/services/bi-weekly-cleaning-service-in-nyc" className="text-[#1E2A4A] underline underline-offset-2">bi-weekly recurring service</Link> available. No contracts — stay because you&apos;re happy.
+            No money upfront — you pay only after your cleaning is complete. Flat <Link href="/updated-new-jersey-maid-service-industry-pricing" className="text-[#1E2A4A] underline underline-offset-2">hourly pricing</Link> with no surprise fees. Experienced, professional cleaners — not random gig workers. <Link href="/services/weekly-maid-service-in-new-jersey" className="text-[#1E2A4A] underline underline-offset-2">Weekly</Link> and <Link href="/services/bi-weekly-cleaning-service-in-new-jersey" className="text-[#1E2A4A] underline underline-offset-2">bi-weekly recurring service</Link> available. No contracts — stay because you&apos;re happy.
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             <div className="border border-gray-200 rounded-2xl p-8">
@@ -610,7 +610,7 @@ export default function HomePage() {
             <p className="text-gray-600 leading-relaxed mb-6">
               That&apos;s why clients keep rebooking — they know exactly who&apos;s coming, and they trust them completely.
             </p>
-            <Link href="/available-nyc-maid-jobs" className="text-[#1E2A4A] font-semibold text-sm hover:underline underline-offset-4">Join Our Cleaning Team &rarr;</Link>
+            <Link href="/available-new-jersey-maid-jobs" className="text-[#1E2A4A] font-semibold text-sm hover:underline underline-offset-4">Join Our Cleaning Team &rarr;</Link>
           </div>
           <div>
             <p className="text-xs font-semibold text-gray-400 tracking-[0.2em] uppercase mb-3">The Ideal New Jersey Maid Service Client</p>

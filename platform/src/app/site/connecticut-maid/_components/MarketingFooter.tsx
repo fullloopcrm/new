@@ -3,13 +3,13 @@ import { AREAS } from '../_lib/seo/data/areas'
 import { getNeighborhoodsByArea } from '../_lib/seo/locations'
 
 const serviceFooterLinks = [
-  { name: 'Deep Cleaning', href: '/services/deep-cleaning-service-in-nyc' },
-  { name: 'Regular Cleaning', href: '/services/apartment-cleaning-service-in-nyc' },
-  { name: 'Weekly Service', href: '/services/weekly-maid-service-in-nyc' },
-  { name: 'Move-In/Move-Out', href: '/services/move-in-move-out-cleaning-service-in-nyc' },
-  { name: 'Post-Construction', href: '/services/post-construction-cleanup-service-in-nyc' },
-  { name: 'Airbnb Cleaning', href: '/services/airbnb-cleaning-in-nyc' },
-  { name: 'Same-Day Cleaning', href: '/services/same-day-cleaning-service-in-nyc' },
+  { name: 'Deep Cleaning', href: '/services/deep-cleaning-service-in-connecticut' },
+  { name: 'Regular Cleaning', href: '/services/apartment-cleaning-service-in-connecticut' },
+  { name: 'Weekly Service', href: '/services/weekly-maid-service-in-connecticut' },
+  { name: 'Move-In/Move-Out', href: '/services/move-in-move-out-cleaning-service-in-connecticut' },
+  { name: 'Post-Construction', href: '/services/post-construction-cleanup-service-in-connecticut' },
+  { name: 'Airbnb Cleaning', href: '/services/airbnb-cleaning-in-connecticut' },
+  { name: 'Same-Day Cleaning', href: '/services/same-day-cleaning-service-in-connecticut' },
 ]
 
 export default function MarketingFooter() {
@@ -68,10 +68,10 @@ export default function MarketingFooter() {
           <div>
             <h3 className="text-xs font-semibold text-gray-300 tracking-[0.2em] uppercase mb-5">Company</h3>
             <ul className="space-y-2.5">
-              <li><Link href="/about-the-nyc-maid-service-company" className="text-sm hover:text-white transition-colors">About Us</Link></li>
-              <li><Link href="/updated-nyc-maid-service-industry-pricing" className="text-sm hover:text-white transition-colors">Pricing</Link></li>
+              <li><Link href="/about-the-connecticut-maid-service-company" className="text-sm hover:text-white transition-colors">About Us</Link></li>
+              <li><Link href="/updated-connecticut-maid-service-industry-pricing" className="text-sm hover:text-white transition-colors">Pricing</Link></li>
               <li><Link href="/reviews" className="text-sm hover:text-white transition-colors">Reviews</Link></li>
-              <li><Link href="/available-nyc-maid-jobs" className="text-sm hover:text-white transition-colors">Careers</Link></li>
+              <li><Link href="/available-connecticut-maid-jobs" className="text-sm hover:text-white transition-colors">Careers</Link></li>
             </ul>
           </div>
           <div>
@@ -81,10 +81,10 @@ export default function MarketingFooter() {
               <li><Link href="/get-paid-for-cleaning-referrals-every-time-they-are-serviced" target="_blank" className="text-sm hover:text-white transition-colors">Referral Program</Link></li>
               <li><Link href="/book/new" className="text-sm hover:text-white transition-colors">Book a Cleaning</Link></li>
               <li><a href="sms:2034915600" className="text-sm hover:text-white transition-colors">Text Sales &amp; Customer Service: (203) 491-5600</a></li>
-              <li><Link href="/nyc-cleaning-service-frequently-asked-questions-in-2025" className="text-sm hover:text-white transition-colors">FAQ</Link></li>
-              <li><Link href="/nyc-maid-service-blog" className="text-sm hover:text-white transition-colors">Blog</Link></li>
-              <li><Link href="/nyc-maid-and-cleaning-tips-and-advice-by-the-nyc-maid" className="text-sm hover:text-white transition-colors">Cleaning Tips</Link></li>
-              <li><Link href="/service/nyc-emergency-cleaning-service" className="text-sm hover:text-white transition-colors">Emergency Cleaning</Link></li>
+              <li><Link href="/connecticut-cleaning-service-frequently-asked-questions-in-2025" className="text-sm hover:text-white transition-colors">FAQ</Link></li>
+              <li><Link href="/connecticut-maid-service-blog" className="text-sm hover:text-white transition-colors">Blog</Link></li>
+              <li><Link href="/connecticut-maid-and-cleaning-tips-and-advice-by-the-connecticut-maid" className="text-sm hover:text-white transition-colors">Cleaning Tips</Link></li>
+              <li><Link href="/service/connecticut-emergency-cleaning-service" className="text-sm hover:text-white transition-colors">Emergency Cleaning</Link></li>
               <li><Link href="/apply" className="text-sm hover:text-white transition-colors">Apply to Clean</Link></li>
               <li><Link href="/feedback" className="inline-block bg-red-600 text-yellow-300 px-3 py-1.5 rounded font-bold text-xs uppercase tracking-wide hover:bg-red-700 transition-colors">Feedback | Suggestions?</Link></li>
             </ul>

@@ -36,7 +36,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6196575,
-    "src": "/photos/nyc-maid-mopping-tiled-apartment-floor.jpg",
+    "src": "/photos/pennsylvania-maid-mopping-tiled-apartment-floor.jpg",
     "alt": "A maid from The Pennsylvania Maid mopping a tiled floor in a cozy Pennsylvania apartment",
     "caption": "Tile floor cleaning in an apartment",
     "pool": "lifestyle",
@@ -88,7 +88,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6195198,
-    "src": "/photos/nyc-maid-wiping-table-modern-living-room.jpg",
+    "src": "/photos/pennsylvania-maid-wiping-table-modern-living-room.jpg",
     "alt": "A Pennsylvania maid wearing gloves wiping a coffee table in a modern Pennsylvania living room",
     "caption": "Detail dusting, Pennsylvania living room",
     "pool": "lifestyle",
@@ -114,7 +114,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6195194,
-    "src": "/photos/nyc-maid-service-table-cleaning.jpg",
+    "src": "/photos/pennsylvania-maid-service-table-cleaning.jpg",
     "alt": "The Pennsylvania Maid cleaner wiping a table in a Pennsylvania apartment",
     "caption": "Pennsylvania table cleaning detail",
     "pool": "lifestyle",
@@ -127,7 +127,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6195212,
-    "src": "/photos/nyc-maid-making-bed-bright-bedroom.jpg",
+    "src": "/photos/pennsylvania-maid-making-bed-bright-bedroom.jpg",
     "alt": "Pennsylvania maid service making the bed in a bright, monochrome bedroom",
     "caption": "Bedroom turndown, Pennsylvania apartment",
     "pool": "lifestyle",
@@ -153,7 +153,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6195207,
-    "src": "/photos/nyc-maid-washing-dishes-modern-kitchen.jpg",
+    "src": "/photos/pennsylvania-maid-washing-dishes-modern-kitchen.jpg",
     "alt": "Pennsylvania maid wearing rubber gloves washing dishes in a modern Pennsylvania kitchen",
     "caption": "Dish cleaning in a Pennsylvania kitchen",
     "pool": "lifestyle",
@@ -179,7 +179,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6195118,
-    "src": "/photos/nyc-maid-professional-cleaner-red-uniform.jpg",
+    "src": "/photos/pennsylvania-maid-professional-cleaner-red-uniform.jpg",
     "alt": "Professional cleaner from The Pennsylvania Maid in red uniform cleaning an Pennsylvania apartment with a bucket",
     "caption": "Pennsylvania Maid team member at work",
     "pool": "team",
@@ -192,7 +192,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6195125,
-    "src": "/photos/nyc-cleaning-team-red-uniforms-living-room.jpg",
+    "src": "/photos/pennsylvania-cleaning-team-red-uniforms-living-room.jpg",
     "alt": "The Pennsylvania Maid cleaning team in red uniforms ready to sanitize a modern Pennsylvania living room",
     "caption": "Pennsylvania Maid cleaning crew",
     "pool": "team",
@@ -205,7 +205,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6195120,
-    "src": "/photos/nyc-maid-professional-cleaning-team-equipment.jpg",
+    "src": "/photos/pennsylvania-maid-professional-cleaning-team-equipment.jpg",
     "alt": "Three professional Pennsylvania Maid cleaners in uniform with equipment, ready for a job",
     "caption": "Pennsylvania Maid team with equipment",
     "pool": "team",
@@ -218,7 +218,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6195122,
-    "src": "/photos/nyc-cleaning-team-vacuuming-red-uniforms.jpg",
+    "src": "/photos/pennsylvania-cleaning-team-vacuuming-red-uniforms.jpg",
     "alt": "A team of professional Pennsylvania Maid cleaners in red uniforms using a vacuum",
     "caption": "Pennsylvania Maid team vacuuming",
     "pool": "team",
@@ -231,7 +231,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6195277,
-    "src": "/photos/nyc-maid-crew-sweeping-mopping-red-overalls.jpg",
+    "src": "/photos/pennsylvania-maid-crew-sweeping-mopping-red-overalls.jpg",
     "alt": "Two Pennsylvania Maid cleaners in red overalls vacuuming and sweeping a modern Pennsylvania living room",
     "caption": "Pennsylvania Maid crew mid-service",
     "pool": "team",
@@ -257,7 +257,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6197108,
-    "src": "/photos/nyc-cleaning-crew-mopping-dining-room.jpg",
+    "src": "/photos/pennsylvania-cleaning-crew-mopping-dining-room.jpg",
     "alt": "The Pennsylvania Maid cleaning crew in red uniforms mopping and wiping glass in a dining room",
     "caption": "Dining room detail, Pennsylvania Maid",
     "pool": "team",
@@ -270,7 +270,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6196682,
-    "src": "/photos/nyc-maid-team-professional-dining-room.jpg",
+    "src": "/photos/pennsylvania-maid-team-professional-dining-room.jpg",
     "alt": "Professional Pennsylvania Maid team working in a modern dining room in Pennsylvania",
     "caption": "Team service, Pennsylvania Maid",
     "pool": "team",

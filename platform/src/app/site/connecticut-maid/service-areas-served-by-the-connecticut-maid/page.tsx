@@ -1,23 +1,23 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { SERVICES } from '@/app/site/new-jersey-maid/_lib/seo/services'
-import { organizationSchema, webSiteSchema, webPageSchema, localBusinessSchema, howToBookSchema, breadcrumbSchema, faqSchema } from '@/app/site/new-jersey-maid/_lib/seo/schema'
-import JsonLd from '@/app/site/new-jersey-maid/_components/JsonLd'
-import Breadcrumbs from '@/app/site/new-jersey-maid/_components/Breadcrumbs'
-import CTABlock from '@/app/site/new-jersey-maid/_components/CTABlock'
+import { SERVICES } from '@/app/site/connecticut-maid/_lib/seo/services'
+import { organizationSchema, webSiteSchema, webPageSchema, localBusinessSchema, howToBookSchema, breadcrumbSchema, faqSchema } from '@/app/site/connecticut-maid/_lib/seo/schema'
+import JsonLd from '@/app/site/connecticut-maid/_components/JsonLd'
+import Breadcrumbs from '@/app/site/connecticut-maid/_components/Breadcrumbs'
+import CTABlock from '@/app/site/connecticut-maid/_components/CTABlock'
 
 const areaFAQs = [
-  { question: 'What areas does The New Jersey Maid serve?', answer: 'We serve New Jersey and the surrounding area. Same rates and same quality everywhere — text (973) 370-8800 with your address and we\'ll confirm coverage.' },
+  { question: 'What areas does The Connecticut Maid serve?', answer: 'We serve Connecticut and the surrounding area. Same rates and same quality everywhere — text (203) 491-5600 with your address and we\'ll confirm coverage.' },
   { question: 'Do you charge extra for certain areas?', answer: 'No. Our rates are the same across our entire service area — $59/hr with your supplies (recurring: 10% off weekly, 5% off biweekly/monthly), $69/hr when we bring everything (recurring: 20% off weekly, 10% off biweekly/monthly), and $89/hr for same-day emergency service. No travel fees, no surge pricing.' },
   { question: 'Are all services available everywhere you serve?', answer: 'Yes. Every service we offer — deep cleaning, regular cleaning, move-in/out, post-renovation, Airbnb, office, same-day — is available throughout our service area.' },
-  { question: 'Do you serve areas outside your core coverage?', answer: 'We may. Text (973) 370-8800 with your address and we\'ll let you know — we\'re always expanding.' },
+  { question: 'Do you serve areas outside your core coverage?', answer: 'We may. Text (203) 491-5600 with your address and we\'ll let you know — we\'re always expanding.' },
   { question: 'Do I get the same cleaner every visit?', answer: 'Yes. For recurring clients, we assign a dedicated cleaner so they can arrive consistently and on time.' },
-  { question: 'How quickly can you schedule a cleaning?', answer: 'We typically schedule within 24-48 hours for standard service. Same-day cleaning is available in most cases — text (973) 370-8800 for availability. A 2-hour minimum applies (first-time cleanings included). Bookings with 2 or more cleaners carry a 4-hour minimum and receive no discounts.' },
+  { question: 'How quickly can you schedule a cleaning?', answer: 'We typically schedule within 24-48 hours for standard service. Same-day cleaning is available in most cases — text (203) 491-5600 for availability. A 2-hour minimum applies (first-time cleanings included). Bookings with 2 or more cleaners carry a 4-hour minimum and receive no discounts.' },
 ]
 
-const pageUrl = 'https://www.thenewjerseymaid.com/service-areas-served-by-the-nyc-maid'
-const pageTitle = `Service Area | The New Jersey Maid`
-const pageDescription = `The New Jersey Maid serves New Jersey and the surrounding area. Same rates everywhere — $59/hr. Text (973) 370-8800 to confirm coverage for your address.`
+const pageUrl = 'https://www.theconnecticutmaid.com/service-areas-served-by-the-connecticut-maid'
+const pageTitle = `Service Area | The Connecticut Maid`
+const pageDescription = `The Connecticut Maid serves Connecticut and the surrounding area. Same rates everywhere — $59/hr. Text (203) 491-5600 to confirm coverage for your address.`
 
 export const metadata: Metadata = {
   title: pageTitle,
@@ -28,9 +28,9 @@ export const metadata: Metadata = {
     description: pageDescription,
     url: pageUrl,
     type: 'website',
-    siteName: 'The New Jersey Maid',
+    siteName: 'The Connecticut Maid',
     locale: 'en_US',
-    images: [{ url: 'https://www.thenewjerseymaid.com/icon-512.png', width: 512, height: 512, alt: 'The New Jersey Maid' }],
+    images: [{ url: 'https://www.theconnecticutmaid.com/icon-512.png', width: 512, height: 512, alt: 'The Connecticut Maid' }],
   },
   twitter: {
     card: 'summary',
@@ -38,10 +38,10 @@ export const metadata: Metadata = {
     description: pageDescription,
   },
   other: {
-    'geo.region': 'US-NJ',
-    'geo.placename': 'New Jersey',
-    'geo.position': '40.0583;-74.4057',
-    'ICBM': '40.0583, -74.4057',
+    'geo.region': 'US-CT',
+    'geo.placename': 'Connecticut',
+    'geo.position': '41.6032;-73.0877',
+    'ICBM': '41.6032, -73.0877',
   },
 }
 
@@ -56,14 +56,14 @@ export default function AreasIndexPage() {
           name: pageTitle,
           description: pageDescription,
           breadcrumb: [
-            { name: 'Home', url: 'https://www.thenewjerseymaid.com' },
+            { name: 'Home', url: 'https://www.theconnecticutmaid.com' },
             { name: 'Service Area', url: pageUrl },
           ],
         }),
         localBusinessSchema(),
         howToBookSchema(),
         breadcrumbSchema([
-          { name: 'Home', url: 'https://www.thenewjerseymaid.com' },
+          { name: 'Home', url: 'https://www.theconnecticutmaid.com' },
           { name: 'Service Area', url: pageUrl },
         ]),
         faqSchema(areaFAQs),
@@ -77,10 +77,10 @@ export default function AreasIndexPage() {
             <span className="text-blue-200/70 text-sm font-medium">5.0 Rating &middot; Verified Reviews</span>
           </div>
           <h1 className="font-[family-name:var(--font-bebas)] text-4xl md:text-6xl lg:text-7xl text-white tracking-wide leading-[0.95] mb-6">
-            Proudly Serving New Jersey
+            Proudly Serving Connecticut
           </h1>
           <p className="text-blue-200/80 text-lg max-w-2xl leading-relaxed mb-10">
-            Professional house cleaning from $59/hr, background-checked cleaners, and the same flat rate everywhere in our service area. Text (973) 370-8800 with your address and we&apos;ll confirm coverage.
+            Professional house cleaning from $59/hr, background-checked cleaners, and the same flat rate everywhere in our service area. Text (203) 491-5600 with your address and we&apos;ll confirm coverage.
           </p>
           <div className="flex flex-wrap gap-x-6 gap-y-2">
             <span className="text-[#A8F0DC] text-sm font-medium">&#10003; From $59/hr</span>
@@ -92,7 +92,7 @@ export default function AreasIndexPage() {
       </section>
 
       <div className="max-w-7xl mx-auto px-4 py-12">
-        <Breadcrumbs items={[{ name: 'Service Area', href: '/service-areas-served-by-the-nyc-maid' }]} />
+        <Breadcrumbs items={[{ name: 'Service Area', href: '/service-areas-served-by-the-connecticut-maid' }]} />
 
         {/* Services available everywhere */}
         <section className="bg-gradient-to-b from-[#1E2A4A] to-[#243352] rounded-2xl p-8 md:p-14 mb-20">
@@ -146,14 +146,14 @@ export default function AreasIndexPage() {
             <a href="/book/new" className="bg-[#1E2A4A] text-white px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
               Self-book, save $10
             </a>
-            <a href="sms:9733708800" className="text-[#1E2A4A] font-semibold underline underline-offset-4 hover:no-underline">
+            <a href="sms:2034915600" className="text-[#1E2A4A] font-semibold underline underline-offset-4 hover:no-underline">
               Text us for questions
             </a>
           </div>
         </section>
       </div>
 
-      <CTABlock title="Book Your New Jersey Cleaning Service Today" subtitle="Text us — background-checked, insured cleaners serving New Jersey." />
+      <CTABlock title="Book Your Connecticut Cleaning Service Today" subtitle="Text us — background-checked, insured cleaners serving Connecticut." />
     </>
   )
 }

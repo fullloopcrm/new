@@ -30,7 +30,7 @@ const careerFAQs = [
 ]
 
 
-const pageUrl = 'https://www.theconnecticutmaid.com/available-nyc-maid-jobs'
+const pageUrl = 'https://www.theconnecticutmaid.com/available-connecticut-maid-jobs'
 const pageTitle = 'Cleaning Jobs Connecticut — Starting $30/hr + Bonuses, Open 24/7 | Trabajo de Limpieza'
 const pageDescription = 'Hiring cleaners across Connecticut! Starting $30/hr + bonus programs. Stripe in <30 min. 100% tips. Open 24/7. English & Spanish | Contratando — desde $30/hr + bonos. (203) 491-5600'
 
@@ -220,7 +220,7 @@ export default function CareersPage() {
       </section>
 
       <div className="max-w-7xl mx-auto px-4 py-12">
-        <Breadcrumbs items={[{ name: 'Careers', href: '/available-nyc-maid-jobs' }]} />
+        <Breadcrumbs items={[{ name: 'Careers', href: '/available-connecticut-maid-jobs' }]} />
 
         {/* Open Positions */}
         <section className="mb-20">
@@ -478,7 +478,7 @@ export default function CareersPage() {
                 <h3 className="font-semibold text-lg text-[#1E2A4A] mb-3">{area.name}</h3>
                 <div className="flex flex-wrap gap-2">
                   {neighborhoods.map(nb => (
-                    <Link key={nb.slug} href={`/available-nyc-maid-jobs/${nb.slug}`} className="px-3 py-1.5 bg-gray-100 rounded-full text-sm text-gray-700 hover:bg-[#A8F0DC]/20 hover:text-[#1E2A4A] transition-colors">
+                    <Link key={nb.slug} href={`/available-connecticut-maid-jobs/${nb.slug}`} className="px-3 py-1.5 bg-gray-100 rounded-full text-sm text-gray-700 hover:bg-[#A8F0DC]/20 hover:text-[#1E2A4A] transition-colors">
                       {nb.name}
                     </Link>
                   ))}

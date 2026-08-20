@@ -4,24 +4,24 @@ import Image from 'next/image'
 import { useState, useEffect } from 'react'
 
 const serviceLinks = [
-  { name: 'Deep Cleaning', href: '/services/deep-cleaning-service-in-nyc' },
-  { name: 'Regular Apartment Cleaning', href: '/services/apartment-cleaning-service-in-nyc' },
-  { name: 'Weekly Service', href: '/services/weekly-maid-service-in-nyc' },
-  { name: 'Bi-Weekly Cleaning', href: '/services/bi-weekly-cleaning-service-in-nyc' },
-  { name: 'Move-In/Move-Out', href: '/services/move-in-move-out-cleaning-service-in-nyc' },
-  { name: 'Post-Construction', href: '/services/post-construction-cleanup-service-in-nyc' },
-  { name: 'Airbnb Cleaning', href: '/services/airbnb-cleaning-in-nyc' },
-  { name: 'Same-Day Cleaning', href: '/services/same-day-cleaning-service-in-nyc' },
-  { name: 'All Services', href: '/nyc-maid-service-services-offered-by-the-nyc-maid' },
+  { name: 'Deep Cleaning', href: '/services/deep-cleaning-service-in-long-island' },
+  { name: 'Regular Apartment Cleaning', href: '/services/apartment-cleaning-service-in-long-island' },
+  { name: 'Weekly Service', href: '/services/weekly-maid-service-in-long-island' },
+  { name: 'Bi-Weekly Cleaning', href: '/services/bi-weekly-cleaning-service-in-long-island' },
+  { name: 'Move-In/Move-Out', href: '/services/move-in-move-out-cleaning-service-in-long-island' },
+  { name: 'Post-Construction', href: '/services/post-construction-cleanup-service-in-long-island' },
+  { name: 'Airbnb Cleaning', href: '/services/airbnb-cleaning-in-long-island' },
+  { name: 'Same-Day Cleaning', href: '/services/same-day-cleaning-service-in-long-island' },
+  { name: 'All Services', href: '/long-island-maid-service-services-offered-by-the-long-island-maid' },
 ]
 
 const moreLinks = [
-  { name: 'About', href: '/about-the-nyc-maid-service-company' },
-  { name: 'FAQ', href: '/nyc-cleaning-service-frequently-asked-questions-in-2025' },
+  { name: 'About', href: '/about-the-long-island-maid-service-company' },
+  { name: 'FAQ', href: '/long-island-cleaning-service-frequently-asked-questions-in-2025' },
   { name: 'Careers — Administrator', href: '/careers/administrator' },
-  { name: 'Careers — Cleaning Jobs', href: '/available-nyc-maid-jobs' },
+  { name: 'Careers — Cleaning Jobs', href: '/available-long-island-maid-jobs' },
   { name: 'Careers — Sales Partner', href: '/careers/commission-sales-partner' },
-  { name: 'Locations', href: '/service-areas-served-by-the-nyc-maid' },
+  { name: 'Locations', href: '/service-areas-served-by-the-long-island-maid' },
   { name: 'Referral Program', href: '/get-paid-for-cleaning-referrals-every-time-they-are-serviced' },
   { name: 'Feedback | Suggestions?', href: '/feedback' },
 ]
@@ -47,7 +47,7 @@ export default function MarketingNav() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-center lg:justify-between h-9">
             <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] tracking-widest uppercase">
               <span className="text-white/80 font-semibold hidden sm:inline">Maid Service:</span>
-              <Link href="/service-areas-served-by-the-nyc-maid" className="hover:text-white transition-colors font-semibold text-white/80 hidden sm:inline">LI</Link>
+              <Link href="/service-areas-served-by-the-long-island-maid" className="hover:text-white transition-colors font-semibold text-white/80 hidden sm:inline">LI</Link>
               <span className="text-white/20 hidden sm:inline">-</span>
               <span className="text-white/80 font-semibold hidden sm:inline">Open 24/7</span>
               <span className="text-white/20 hidden sm:inline">·</span>
@@ -95,7 +95,7 @@ export default function MarketingNav() {
                 </div>
               </div>
 
-              <Link href="/updated-nyc-maid-service-industry-pricing" className="text-[#1E2A4A] hover:text-[#1E2A4A]/70 font-medium text-[15px] tracking-wide">Pricing</Link>
+              <Link href="/updated-long-island-maid-service-industry-pricing" className="text-[#1E2A4A] hover:text-[#1E2A4A]/70 font-medium text-[15px] tracking-wide">Pricing</Link>
               <Link href="/reviews" className="text-[#1E2A4A] hover:text-[#1E2A4A]/70 font-medium text-[15px] tracking-wide flex items-center gap-1.5">
                 Reviews
                 <span className="text-yellow-400 text-xs">&#9733; 5.0</span>
@@ -184,7 +184,7 @@ export default function MarketingNav() {
                 </div>
               )}
 
-              <Link href="/updated-nyc-maid-service-industry-pricing" onClick={closeMenu} className="block py-3 text-white font-medium text-lg">Pricing</Link>
+              <Link href="/updated-long-island-maid-service-industry-pricing" onClick={closeMenu} className="block py-3 text-white font-medium text-lg">Pricing</Link>
               <Link href="/reviews" onClick={closeMenu} className="flex items-center gap-2 py-3 text-white font-medium text-lg">
                 Reviews <span className="text-yellow-400 text-sm">&#9733; 5.0</span>
               </Link>

@@ -36,7 +36,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6196575,
-    "src": "/photos/nyc-maid-mopping-tiled-apartment-floor.jpg",
+    "src": "/photos/long-island-maid-mopping-tiled-apartment-floor.jpg",
     "alt": "A maid from The Long Island Maid mopping a tiled floor in a cozy Long Island apartment",
     "caption": "Tile floor cleaning in a New York apartment",
     "pool": "lifestyle",
@@ -88,7 +88,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6195198,
-    "src": "/photos/nyc-maid-wiping-table-modern-living-room.jpg",
+    "src": "/photos/long-island-maid-wiping-table-modern-living-room.jpg",
     "alt": "A Long Island maid wearing gloves wiping a coffee table in a modern Long Island living room",
     "caption": "Detail dusting, Long Island living room",
     "pool": "lifestyle",
@@ -114,7 +114,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6195194,
-    "src": "/photos/nyc-maid-service-table-cleaning.jpg",
+    "src": "/photos/long-island-maid-service-table-cleaning.jpg",
     "alt": "The Long Island Maid cleaner wiping a table in a Long Island apartment",
     "caption": "Long Island table cleaning detail",
     "pool": "lifestyle",
@@ -127,7 +127,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6195212,
-    "src": "/photos/nyc-maid-making-bed-bright-bedroom.jpg",
+    "src": "/photos/long-island-maid-making-bed-bright-bedroom.jpg",
     "alt": "Long Island maid service making the bed in a bright, monochrome bedroom",
     "caption": "Bedroom turndown, Long Island apartment",
     "pool": "lifestyle",
@@ -153,7 +153,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6195207,
-    "src": "/photos/nyc-maid-washing-dishes-modern-kitchen.jpg",
+    "src": "/photos/long-island-maid-washing-dishes-modern-kitchen.jpg",
     "alt": "Long Island maid wearing rubber gloves washing dishes in a modern Long Island kitchen",
     "caption": "Dish cleaning in a Long Island kitchen",
     "pool": "lifestyle",
@@ -179,7 +179,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6195118,
-    "src": "/photos/nyc-maid-professional-cleaner-red-uniform.jpg",
+    "src": "/photos/long-island-maid-professional-cleaner-red-uniform.jpg",
     "alt": "Professional cleaner from The Long Island Maid in red uniform cleaning an Long Island apartment with a bucket",
     "caption": "Long Island Maid team member at work",
     "pool": "team",
@@ -192,7 +192,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6195125,
-    "src": "/photos/nyc-cleaning-team-red-uniforms-living-room.jpg",
+    "src": "/photos/long-island-cleaning-team-red-uniforms-living-room.jpg",
     "alt": "The Long Island Maid cleaning team in red uniforms ready to sanitize a modern Long Island living room",
     "caption": "Long Island Maid cleaning crew",
     "pool": "team",
@@ -205,7 +205,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6195120,
-    "src": "/photos/nyc-maid-professional-cleaning-team-equipment.jpg",
+    "src": "/photos/long-island-maid-professional-cleaning-team-equipment.jpg",
     "alt": "Three professional Long Island Maid cleaners in uniform with equipment, ready for a job",
     "caption": "Long Island Maid team with equipment",
     "pool": "team",
@@ -218,7 +218,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6195122,
-    "src": "/photos/nyc-cleaning-team-vacuuming-red-uniforms.jpg",
+    "src": "/photos/long-island-cleaning-team-vacuuming-red-uniforms.jpg",
     "alt": "A team of professional Long Island Maid cleaners in red uniforms using a vacuum in a New York home",
     "caption": "Long Island Maid team vacuuming",
     "pool": "team",
@@ -231,7 +231,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6195277,
-    "src": "/photos/nyc-maid-crew-sweeping-mopping-red-overalls.jpg",
+    "src": "/photos/long-island-maid-crew-sweeping-mopping-red-overalls.jpg",
     "alt": "Two Long Island Maid cleaners in red overalls vacuuming and sweeping a modern Long Island living room",
     "caption": "Long Island Maid crew mid-service",
     "pool": "team",
@@ -257,7 +257,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6197108,
-    "src": "/photos/nyc-cleaning-crew-mopping-dining-room.jpg",
+    "src": "/photos/long-island-cleaning-crew-mopping-dining-room.jpg",
     "alt": "The Long Island Maid cleaning crew in red uniforms mopping and wiping glass in a New York dining room",
     "caption": "Dining room detail, Long Island Maid",
     "pool": "team",
@@ -270,7 +270,7 @@ export const PHOTOS: SitePhoto[] = [
   },
   {
     "id": 6196682,
-    "src": "/photos/nyc-maid-team-professional-dining-room.jpg",
+    "src": "/photos/long-island-maid-team-professional-dining-room.jpg",
     "alt": "Professional Long Island Maid team working in a modern dining room in Long Island",
     "caption": "Team service, Long Island Maid",
     "pool": "team",

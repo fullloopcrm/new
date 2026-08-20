@@ -54,7 +54,7 @@ export default async function ReviewsPage() {
             Real Reviews From Real Clients
           </h1>
           <p className="text-blue-200/80 text-lg max-w-2xl leading-relaxed">
-            Don&rsquo;t take our word for it &mdash; hear directly from the families and professionals across Connecticut who trust us to clean their homes every week. These are verified reviews from real <Link href="/services/apartment-cleaning-service-in-nyc" className="text-white underline underline-offset-2">apartment cleaning</Link>, <Link href="/services/deep-cleaning-service-in-nyc" className="text-white underline underline-offset-2">deep cleaning</Link>, and <Link href="/services/weekly-maid-service-in-nyc" className="text-white underline underline-offset-2">weekly maid service</Link> clients. No fake reviews, no cherry-picking &mdash; just honest feedback from people who chose us and keep coming back.
+            Don&rsquo;t take our word for it &mdash; hear directly from the families and professionals across Connecticut who trust us to clean their homes every week. These are verified reviews from real <Link href="/services/apartment-cleaning-service-in-connecticut" className="text-white underline underline-offset-2">apartment cleaning</Link>, <Link href="/services/deep-cleaning-service-in-connecticut" className="text-white underline underline-offset-2">deep cleaning</Link>, and <Link href="/services/weekly-maid-service-in-connecticut" className="text-white underline underline-offset-2">weekly maid service</Link> clients. No fake reviews, no cherry-picking &mdash; just honest feedback from people who chose us and keep coming back.
           </p>
         </div>
       </section>

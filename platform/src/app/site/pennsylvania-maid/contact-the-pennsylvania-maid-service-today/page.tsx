@@ -1,29 +1,29 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { organizationSchema, webSiteSchema, webPageSchema, localBusinessSchema, howToBookSchema, breadcrumbSchema, faqSchema } from '@/app/site/new-jersey-maid/_lib/seo/schema'
-import JsonLd from '@/app/site/new-jersey-maid/_components/JsonLd'
-import Breadcrumbs from '@/app/site/new-jersey-maid/_components/Breadcrumbs'
-import CTABlock from '@/app/site/new-jersey-maid/_components/CTABlock'
+import { organizationSchema, webSiteSchema, webPageSchema, localBusinessSchema, howToBookSchema, breadcrumbSchema, faqSchema } from '@/app/site/pennsylvania-maid/_lib/seo/schema'
+import JsonLd from '@/app/site/pennsylvania-maid/_components/JsonLd'
+import Breadcrumbs from '@/app/site/pennsylvania-maid/_components/Breadcrumbs'
+import CTABlock from '@/app/site/pennsylvania-maid/_components/CTABlock'
 
-const url = 'https://www.thenewjerseymaid.com/contact-the-nyc-maid-service-today'
-const title = 'Contact The New Jersey Maid | Text Sales (973) 370-8800'
-const description = 'Contact The New Jersey Maid for a free cleaning quote. Text sales at (973) 370-8800, or email hi@thenewjerseymaid.com. Service from $59/hr across New Jersey. 5.0★ Rated.'
+const url = 'https://www.thepennsylvaniamaid.com/contact-the-pennsylvania-maid-service-today'
+const title = 'Contact The Pennsylvania Maid | Text Sales (215) 398-4500'
+const description = 'Contact The Pennsylvania Maid for a free cleaning quote. Text sales at (215) 398-4500, or email hi@thepennsylvaniamaid.com. Service from $59/hr across Pennsylvania. 5.0★ Rated.'
 
 export const metadata: Metadata = {
   title: { absolute: title },
   description,
   alternates: { canonical: url },
-  openGraph: { title, description, url, type: 'website', siteName: 'The New Jersey Maid', locale: 'en_US' },
+  openGraph: { title, description, url, type: 'website', siteName: 'The Pennsylvania Maid', locale: 'en_US' },
   twitter: { card: 'summary_large_image', title, description },
-  other: { 'geo.region': 'US-NJ', 'geo.placename': 'New Jersey', 'geo.position': '40.0583;-74.4057', 'ICBM': '40.0583, -74.4057' },
+  other: { 'geo.region': 'US-PA', 'geo.placename': 'Pennsylvania', 'geo.position': '39.9526;-75.1652', 'ICBM': '39.9526, -75.1652' },
 }
 
 const contactFaqs = [
-  { question: 'What\'s the fastest way to get a quote?', answer: 'Text sales at (973) 370-8800 with your address, home size (bedrooms/bathrooms), and what type of cleaning you need. Most quotes are delivered within 15 minutes.' },
-  { question: 'Do I need to call to book, or can I text?', answer: 'Texting is our preferred method — it\'s faster for both of us. You can also call or email hi@thenewjerseymaid.com.' },
+  { question: 'What\'s the fastest way to get a quote?', answer: 'Text sales at (215) 398-4500 with your address, home size (bedrooms/bathrooms), and what type of cleaning you need. Most quotes are delivered within 15 minutes.' },
+  { question: 'Do I need to call to book, or can I text?', answer: 'Texting is our preferred method — it\'s faster for both of us. You can also call or email hi@thepennsylvaniamaid.com.' },
   { question: 'What information do you need for a quote?', answer: 'Your address, number of bedrooms and bathrooms, the type of cleaning you need (regular, deep, move-in/out, etc.), and your preferred date. That\'s it — we\'ll handle the rest.' },
   { question: 'How quickly can you schedule a cleaning?', answer: 'Usually within 24–48 hours. For same-day service, text us before 10am for the best chance of afternoon availability. Same-day is $89/hr. A 2-hour minimum applies (first-time cleanings included). Bookings with 2 or more cleaners require 48 hours notice, carry a 4-hour minimum, and receive no discounts — a multi-cleaner booking with under 48 hours notice is billed at same-day / emergency pricing ($89/hr).' },
-  { question: 'What areas do you serve?', answer: 'We serve New Jersey and the surrounding area. Text us your address and we\'ll confirm coverage. Same rates everywhere.' },
+  { question: 'What areas do you serve?', answer: 'We serve Pennsylvania and the surrounding area. Text us your address and we\'ll confirm coverage. Same rates everywhere.' },
   { question: 'What are your hours?', answer: 'Office hours are Monday–Saturday 7am–7pm. Our sales and booking line is available 24/7 — call or text anytime and we typically respond within 15 minutes.' },
   { question: 'Is there any obligation when I ask for a quote?', answer: 'None at all. Get a quote, think about it, and book when you\'re ready. No pressure, no follow-up calls, no sales tactics.' },
   { question: 'Can I book for someone else?', answer: 'Yes. Many clients book cleanings for family members, tenants, or Airbnb properties. Just provide the service address and any access instructions.' },
@@ -35,10 +35,10 @@ export default function ContactPage() {
       <JsonLd data={[
         organizationSchema(),
         webSiteSchema(),
-        webPageSchema({ url, name: title, description, type: 'ContactPage', breadcrumb: [{ name: 'Home', url: 'https://www.thenewjerseymaid.com' }, { name: 'Contact', url }] }),
+        webPageSchema({ url, name: title, description, type: 'ContactPage', breadcrumb: [{ name: 'Home', url: 'https://www.thepennsylvaniamaid.com' }, { name: 'Contact', url }] }),
         localBusinessSchema(),
         howToBookSchema(),
-        breadcrumbSchema([{ name: 'Home', url: 'https://www.thenewjerseymaid.com' }, { name: 'Contact', url }]),
+        breadcrumbSchema([{ name: 'Home', url: 'https://www.thepennsylvaniamaid.com' }, { name: 'Contact', url }]),
         faqSchema(contactFaqs),
       ]} />
 
@@ -56,15 +56,15 @@ export default function ContactPage() {
             Text is fastest. Call if you prefer. Email works too. We respond to everything within 15 minutes during business hours.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8">
-            <a href="sms:9733708800" className="inline-block font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#A8F0DC] tracking-wide hover:text-white transition-colors">
-              Sales &amp; Support: (973) 370-8800
+            <a href="sms:2153984500" className="inline-block font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#A8F0DC] tracking-wide hover:text-white transition-colors">
+              Sales &amp; Support: (215) 398-4500
             </a>
           </div>
         </div>
       </section>
 
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <Breadcrumbs items={[{ name: 'Contact', href: '/contact-the-nyc-maid-service-today' }]} />
+        <Breadcrumbs items={[{ name: 'Contact', href: '/contact-the-pennsylvania-maid-service-today' }]} />
       </div>
 
       {/* Three contact method cards */}
@@ -79,8 +79,8 @@ export default function ContactPage() {
               <h2 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide mb-2">Text Us</h2>
               <p className="text-gray-500 text-sm mt-3">Fastest way to reach us. Most quotes delivered within 15 minutes.</p>
               <div className="flex flex-col gap-2 mt-5">
-                <a href="sms:9733708800" className="bg-[#A8F0DC] text-[#1E2A4A] px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
-                  (973) 370-8800
+                <a href="sms:2153984500" className="bg-[#A8F0DC] text-[#1E2A4A] px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
+                  (215) 398-4500
                 </a>
               </div>
             </div>
@@ -91,9 +91,9 @@ export default function ContactPage() {
                 <span className="text-[#1E2A4A] text-2xl">&#9993;</span>
               </div>
               <h2 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide mb-2">Email Us</h2>
-              <a href="mailto:hi@thenewjerseymaid.com" className="text-[#1E2A4A] text-lg font-bold hover:underline underline-offset-4">hi@thenewjerseymaid.com</a>
+              <a href="mailto:hi@thepennsylvaniamaid.com" className="text-[#1E2A4A] text-lg font-bold hover:underline underline-offset-4">hi@thepennsylvaniamaid.com</a>
               <p className="text-gray-500 text-sm mt-3">For detailed requests, photos, or questions. We respond within 2 hours.</p>
-              <a href="mailto:hi@thenewjerseymaid.com" className="inline-block mt-5 bg-[#1E2A4A] text-white px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
+              <a href="mailto:hi@thepennsylvaniamaid.com" className="inline-block mt-5 bg-[#1E2A4A] text-white px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
                 Send Email
               </a>
             </div>
@@ -104,7 +104,7 @@ export default function ContactPage() {
                 <span className="text-[#1E2A4A] text-2xl">&#128197;</span>
               </div>
               <h2 className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide mb-2">Existing Client?</h2>
-              <p className="text-[#1E2A4A] text-lg font-bold">thenewjerseymaid.com/book/new</p>
+              <p className="text-[#1E2A4A] text-lg font-bold">thepennsylvaniamaid.com/book/new</p>
               <p className="text-gray-500 text-sm mt-3">Log in to view your bookings, reschedule, or manage your account.</p>
               <Link href="/book/new" className="inline-block mt-5 bg-[#1E2A4A] text-white px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
                 Client Login
@@ -133,12 +133,12 @@ export default function ContactPage() {
               </div>
               <div className="bg-[#A8F0DC]/15 rounded-lg p-3 mb-8">
                 <p className="text-[#1E2A4A] text-sm font-semibold">Sales &amp; Booking: Available 24/7</p>
-                <p className="text-gray-500 text-xs">Text (973) 370-8800 anytime.</p>
+                <p className="text-gray-500 text-xs">Text (215) 398-4500 anytime.</p>
               </div>
               <div className="bg-gray-50 rounded-xl p-5">
                 <p className="text-xs font-semibold text-gray-400 tracking-[0.15em] uppercase mb-2">Service Area</p>
-                <p className="text-[#1E2A4A] font-medium">New Brunswick, NJ</p>
-                <p className="text-gray-500 text-sm mt-1">Serving New Jersey and the surrounding area — no walk-in office, we come to you.</p>
+                <p className="text-[#1E2A4A] font-medium">Philadelphia, PA</p>
+                <p className="text-gray-500 text-sm mt-1">Serving Pennsylvania and the surrounding area — no walk-in office, we come to you.</p>
               </div>
             </div>
 

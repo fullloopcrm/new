@@ -1,18 +1,18 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { AREAS } from '@/app/site/new-jersey-maid/_lib/seo/data/areas'
-import { getNeighborhoodsByArea } from '@/app/site/new-jersey-maid/_lib/seo/locations'
-import { organizationSchema, webSiteSchema, webPageSchema, localBusinessSchema, howToBookSchema, breadcrumbSchema } from '@/app/site/new-jersey-maid/_lib/seo/schema'
-import JsonLd from '@/app/site/new-jersey-maid/_components/JsonLd'
-import Breadcrumbs from '@/app/site/new-jersey-maid/_components/Breadcrumbs'
-import CTABlock from '@/app/site/new-jersey-maid/_components/CTABlock'
+import { AREAS } from '@/app/site/long-island-maid/_lib/seo/data/areas'
+import { getNeighborhoodsByArea } from '@/app/site/long-island-maid/_lib/seo/locations'
+import { organizationSchema, webSiteSchema, webPageSchema, localBusinessSchema, howToBookSchema, breadcrumbSchema } from '@/app/site/long-island-maid/_lib/seo/schema'
+import JsonLd from '@/app/site/long-island-maid/_components/JsonLd'
+import Breadcrumbs from '@/app/site/long-island-maid/_components/Breadcrumbs'
+import CTABlock from '@/app/site/long-island-maid/_components/CTABlock'
 
 const openings = [
   {
-    region: 'New Jersey',
-    locations: 'New Jersey',
+    region: 'Long Island',
+    locations: 'Long Island',
     areaSlugs: [],
-    id: 'new-jersey-maid',
+    id: 'long-island-maid',
   },
 ]
 
@@ -24,15 +24,15 @@ const careerFAQs = [
   { question: 'What kind of cleaning jobs will I do?', questionEs: '¿Qué tipo de trabajos haré?', answer: 'Regular apartment cleanings, deep cleans, move-in/move-out cleanings, post-renovation cleanup, Airbnb turnovers, and office cleaning. You\'ll get a variety of work.', answerEs: 'Limpieza regular de apartamentos, limpieza profunda, mudanzas, post-renovación, Airbnb y oficinas.' },
   { question: 'How many hours can I work per week?', questionEs: '¿Cuántas horas puedo trabajar?', answer: 'That\'s up to you. Full-time cleaners take 18–20 jobs per week (average 2.5 hours each) and earn $1,350–$1,500+. Part-time cleaners pick up 5–10 jobs per week. You set your own availability.', answerEs: 'Depende de ti. Tiempo completo: 18–20 trabajos/semana = $1,350–$1,500+. Medio tiempo: 5–10 trabajos/semana.' },
   { question: 'Is the schedule flexible?', questionEs: '¿Es flexible el horario?', answer: 'Yes. You set your own availability. We match you with jobs that fit your schedule. No forced hours or mandatory shifts.', answerEs: 'Sí. Tú defines tu disponibilidad. Te conectamos con trabajos que se ajusten a tu horario.' },
-  { question: 'Do I need a car?', questionEs: '¿Necesito carro?', answer: 'Yes — a car is strongly preferred. Jobs are spread across Central Jersey, and most areas are not well served by public transit.', answerEs: 'Sí — se prefiere carro. Los trabajos están repartidos por Central Jersey.' },
+  { question: 'Do I need a car?', questionEs: '¿Necesito carro?', answer: 'For village centers like Garden City and Mineola, no — some areas are walkable. For most of Nassau County, a car is strongly preferred since jobs are spread across different towns.', answerEs: 'Para pueblos como Garden City y Mineola, no. Para la mayoría de Nassau County, se prefiere carro.' },
   { question: 'Do I need to pass a background check?', questionEs: '¿Necesito verificación de antecedentes?', answer: 'Yes. All cleaners must pass a background check before being assigned to any client. This protects both you and our clients.', answerEs: 'Sí. Todos los limpiadores deben pasar una verificación de antecedentes.' },
-  { question: 'How do I apply?', questionEs: '¿Cómo aplico?', answer: 'Apply online at thenewjerseymaid.com/apply or text (973) 370-8800. We review applications within 24–48 hours and get you working fast.', answerEs: 'Aplica en thenewjerseymaid.com/apply o envía un texto al (973) 370-8800. Revisamos en 24–48 horas.' },
+  { question: 'How do I apply?', questionEs: '¿Cómo aplico?', answer: 'Apply online at thelongislandmaid.com/apply or text (516) 202-5900. We review applications within 24–48 hours and get you working fast.', answerEs: 'Aplica en thelongislandmaid.com/apply o envía un texto al (516) 202-5900. Revisamos en 24–48 horas.' },
 ]
 
 
-const pageUrl = 'https://www.thenewjerseymaid.com/available-nyc-maid-jobs'
-const pageTitle = 'Cleaning Jobs New Jersey — Starting $30/hr + Bonuses, Open 24/7 | Trabajo de Limpieza'
-const pageDescription = 'Hiring cleaners across New Jersey! Starting $30/hr + bonus programs. Stripe in <30 min. 100% tips. Open 24/7. English & Spanish | Contratando — desde $30/hr + bonos. (973) 370-8800'
+const pageUrl = 'https://www.thelongislandmaid.com/available-long-island-maid-jobs'
+const pageTitle = 'Cleaning Jobs Long Island — Starting $30/hr + Bonuses, Open 24/7 | Trabajo de Limpieza'
+const pageDescription = 'Hiring cleaners across Long Island! Starting $30/hr + bonus programs. Stripe in <30 min. 100% tips. Open 24/7. English & Spanish | Contratando — desde $30/hr + bonos. (516) 202-5900'
 
 export const metadata: Metadata = {
   title: pageTitle,
@@ -43,9 +43,9 @@ export const metadata: Metadata = {
     description: pageDescription,
     url: pageUrl,
     type: 'website',
-    siteName: 'The New Jersey Maid',
+    siteName: 'The Long Island Maid',
     locale: 'en_US',
-    images: [{ url: 'https://www.thenewjerseymaid.com/icon-512.png', width: 512, height: 512, alt: 'The New Jersey Maid' }],
+    images: [{ url: 'https://www.thelongislandmaid.com/icon-512.png', width: 512, height: 512, alt: 'The Long Island Maid' }],
   },
   twitter: {
     card: 'summary',
@@ -54,9 +54,9 @@ export const metadata: Metadata = {
   },
   other: {
     'geo.region': 'US-NY',
-    'geo.placename': 'New Brunswick',
-    'geo.position': '40.0583;-74.4057',
-    'ICBM': '40.0583, -74.4057',
+    'geo.placename': 'Garden City',
+    'geo.position': '40.7370;-73.5594',
+    'ICBM': '40.7370, -73.5594',
   },
 }
 
@@ -66,11 +66,11 @@ function jobPostingSchema(region: string, locations: string) {
     '@context': 'https://schema.org',
     '@type': 'JobPosting',
     title: `Professional House Cleaner — ${region}`,
-    description: `Now hiring experienced house cleaners in ${locations}. Starting at $30/hr paid via Stripe within 30 minutes of every completed job. Bonus programs available for retention, client satisfaction, and five-star reviews. Flexible schedule. Open 24/7. You provide your own cleaning supplies and equipment. Background check required. Apply at thenewjerseymaid.com/apply or text (973) 370-8800. Bilingual workplace (English/Spanish). 100% of tips are yours.`,
+    description: `Now hiring experienced house cleaners in ${locations}. Starting at $30/hr paid via Stripe within 30 minutes of every completed job. Bonus programs available for retention, client satisfaction, and five-star reviews. Flexible schedule. Open 24/7. You provide your own cleaning supplies and equipment. Background check required. Apply at thelongislandmaid.com/apply or text (516) 202-5900. Bilingual workplace (English/Spanish). 100% of tips are yours.`,
     identifier: {
       '@type': 'PropertyValue',
-      name: 'The New Jersey Maid',
-      value: `new-jersey-maid-cleaner-${regionSlug}`,
+      name: 'The Long Island Maid',
+      value: `long-island-maid-cleaner-${regionSlug}`,
     },
     datePosted: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     validThrough: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
@@ -79,16 +79,16 @@ function jobPostingSchema(region: string, locations: string) {
     totalJobOpenings: 10,
     hiringOrganization: {
       '@type': 'Organization',
-      name: 'The New Jersey Maid',
-      sameAs: 'https://www.thenewjerseymaid.com',
-      logo: 'https://www.thenewjerseymaid.com/icon-512.png',
+      name: 'The Long Island Maid',
+      sameAs: 'https://www.thelongislandmaid.com',
+      logo: 'https://www.thelongislandmaid.com/icon-512.png',
     },
     jobLocation: {
       '@type': 'Place',
       address: {
         '@type': 'PostalAddress',
-        addressLocality: 'New Brunswick',
-        addressRegion: 'NJ',
+        addressLocality: 'Garden City',
+        addressRegion: 'NY',
         addressCountry: 'US',
       },
     },
@@ -138,14 +138,14 @@ export default function CareersPage() {
           name: pageTitle,
           description: pageDescription,
           breadcrumb: [
-            { name: 'Home', url: 'https://www.thenewjerseymaid.com' },
+            { name: 'Home', url: 'https://www.thelongislandmaid.com' },
             { name: 'Careers', url: pageUrl },
           ],
         }),
         localBusinessSchema(),
         howToBookSchema(),
         breadcrumbSchema([
-          { name: 'Home', url: 'https://www.thenewjerseymaid.com' },
+          { name: 'Home', url: 'https://www.thelongislandmaid.com' },
           { name: 'Careers', url: pageUrl },
         ]),
         ...openings.map(o => jobPostingSchema(o.region, o.locations)),
@@ -157,18 +157,18 @@ export default function CareersPage() {
           <div className="flex items-center gap-3 mb-4">
             <p className="text-[#A8F0DC] text-sm font-semibold tracking-[0.2em] uppercase">Now Hiring</p>
             <span className="text-white/30">·</span>
-            <p className="text-white/60 text-sm">New Jersey</p>
+            <p className="text-white/60 text-sm">Long Island</p>
             <span className="text-white/30">·</span>
             <p className="text-white/60 text-sm">Open 24/7</p>
           </div>
           <h1 className="font-[family-name:var(--font-bebas)] text-4xl md:text-6xl lg:text-7xl text-white tracking-wide leading-[0.95] mb-6">
-            Join The New Jersey Maid — Starting at $30/hr, Bonus Programs Available
+            Join The Long Island Maid — Starting at $30/hr, Bonus Programs Available
           </h1>
           <p className="text-blue-200/80 text-lg max-w-2xl leading-relaxed mb-3">
-            We&apos;re hiring experienced cleaners across New Jersey. You bring your own supplies and equipment — we bring a steady stream of clients, a flexible schedule, and starting at $30/hr paid via Stripe within 30 minutes of every completed job. Bonus programs let top performers earn even more.
+            We&apos;re hiring experienced cleaners across Long Island. You bring your own supplies and equipment — we bring a steady stream of clients, a flexible schedule, and starting at $30/hr paid via Stripe within 30 minutes of every completed job. Bonus programs let top performers earn even more.
           </p>
           <p className="text-blue-200/50 max-w-2xl leading-relaxed mb-4 italic">
-            Contratando limpiadores experimentados en New Jersey. Tú traes tus suministros — nosotros traemos clientes estables, horario flexible, y desde $30/hr pagado por Stripe en menos de 30 minutos. Programas de bonos disponibles.
+            Contratando limpiadores experimentados en Long Island. Tú traes tus suministros — nosotros traemos clientes estables, horario flexible, y desde $30/hr pagado por Stripe en menos de 30 minutos. Programas de bonos disponibles.
           </p>
           <p className="text-blue-200/80 text-lg max-w-2xl leading-relaxed mb-3">
             Full-time cleaners take 18–20 jobs per week and earn $1,350–$1,500+. Average job is 2.5 hours. No waiting for payday — you get paid the same day, every job.
@@ -180,7 +180,7 @@ export default function CareersPage() {
             <Link href="/apply" className="bg-[#A8F0DC] text-[#1E2A4A] px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
               Apply Now / Aplica Ahora
             </Link>
-            <a href="sms:9733708800" className="text-blue-200/70 font-medium text-lg py-4 hover:text-white transition-colors underline underline-offset-4">
+            <a href="sms:5162025900" className="text-blue-200/70 font-medium text-lg py-4 hover:text-white transition-colors underline underline-offset-4">
               Text us for questions
             </a>
           </div>
@@ -213,14 +213,14 @@ export default function CareersPage() {
             </div>
             <div>
               <p className="font-[family-name:var(--font-bebas)] text-4xl text-[#1E2A4A] tracking-wide">24/7</p>
-              <p className="text-[#1E2A4A]/60 text-sm font-medium">New Jersey</p>
+              <p className="text-[#1E2A4A]/60 text-sm font-medium">Long Island</p>
             </div>
           </div>
         </div>
       </section>
 
       <div className="max-w-7xl mx-auto px-4 py-12">
-        <Breadcrumbs items={[{ name: 'Careers', href: '/available-nyc-maid-jobs' }]} />
+        <Breadcrumbs items={[{ name: 'Careers', href: '/available-long-island-maid-jobs' }]} />
 
         {/* Open Positions */}
         <section className="mb-20">
@@ -478,7 +478,7 @@ export default function CareersPage() {
                 <h3 className="font-semibold text-lg text-[#1E2A4A] mb-3">{area.name}</h3>
                 <div className="flex flex-wrap gap-2">
                   {neighborhoods.map(nb => (
-                    <Link key={nb.slug} href={`/available-nyc-maid-jobs/${nb.slug}`} className="px-3 py-1.5 bg-gray-100 rounded-full text-sm text-gray-700 hover:bg-[#A8F0DC]/20 hover:text-[#1E2A4A] transition-colors">
+                    <Link key={nb.slug} href={`/available-long-island-maid-jobs/${nb.slug}`} className="px-3 py-1.5 bg-gray-100 rounded-full text-sm text-gray-700 hover:bg-[#A8F0DC]/20 hover:text-[#1E2A4A] transition-colors">
                       {nb.name}
                     </Link>
                   ))}
@@ -540,7 +540,7 @@ export default function CareersPage() {
             <Link href="/apply" className="bg-[#1E2A4A] text-white px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
               Apply Now / Aplica Ahora
             </Link>
-            <a href="sms:9733708800" className="text-[#1E2A4A] font-semibold underline underline-offset-4 hover:no-underline">
+            <a href="sms:5162025900" className="text-[#1E2A4A] font-semibold underline underline-offset-4 hover:no-underline">
               Text us for questions
             </a>
           </div>
