@@ -1,11 +1,13 @@
 import { industries, metros, industryPath, locationPath, comboPath } from "@/lib/marketing/combos";
 import { features } from "@/lib/marketing/features";
+import { groupMetrosByState } from "@/lib/marketing/metroGroups";
 
 const STATIC_PAGES: { path: string; priority: string; freq: string }[] = [
   { path: "", priority: "1.0", freq: "daily" },
   { path: "/full-loop-crm-service-features", priority: "0.9", freq: "weekly" },
   { path: "/full-loop-crm-service-business-industries", priority: "0.8", freq: "weekly" },
   { path: "/home-service-crm-locations", priority: "0.8", freq: "weekly" },
+  { path: "/locations", priority: "0.8", freq: "weekly" },
   { path: "/full-loop-crm-pricing", priority: "0.9", freq: "weekly" },
   { path: "/why-you-should-choose-full-loop-crm-for-your-business", priority: "0.8", freq: "monthly" },
   { path: "/partner-with-full-loop-crm", priority: "0.8", freq: "monthly" },
@@ -54,6 +56,9 @@ export function mainSitemapXml(): string {
   const featureUrls = features.map(
     (f) => `<url><loc>${base}/feature/${f.slug}</loc><changefreq>monthly</changefreq><priority>0.6</priority></url>`
   );
+  const stateUrls = groupMetrosByState().map(
+    (g) => `<url><loc>${base}/locations/${g.stateAbbr.toLowerCase()}</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>`
+  );
   const locationUrls = metros.map(
     (m) => `<url><loc>${base}${locationPath(m)}</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>`
   );
@@ -62,6 +67,6 @@ export function mainSitemapXml(): string {
       (m) => `<url><loc>${base}${comboPath(i, m)}</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>`
     )
   );
-  const urls = [...staticUrls, ...industryUrls, ...featureUrls, ...locationUrls, ...comboUrls].join("");
+  const urls = [...staticUrls, ...industryUrls, ...featureUrls, ...stateUrls, ...locationUrls, ...comboUrls].join("");
   return `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}</urlset>`;
 }
