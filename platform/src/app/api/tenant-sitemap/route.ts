@@ -138,11 +138,13 @@ ${vaSpecs
     { path: '/referral-program', priority: '0.5', changefreq: 'monthly' },
     { path: '/blog', priority: '0.7', changefreq: 'weekly' },
     { path: '/portal/collect', priority: '0.7', changefreq: 'monthly' },
-    // The shared /site/template route group's AI-chat route is named
-    // chat-with-yinez, not chat-with-selena (that name only exists under the
-    // separate, non-template /site/chat-with-selena folder) — every tenant
-    // rendered through /site/template got a guaranteed-404 sitemap entry here.
-    { path: '/chat-with-yinez', priority: '0.6', changefreq: 'monthly' },
+    // NOT /chat-with-us: that shared /site/template route (was
+    // chat-with-yinez, renamed 2026-08-19 since it hardcoded nycmaid's bot
+    // name into every other tenant's URL) turned out to be an unbuilt stub
+    // that does nothing but redirect('/') — no unique content. Listing a
+    // redirect-only URL in a sitemap is a real SEO defect (Search Console
+    // flags it as "submitted URL redirected"), so it's left out here until
+    // that page is actually built out platform-wide.
   ]
   // Photography blog posts have static, known slugs (see photographyBlogPosts
   // in longform.ts) — listed directly here since constructing a full
