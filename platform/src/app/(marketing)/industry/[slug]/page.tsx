@@ -48,8 +48,8 @@ export async function generateMetadata({
   if (!industry) return {};
 
   const trade = industry.name.toLowerCase();
-  const title = `Best CRM for ${industry.name} Businesses | Full Loop CRM`;
-  const description = `The full-cycle, AI-managed CRM for ${trade} businesses — runs an automated business. Live-proven by The NYC Maid: ~200 services/month, one person, under an hour a day. AI lead gen, sales, scheduling, GPS dispatch, invoicing & reviews in one platform.`;
+  const title = `Best CRM for ${industry.name} | Full Loop CRM`;
+  const description = `AI-managed CRM for ${trade} businesses. Proven live: ~200 jobs/mo, one person, under an hour a day. Leads, sales, scheduling, payments, reviews.`;
   const url = `https://homeservicesbusinesscrm.com/industry/${slug}`;
   const canonicalSlug = getCanonicalIndustrySlug(slug);
   const canonicalUrl = `https://homeservicesbusinesscrm.com/industry/${canonicalSlug}`;

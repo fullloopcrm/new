@@ -35,7 +35,7 @@ export async function generateMetadata({
   if (!group) return {};
 
   const title = `Home Service CRM in ${group.state} | Full Loop CRM`;
-  const description = `Full Loop CRM's exclusive-territory home service CRM, available across ${group.metros.length} ${group.state} markets — one operator per trade per city. Real ${group.state} licensing and seasonal-demand data, not a generic overview.`;
+  const description = `Full Loop CRM's exclusive home service CRM, available in ${group.state}. One operator per trade per city. Real ${group.state} licensing data.`;
   const url = `https://homeservicesbusinesscrm.com/locations/${state.toLowerCase()}`;
 
   return {

@@ -100,7 +100,7 @@ export async function generateMetadata({
   if (!metro) return {};
 
   const title = `Home Service CRM in ${metro.city}, ${metro.stateAbbr} | Full Loop CRM`;
-  const description = `The full-cycle, AI-managed home service CRM in ${metro.city}, ${metro.stateAbbr} — runs an automated business. Live-proven by The NYC Maid: real clients, one person, under an hour a day. One partner per trade.`;
+  const description = `The full-cycle, AI-managed home service CRM in ${metro.city}, ${metro.stateAbbr}. Live-proven by The NYC Maid: real clients, one person, under an hour a day. One partner per trade.`;
   const url = `https://homeservicesbusinesscrm.com${locationPath(metro)}`;
 
   return {

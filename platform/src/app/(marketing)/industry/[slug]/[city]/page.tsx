@@ -69,13 +69,13 @@ export async function generateMetadata({
   const statusTag =
     status === "claimed" ? "Territory Claimed" : status === "pending" ? "Application Pending" : "Territory Available";
 
-  const title = `${industry.name} CRM in ${metro.city}, ${metro.stateAbbr} — One Exclusive License | Full Loop CRM`;
+  const title = `${industry.name} CRM — ${metro.city}, ${metro.stateAbbr} | Full Loop`;
   const description =
     status === "claimed"
-      ? `The exclusive ${trade} CRM license for ${metro.city}, ${metro.stateAbbr} has been claimed. Full Loop CRM licenses only one ${trade} partner per city — see nearby markets still available.`
+      ? `The exclusive ${trade} CRM license for ${metro.city}, ${metro.stateAbbr} is claimed. One partner per city — see nearby open markets.`
       : status === "pending"
-        ? `A ${trade} operator in ${metro.city}, ${metro.stateAbbr} has applied for the exclusive Full Loop CRM license. Only one per city — get on the waitlist if the application falls through.`
-        : `The only full-cycle CRM built for ${trade} businesses in ${metro.city}, ${metro.stateAbbr} — and it powers our own portfolio of vertical brands. AI lead generation, sales, scheduling, GPS dispatch, invoicing, reviews, and retargeting on one system.`;
+        ? `A ${trade} operator in ${metro.city}, ${metro.stateAbbr} has applied for this exclusive license. Join the waitlist if it falls through.`
+        : `The only full-cycle CRM for ${trade} businesses in ${metro.city}, ${metro.stateAbbr}. AI leads, sales, scheduling & payments — one operator per city.`;
   const url = `https://homeservicesbusinesscrm.com${comboPath(industry, metro)}`;
 
   const override = await getSeoOverride(url);
