@@ -12,15 +12,19 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
   const MAIN_HOSTS = new Set([
     'homeservicecrm.ai',
     'www.homeservicecrm.ai',
+    'homeservicesbusinesscrm.com',
+    'www.homeservicesbusinesscrm.com',
     'localhost',
     '127.0.0.1',
     'platform-ten-psi.vercel.app',
   ])
 
   const isMainHost = MAIN_HOSTS.has(host)
-  const origin = isMainHost
-    ? 'https://homeservicecrm.ai'
-    : `https://${host}`
+  // Origin must follow the ACTUAL requesting host, not a hardcoded literal —
+  // homeservicesbusinesscrm.com is also a MAIN_HOST right now (holds
+  // independently pending the SEO audit) and needs its own robots.txt/
+  // sitemap origin, not homeservicecrm.ai's.
+  const origin = `https://${host}`
 
   // Private app surfaces — disallowed on every host (main + tenant).
   const disallow = [

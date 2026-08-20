@@ -9,6 +9,13 @@ export const MAIN_HOSTS = new Set([
   'www.homeservicecrm.ai',
   'fullloopcrm.com',
   'www.fullloopcrm.com',
+  // Holds as an independent main host until the SEO root-cause audit
+  // closes (see canonical-redirects.ts). Removing this from MAIN_HOSTS
+  // sent it into the custom-domain tenant-lookup branch instead, where it
+  // matched the placeholder "System" tenant's domain column in the DB and
+  // rendered the generic /site/template instead of the real marketing site.
+  'homeservicesbusinesscrm.com',
+  'www.homeservicesbusinesscrm.com',
   'localhost',
   '127.0.0.1',
   'platform-ten-psi.vercel.app',
