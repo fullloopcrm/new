@@ -99,7 +99,7 @@ ${preheader ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0">
     <!-- Full Loop CRM wordmark + copyright -->
     <div style="margin-top:16px;font-family:${SANS};font-size:11px;color:${MUTED};line-height:1.55">
       © ${year} ${esc(brand.name)} · powered by
-      <a href="https://homeservicesbusinesscrm.com/" style="text-decoration:none"><span style="font-family:${DISPLAY};font-weight:600;color:${INK};letter-spacing:-0.01em">Full&nbsp;Loop</span><span style="font-family:${MONO};font-size:8px;letter-spacing:0.18em;color:${MUTED}">&nbsp;CRM</span></a>
+      <a href="https://homeservicecrm.ai/" style="text-decoration:none"><span style="font-family:${DISPLAY};font-weight:600;color:${INK};letter-spacing:-0.01em">Full&nbsp;Loop</span><span style="font-family:${MONO};font-size:8px;letter-spacing:0.18em;color:${MUTED}">&nbsp;CRM</span></a>
       <br><span>Autonomous Home Service Business CRM Systems</span>
     </div>
 </td></tr></table>

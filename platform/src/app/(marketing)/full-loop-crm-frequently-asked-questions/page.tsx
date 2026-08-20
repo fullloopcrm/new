@@ -24,11 +24,11 @@ export const metadata: Metadata = {
     title: "FAQ | Full Loop CRM",
     description:
       "Get answers to 30+ questions about Full Loop CRM pricing, features, territory, and ownership.",
-    url: "https://homeservicesbusinesscrm.com/full-loop-crm-frequently-asked-questions",
+    url: "https://homeservicecrm.ai/full-loop-crm-frequently-asked-questions",
     type: "website",
   },
   alternates: {
-    canonical: "https://homeservicesbusinesscrm.com/full-loop-crm-frequently-asked-questions",
+    canonical: "https://homeservicecrm.ai/full-loop-crm-frequently-asked-questions",
   },
   twitter: {
     card: "summary_large_image",
@@ -39,8 +39,8 @@ export const metadata: Metadata = {
 };
 
 const breadcrumbs = [
-  { name: "Home", url: "https://homeservicesbusinesscrm.com" },
-  { name: "FAQ", url: "https://homeservicesbusinesscrm.com/full-loop-crm-frequently-asked-questions" },
+  { name: "Home", url: "https://homeservicecrm.ai" },
+  { name: "FAQ", url: "https://homeservicecrm.ai/full-loop-crm-frequently-asked-questions" },
 ];
 
 interface FaqItem {
@@ -284,13 +284,13 @@ export default function FAQPage() {
         data={webPageSchema(
           "FAQ | Full Loop CRM",
           "Frequently asked questions about Full Loop CRM pricing, features, territory exclusivity, ownership, and Yinez AI.",
-          "https://homeservicesbusinesscrm.com/full-loop-crm-frequently-asked-questions",
+          "https://homeservicecrm.ai/full-loop-crm-frequently-asked-questions",
           breadcrumbs
         )}
       />
       <JsonLd data={breadcrumbSchema(breadcrumbs)} />
       <JsonLd data={faqSchema(allFaqs)} />
-      <JsonLd data={localBusinessSchema("https://homeservicesbusinesscrm.com/full-loop-crm-frequently-asked-questions", "United States", "Country")} />
+      <JsonLd data={localBusinessSchema("https://homeservicecrm.ai/full-loop-crm-frequently-asked-questions", "United States", "Country")} />
 
       {/* Hero */}
       <section className="bg-slate-900 py-24 px-6">

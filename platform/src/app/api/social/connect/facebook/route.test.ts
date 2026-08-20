@@ -66,7 +66,7 @@ describe('GET /api/social/connect/facebook', () => {
     const redirectUri = new URL(url).searchParams.get('redirect_uri')
 
     expect(redirectUri).not.toContain('undefined')
-    expect(redirectUri).toBe('https://homeservicesbusinesscrm.com/api/social/connect/facebook/callback')
+    expect(redirectUri).toBe('https://homeservicecrm.ai/api/social/connect/facebook/callback')
   })
 
   it('uses NEXT_PUBLIC_APP_URL when set', async () => {

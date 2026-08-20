@@ -1294,7 +1294,7 @@ export const faqs = {
     },
     {
       question: "How do I apply to become a partner?",
-      answer: "Text us at (212) 202-9220, call us, or email hello@homeservicesbusinesscrm.com. Tell us your trade and city. We'll check territory availability. Or submit a partnership request online at homeservicesbusinesscrm.com/waitlist.",
+      answer: "Text us at (212) 202-9220, call us, or email hello@homeservicesbusinesscrm.com. Tell us your trade and city. We'll check territory availability. Or submit a partnership request online at homeservicecrm.ai/waitlist.",
     },
   ],
 };

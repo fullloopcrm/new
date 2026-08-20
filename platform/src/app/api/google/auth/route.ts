@@ -12,7 +12,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Google OAuth not configured' }, { status: 500 })
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://homeservicesbusinesscrm.com'
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://homeservicecrm.ai'
     const redirectUri = `${baseUrl}/api/google/callback`
 
     const params = new URLSearchParams({

@@ -153,7 +153,7 @@ function redirectsApexToWww(host: string): boolean {
     host.includes('.') &&
     !host.endsWith('.vercel.app') &&
     !host.endsWith('.fullloopcrm.com') &&
-    !host.endsWith('.homeservicesbusinesscrm.com') &&
+    !host.endsWith('.homeservicecrm.ai') &&
     !/^\d+\.\d+\.\d+\.\d+$/.test(host)
   )
 }

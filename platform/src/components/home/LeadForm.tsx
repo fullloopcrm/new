@@ -273,8 +273,8 @@ export default function LeadForm() {
             text messages for platform updates and account notifications from Full Loop CRM.
             Reply STOP to opt out. Reply HELP for help. Standard message and data rates may apply.
             Message frequency may vary. View our{" "}
-            <a href="https://www.homeservicesbusinesscrm.com/terms" target="_blank" rel="noopener noreferrer" style={consentLink}>Terms and Conditions</a>. View our{" "}
-            <a href="https://www.homeservicesbusinesscrm.com/privacy-policy" target="_blank" rel="noopener noreferrer" style={consentLink}>Privacy Policy</a>.
+            <a href="https://www.homeservicecrm.ai/terms" target="_blank" rel="noopener noreferrer" style={consentLink}>Terms and Conditions</a>. View our{" "}
+            <a href="https://www.homeservicecrm.ai/privacy-policy" target="_blank" rel="noopener noreferrer" style={consentLink}>Privacy Policy</a>.
           </span>
         </label>
         <label htmlFor="lf-sms-marketing" className="flex items-start gap-3 cursor-pointer">
@@ -290,8 +290,8 @@ export default function LeadForm() {
             By checking this box and submitting this form, you consent to receive text messages
             for marketing from Full Loop CRM. Reply STOP to opt out. Reply HELP for help. Message
             and data rates may apply. Message frequency may vary. View our{" "}
-            <a href="https://www.homeservicesbusinesscrm.com/terms" target="_blank" rel="noopener noreferrer" style={consentLink}>Terms and Conditions</a>. View our{" "}
-            <a href="https://www.homeservicesbusinesscrm.com/privacy-policy" target="_blank" rel="noopener noreferrer" style={consentLink}>Privacy Policy</a>.
+            <a href="https://www.homeservicecrm.ai/terms" target="_blank" rel="noopener noreferrer" style={consentLink}>Terms and Conditions</a>. View our{" "}
+            <a href="https://www.homeservicecrm.ai/privacy-policy" target="_blank" rel="noopener noreferrer" style={consentLink}>Privacy Policy</a>.
           </span>
         </label>
       </div>

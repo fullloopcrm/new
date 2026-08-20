@@ -14,7 +14,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'GOOGLE_CLIENT_ID not configured' }, { status: 500 })
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://homeservicesbusinesscrm.com'
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://homeservicecrm.ai'
   const redirectUri = `${baseUrl}/api/admin/google/callback`
 
   const params = new URLSearchParams({

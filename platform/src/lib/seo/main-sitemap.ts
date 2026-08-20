@@ -46,7 +46,7 @@ const STATIC_PAGES: { path: string; priority: string; freq: string }[] = [
 // to GSC, so Google treats it as a new resource instead of serving cached
 // data for the old /sitemap.xml).
 export function mainSitemapXml(): string {
-  const base = "https://homeservicesbusinesscrm.com";
+  const base = "https://homeservicecrm.ai";
   const staticUrls = STATIC_PAGES.map(
     (p) => `<url><loc>${base}${p.path}</loc><changefreq>${p.freq}</changefreq><priority>${p.priority}</priority></url>`
   );

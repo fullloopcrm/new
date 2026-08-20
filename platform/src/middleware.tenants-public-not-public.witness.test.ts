@@ -40,7 +40,7 @@ import { NextRequest } from 'next/server'
  *     harness invokes real middleware.ts logic (not a stub).
  */
 
-const MAIN_HOST = 'www.homeservicesbusinesscrm.com'
+const MAIN_HOST = 'www.homeservicecrm.ai'
 
 function mainHostReq(pathAndQuery: string): NextRequest {
   return new NextRequest(`https://${MAIN_HOST}${pathAndQuery}`)

@@ -107,7 +107,7 @@ export const CANARY_PAGES: CanaryPage[] = [
   { label: 'homepage', path: '/' },
 ]
 
-const CANARY_HOST = 'https://www.homeservicesbusinesscrm.com'
+const CANARY_HOST = 'https://www.homeservicecrm.ai'
 
 export type CanaryHealth = { label: string; path: string; status: number; error?: string; ok: boolean }
 
@@ -138,7 +138,7 @@ export async function runCanaryHealth(): Promise<{ checked: number; down: Canary
   if (down.length) {
     await supabaseAdmin.from('seo_issues').insert(
       down.map((d) => ({
-        property: 'sc-domain:homeservicesbusinesscrm.com',
+        property: 'sc-domain:homeservicecrm.ai',
         tenant_id: null,
         type: 'canary_page_down',
         severity: 'critical',

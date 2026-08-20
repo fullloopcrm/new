@@ -11,8 +11,8 @@ import {
 } from "@/lib/schema";
 
 const breadcrumbs = [
-  { name: "Home", url: "https://homeservicesbusinesscrm.com" },
-  { name: "CRM 101", url: "https://homeservicesbusinesscrm.com/full-loop-crm-101-educational-tips" },
+  { name: "Home", url: "https://homeservicecrm.ai" },
+  { name: "CRM 101", url: "https://homeservicecrm.ai/full-loop-crm-101-educational-tips" },
 ];
 
 const crm101Faqs = [
@@ -229,17 +229,17 @@ export const metadata: Metadata = {
     "CRM vs scheduling software",
     "best CRM for plumbers electricians cleaners",
   ],
-  alternates: { canonical: "https://homeservicesbusinesscrm.com/full-loop-crm-101-educational-tips" },
+  alternates: { canonical: "https://homeservicecrm.ai/full-loop-crm-101-educational-tips" },
   openGraph: {
     title: "CRM 101: 101 Honest Tips for Choosing the Right CRM",
     description:
       "No fluff. No sales pitch. 101 real tips to help you pick the right CRM for your service business — or decide if you even need one.",
-    url: "https://homeservicesbusinesscrm.com/full-loop-crm-101-educational-tips",
+    url: "https://homeservicecrm.ai/full-loop-crm-101-educational-tips",
     type: "article",
     siteName: "Full Loop CRM",
     images: [
       {
-        url: "https://homeservicesbusinesscrm.com/opengraph-image",
+        url: "https://homeservicecrm.ai/opengraph-image",
         width: 1200,
         height: 630,
         alt: "CRM 101: 101 Tips for Choosing the Right CRM for Your Service Business",
@@ -251,7 +251,7 @@ export const metadata: Metadata = {
     title: "CRM 101: 101 Honest Tips for Choosing the Right CRM",
     description:
       "No fluff. No sales pitch. 101 real tips for home service businesses comparing CRMs.",
-    images: ["https://homeservicesbusinesscrm.com/opengraph-image"],
+    images: ["https://homeservicecrm.ai/opengraph-image"],
   },
   other: {
     "article:published_time": "2025-01-01",
@@ -268,7 +268,7 @@ export default function CRM101Page() {
         data={webPageSchema(
           "CRM 101: 101 Tips for Choosing the Right CRM for Your Service Business",
           "101 blunt, honest tips for home service businesses comparing CRMs. Learn what a CRM actually does, which platforms work for your business size, and how to stop wasting money on the wrong tools.",
-          "https://homeservicesbusinesscrm.com/full-loop-crm-101-educational-tips",
+          "https://homeservicecrm.ai/full-loop-crm-101-educational-tips",
           breadcrumbs
         )}
       />
@@ -278,7 +278,7 @@ export default function CRM101Page() {
         data={articleSchema(
           "CRM 101: 101 Honest Tips for Choosing the Right CRM for Your Service Business",
           "101 blunt, honest tips for home service businesses comparing CRMs — from basics to buying decisions.",
-          "https://homeservicesbusinesscrm.com/full-loop-crm-101-educational-tips",
+          "https://homeservicecrm.ai/full-loop-crm-101-educational-tips",
           "2025-01-01",
           new Date().toISOString().split("T")[0]
         )}
@@ -289,7 +289,7 @@ export default function CRM101Page() {
           "CRM 101: 101 Educational Tips for Service Businesses",
           tips.map((t) => ({
             name: `Tip ${t.num}: ${t.text.substring(0, 80)}...`,
-            url: `https://homeservicesbusinesscrm.com/full-loop-crm-101-educational-tips#${t.cat}`,
+            url: `https://homeservicecrm.ai/full-loop-crm-101-educational-tips#${t.cat}`,
           }))
         )}
       />

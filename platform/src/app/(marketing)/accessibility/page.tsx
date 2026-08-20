@@ -7,8 +7,8 @@ import {
 } from "@/lib/schema";
 
 const breadcrumbs = [
-  { name: "Home", url: "https://homeservicesbusinesscrm.com" },
-  { name: "Accessibility", url: "https://homeservicesbusinesscrm.com/accessibility" },
+  { name: "Home", url: "https://homeservicecrm.ai" },
+  { name: "Accessibility", url: "https://homeservicecrm.ai/accessibility" },
 ];
 
 export const metadata: Metadata = {
@@ -16,11 +16,11 @@ export const metadata: Metadata = {
   description:
     "Full Loop CRM is committed to digital accessibility for all users. Learn about our accessibility standards and how to report issues.",
   keywords: "accessibility, WCAG, ADA compliance, Full Loop CRM, web accessibility, screen reader",
-  alternates: { canonical: "https://homeservicesbusinesscrm.com/accessibility" },
+  alternates: { canonical: "https://homeservicecrm.ai/accessibility" },
   openGraph: {
     title: "Accessibility | Full Loop CRM",
     description: "Our commitment to digital accessibility for all users.",
-    url: "https://homeservicesbusinesscrm.com/accessibility",
+    url: "https://homeservicecrm.ai/accessibility",
     type: "website",
   },
   twitter: {
@@ -37,12 +37,12 @@ export default function AccessibilityPage() {
         data={webPageSchema(
           "Accessibility | Full Loop CRM",
           "Full Loop CRM accessibility statement.",
-          "https://homeservicesbusinesscrm.com/accessibility",
+          "https://homeservicecrm.ai/accessibility",
           breadcrumbs
         )}
       />
       <JsonLd data={breadcrumbSchema(breadcrumbs)} />
-      <JsonLd data={localBusinessSchema("https://homeservicesbusinesscrm.com/accessibility", "United States", "Country")} />
+      <JsonLd data={localBusinessSchema("https://homeservicecrm.ai/accessibility", "United States", "Country")} />
 
       <section className="bg-slate-900 py-20 px-6">
         <div className="mx-auto max-w-3xl text-center">

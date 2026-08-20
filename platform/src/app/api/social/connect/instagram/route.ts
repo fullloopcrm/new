@@ -11,7 +11,7 @@ export async function GET() {
     return NextResponse.json({ error: 'Facebook app not configured' }, { status: 500 })
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://homeservicesbusinesscrm.com'
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://homeservicecrm.ai'
   const redirectUri = `${baseUrl}/api/social/connect/instagram/callback`
   const scopes = 'pages_show_list,pages_read_engagement,pages_manage_posts,pages_manage_metadata,instagram_basic,instagram_content_publish'
   const state = signOAuthState(tenant.tenantId)

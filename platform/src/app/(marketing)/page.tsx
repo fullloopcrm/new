@@ -29,12 +29,12 @@ export const metadata: Metadata = {
     "field service management software",
     "home service business automation",
   ],
-  alternates: { canonical: "https://homeservicesbusinesscrm.com" },
+  alternates: { canonical: "https://homeservicecrm.ai" },
   openGraph: {
     title: "Home Service Business CRM That Runs Itself | Full Loop CRM",
     description:
       "AI lead gen, a 24/7 AI phone & text sales agent, scheduling, GPS field ops, payments, and reviews — one platform, proven live. One operator per trade per city.",
-    url: "https://homeservicesbusinesscrm.com",
+    url: "https://homeservicecrm.ai",
     siteName: "Full Loop CRM",
     type: "website",
   },
@@ -73,7 +73,7 @@ import HowToSwitch from "@/components/home/HowToSwitch";
 import HomeFAQ, { homeFaqForSchema } from "@/components/home/HomeFAQ";
 import ThankYou from "@/components/home/ThankYou";
 
-const SITE = "https://homeservicesbusinesscrm.com";
+const SITE = "https://homeservicecrm.ai";
 const breadcrumbs = [{ name: "Home", url: SITE }];
 
 const industryListItems = industries.map((i) => ({
@@ -125,7 +125,7 @@ export default function Home() {
       />
       <JsonLd data={itemListSchema("Home Service Industries Served by Full Loop CRM", industryListItems)} />
       <JsonLd data={faqSchema(homeFaqForSchema)} />
-      <JsonLd data={localBusinessSchema("https://homeservicesbusinesscrm.com", "United States", "Country")} />
+      <JsonLd data={localBusinessSchema("https://homeservicecrm.ai", "United States", "Country")} />
 
       {/* 1. Hero */}
       <Hero />

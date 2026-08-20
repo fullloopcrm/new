@@ -11,7 +11,7 @@ import AuthShell, { authButtonClass } from '@/components/auth/AuthShell'
  */
 export default function LoginPage() {
   useEffect(() => {
-    window.location.href = 'https://homeservicesbusinesscrm.com/sign-in'
+    window.location.href = 'https://homeservicecrm.ai/sign-in'
   }, [])
 
   return (
@@ -19,7 +19,7 @@ export default function LoginPage() {
       <p className="mt-8 font-mono text-xs uppercase leading-relaxed tracking-wide text-neutral-500">
         The admin dashboard has moved to the Full Loop platform. Redirecting you now…
       </p>
-      <Link href="https://homeservicesbusinesscrm.com/sign-in" className={`mt-8 inline-block text-center ${authButtonClass}`}>
+      <Link href="https://homeservicecrm.ai/sign-in" className={`mt-8 inline-block text-center ${authButtonClass}`}>
         Continue to sign-in →
       </Link>
     </AuthShell>

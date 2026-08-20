@@ -14,7 +14,7 @@ import { NextRequest } from 'next/server'
  */
 
 const SECRET = 'mw-admin-token-test-secret'
-const MAIN_HOST = 'homeservicesbusinesscrm.com'
+const MAIN_HOST = 'homeservicecrm.ai'
 const GATED_PATH = '/api/notifications' // in the admin_token bypass allowlist
 
 function signToken(payload: Record<string, unknown>, secret = SECRET): string {

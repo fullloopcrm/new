@@ -17,7 +17,7 @@ export interface AuthHelpLink {
 }
 
 /** Where "Having trouble?" sends operators — the Full Loop CRM contact form. */
-export const FULL_LOOP_CONTACT_URL = 'https://homeservicesbusinesscrm.com/contact'
+export const FULL_LOOP_CONTACT_URL = 'https://homeservicecrm.ai/contact'
 
 interface AuthShellProps {
   /** Business / brand name shown in serif at the top. */

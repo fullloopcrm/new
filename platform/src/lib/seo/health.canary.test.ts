@@ -86,7 +86,7 @@ describe('checkCanaryPages / runCanaryHealth', () => {
       type: 'canary_page_down',
       severity: 'critical',
       status: 'open',
-      target_url: 'https://www.homeservicesbusinesscrm.com/location/home-service-crm-in-seattle',
+      target_url: 'https://www.homeservicecrm.ai/location/home-service-crm-in-seattle',
     })
   })
 

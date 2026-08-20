@@ -29,11 +29,11 @@ export const metadata: Metadata = {
       "Home Service CRM Features | AI-Powered Field Service Platform — Full Loop CRM",
     description:
       "Explore every feature of Full Loop CRM — the all-in-one home service CRM with AI lead generation, automated sales, smart scheduling, GPS field operations, invoicing, review management, and client retargeting.",
-    url: "https://homeservicesbusinesscrm.com/full-loop-crm-service-features",
+    url: "https://homeservicecrm.ai/full-loop-crm-service-features",
     type: "website",
   },
   alternates: {
-    canonical: "https://homeservicesbusinesscrm.com/full-loop-crm-service-features",
+    canonical: "https://homeservicecrm.ai/full-loop-crm-service-features",
   },
   twitter: {
     card: "summary_large_image",
@@ -45,8 +45,8 @@ export const metadata: Metadata = {
 };
 
 const breadcrumbs = [
-  { name: "Home", url: "https://homeservicesbusinesscrm.com" },
-  { name: "Features", url: "https://homeservicesbusinesscrm.com/full-loop-crm-service-features" },
+  { name: "Home", url: "https://homeservicecrm.ai" },
+  { name: "Features", url: "https://homeservicecrm.ai/full-loop-crm-service-features" },
 ];
 
 export default function FeaturesPage() {
@@ -57,7 +57,7 @@ export default function FeaturesPage() {
         data={webPageSchema(
           "Home Service CRM Features | Full Loop CRM",
           "Explore every feature of Full Loop CRM — the all-in-one home service CRM with AI lead generation, automated sales, smart scheduling, GPS field operations, invoicing, review management, and client retargeting.",
-          "https://homeservicesbusinesscrm.com/full-loop-crm-service-features",
+          "https://homeservicecrm.ai/full-loop-crm-service-features",
           breadcrumbs
         )}
       />
@@ -69,7 +69,7 @@ export default function FeaturesPage() {
           "All-in-one home service CRM with AI lead generation, automated sales, smart scheduling, GPS field operations, invoicing, review management, and client retargeting."
         )}
       />
-      <JsonLd data={localBusinessSchema("https://homeservicesbusinesscrm.com/full-loop-crm-service-features", "United States", "Country")} />
+      <JsonLd data={localBusinessSchema("https://homeservicecrm.ai/full-loop-crm-service-features", "United States", "Country")} />
 
       {/* ── Hero ── */}
       <section className="bg-slate-900 py-24 px-6 sm:px-8 lg:px-12">

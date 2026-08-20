@@ -112,7 +112,7 @@ export const isPublicRoute = createRouteMatcher([
   '/api/requests',            // Partnership form submissions
   '/api/territories/options', // Public territory/category options for the lead form (no PII)
   '/geo(.*)',                 // Static map assets (US county polygons) for the territory map
-  '/api/inquiry',             // Marketing-site contact form (homeservicesbusinesscrm.com/contact)
+  '/api/inquiry',             // Marketing-site contact form (homeservicecrm.ai/contact)
   '/api/feedback',            // Feedback form submissions
   '/api/contact',             // Tenant-aware contact form lead capture (tenant resolved from host)
   '/api/public-upload',       // Public tenant-aware media upload for marketing-site forms (size/type limited)
@@ -131,7 +131,7 @@ export const isPublicRoute = createRouteMatcher([
   // Next.js auto-generated metadata image routes — not in this list, Clerk's
   // gate 307'd every one of them to /sign-in before their route handler ever
   // ran. Every schema.tsx `image` field and every page's social-share card
-  // pointed at homeservicesbusinesscrm.com/opengraph-image, which returned
+  // pointed at homeservicecrm.ai/opengraph-image, which returned
   // the sign-in page instead of an image. Found 2026-08-19 auditing schema.
   '/opengraph-image',
   '/twitter-image',

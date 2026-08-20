@@ -60,7 +60,7 @@ export interface SweepSummary {
 }
 
 export async function sweepIntegrationHealth(): Promise<SweepSummary> {
-  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://homeservicesbusinesscrm.com').replace(/\/$/, '')
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://homeservicecrm.ai').replace(/\/$/, '')
 
   const { data, error } = await supabaseAdmin.from('tenants').select(TENANT_COLS).neq('status', 'deleted')
   if (error) throw new Error(`fetch tenants failed: ${error.message}`)

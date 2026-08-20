@@ -44,7 +44,7 @@ function junkSitemapXml(): string {
 // worktree exists to give a full page inventory to redesign against. Do not
 // carry this back into production without the noindex decision being
 // deliberately revisited (see fullloop_seo_manager_review).
-const BASE = "https://homeservicesbusinesscrm.com";
+const BASE = "https://homeservicecrm.ai";
 function comboAndLocationUrls(): string {
   const comboUrls = industries.flatMap((industry) =>
     metros.map(

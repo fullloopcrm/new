@@ -9,8 +9,8 @@ import { getCurrentTenant } from "@/lib/tenant";
 import { getTenantTermsAddendum } from "@/lib/legal/tenant-terms-addendum";
 
 const breadcrumbs = [
-  { name: "Home", url: "https://homeservicesbusinesscrm.com" },
-  { name: "Terms of Service", url: "https://homeservicesbusinesscrm.com/terms" },
+  { name: "Home", url: "https://homeservicecrm.ai" },
+  { name: "Terms of Service", url: "https://homeservicecrm.ai/terms" },
 ];
 
 export const metadata: Metadata = {
@@ -18,11 +18,11 @@ export const metadata: Metadata = {
   description:
     "Full Loop CRM terms of service. Read the terms governing use of the Full Loop CRM platform and partnership agreements.",
   keywords: "terms of service, service agreement, Full Loop CRM, user agreement, legal terms",
-  alternates: { canonical: "https://homeservicesbusinesscrm.com/terms" },
+  alternates: { canonical: "https://homeservicecrm.ai/terms" },
   openGraph: {
     title: "Terms of Service | Full Loop CRM",
     description: "Terms governing use of the Full Loop CRM platform and partnership agreements.",
-    url: "https://homeservicesbusinesscrm.com/terms",
+    url: "https://homeservicecrm.ai/terms",
     type: "website",
   },
   twitter: {
@@ -47,12 +47,12 @@ export default async function TermsPage() {
         data={webPageSchema(
           "Terms of Service | Full Loop CRM",
           "Terms governing use of the Full Loop CRM platform.",
-          "https://homeservicesbusinesscrm.com/terms",
+          "https://homeservicecrm.ai/terms",
           breadcrumbs
         )}
       />
       <JsonLd data={breadcrumbSchema(breadcrumbs)} />
-      <JsonLd data={localBusinessSchema("https://homeservicesbusinesscrm.com/terms", "United States", "Country")} />
+      <JsonLd data={localBusinessSchema("https://homeservicecrm.ai/terms", "United States", "Country")} />
 
       <section className="bg-slate-900 py-20 px-6">
         <div className="mx-auto max-w-3xl text-center">
@@ -192,8 +192,8 @@ export default async function TermsPage() {
             For support, email hello@homeservicesbusinesscrm.com or call (844) 566-7276. Carriers
             are not liable for delayed or undelivered messages. Our Privacy Policy is available
             at{" "}
-            <a href="https://www.homeservicesbusinesscrm.com/privacy-policy">
-              https://www.homeservicesbusinesscrm.com/privacy-policy
+            <a href="https://www.homeservicecrm.ai/privacy-policy">
+              https://www.homeservicecrm.ai/privacy-policy
             </a>
             .
           </p>

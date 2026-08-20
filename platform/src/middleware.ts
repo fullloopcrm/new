@@ -140,7 +140,7 @@ export default async function middleware(req: NextRequest) {
   }
 
   // --- Full Loop's own ComHub-connected chat surfaces on the main host ---
-  // homeservicesbusinesscrm.com is a MAIN_HOST (never gets a tenant via the
+  // homeservicecrm.ai is a MAIN_HOST (never gets a tenant via the
   // custom-domain branch above), but its own site and the SEO satellite
   // sites' widget iframe both need a real tenant so ComHub has somewhere to
   // store threads. Narrow allowlist — only these 3 paths get a header;

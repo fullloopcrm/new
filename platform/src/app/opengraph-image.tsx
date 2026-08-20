@@ -102,7 +102,7 @@ export default function OGImage() {
             color: "#64748b",
           }}
         >
-          homeservicesbusinesscrm.com — One partner per trade per metro
+          homeservicecrm.ai — One partner per trade per metro
         </div>
       </div>
     ),

@@ -5,8 +5,8 @@ import { EU_REGION_COOKIE, isEuJurisdiction } from './eu-jurisdiction'
 
 // Hosts that are the marketing site / main app (not tenant sites)
 export const MAIN_HOSTS = new Set([
-  'homeservicesbusinesscrm.com',
-  'www.homeservicesbusinesscrm.com',
+  'homeservicecrm.ai',
+  'www.homeservicecrm.ai',
   'fullloopcrm.com',
   'www.fullloopcrm.com',
   'localhost',

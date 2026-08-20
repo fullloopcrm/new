@@ -62,7 +62,7 @@ export async function POST(request: Request) {
       subject: `[FL] New Lead: ${business_name}`,
       html: buildLeadNotificationHtml(
         { name, email, phone, business_name, industry, message },
-        process.env.NEXT_PUBLIC_APP_URL || 'https://app.homeservicesbusinesscrm.com',
+        process.env.NEXT_PUBLIC_APP_URL || 'https://app.homeservicecrm.ai',
       ),
     })
   } catch {

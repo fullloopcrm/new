@@ -130,7 +130,7 @@ function setAdminCookie(res: NextResponse, token: string): void {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     // 'lax' (not 'strict'): the admin panel is reached through a cross-domain
-    // redirect chain (fullloopcrm.com → homeservicesbusinesscrm.com), and
+    // redirect chain (fullloopcrm.com → homeservicecrm.ai), and
     // 'strict' withholds the cookie on any navigation that crosses sites — so a
     // logged-in admin gets treated as logged out and every admin POST 401s.
     // 'lax' still sends the cookie on same-site requests (including the

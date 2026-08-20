@@ -36,7 +36,7 @@ export async function generateMetadata({
 
   const title = `Home Service CRM in ${group.state} | Full Loop CRM`;
   const description = `Full Loop CRM's exclusive home service CRM, available in ${group.state}. One operator per trade per city. Real ${group.state} licensing data.`;
-  const url = `https://homeservicesbusinesscrm.com/locations/${state.toLowerCase()}`;
+  const url = `https://homeservicecrm.ai/locations/${state.toLowerCase()}`;
 
   return {
     title,
@@ -64,11 +64,11 @@ export default async function StatePage({
 
   const stateMeta = getStateMeta(group.stateAbbr);
   const hub = stateHubMetro(group.stateAbbr);
-  const pageUrl = `https://homeservicesbusinesscrm.com/locations/${state.toLowerCase()}`;
+  const pageUrl = `https://homeservicecrm.ai/locations/${state.toLowerCase()}`;
 
   const breadcrumbs = [
-    { name: "Home", url: "https://homeservicesbusinesscrm.com" },
-    { name: "Locations", url: "https://homeservicesbusinesscrm.com/locations" },
+    { name: "Home", url: "https://homeservicecrm.ai" },
+    { name: "Locations", url: "https://homeservicecrm.ai/locations" },
     { name: group.state, url: pageUrl },
   ];
 
@@ -91,7 +91,7 @@ export default async function StatePage({
           `Home Service CRM Markets in ${group.state}`,
           group.metros.map((m) => ({
             name: `Home Service CRM in ${m.city}, ${m.stateAbbr}`,
-            url: `https://homeservicesbusinesscrm.com${locationPath(m)}`,
+            url: `https://homeservicecrm.ai${locationPath(m)}`,
           }))
         )}
       />

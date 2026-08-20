@@ -7,7 +7,7 @@ import {
   itemListSchema,
 } from "@/lib/schema";
 
-const SITE = "https://homeservicesbusinesscrm.com";
+const SITE = "https://homeservicecrm.ai";
 const HUB = `${SITE}/home-service-business-blog`;
 
 const breadcrumbs = [

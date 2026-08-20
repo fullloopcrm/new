@@ -11,7 +11,7 @@ export async function GET(request: Request) {
   // state binding a Google account to this tenant. Forged/expired → reject.
   const tenantId = verifyOAuthState(url.searchParams.get('state'))
 
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://homeservicesbusinesscrm.com'
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://homeservicecrm.ai'
 
   if (error) {
     return NextResponse.redirect(`${baseUrl}/dashboard/google?error=${error}`)

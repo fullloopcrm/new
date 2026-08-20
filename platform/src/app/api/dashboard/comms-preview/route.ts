@@ -99,7 +99,7 @@ function head(): string {
 <meta name="color-scheme" content="light only"><meta name="supported-color-schemes" content="light"><style>:root{color-scheme:light only}</style></head>`
 }
 function wordmark(brandName: string): string {
-  return `<div style="margin-top:16px;font-family:${V.sans};font-size:11px;color:${V.muted};line-height:1.55">© ${new Date().getFullYear()} ${smsEsc(brandName)} · powered by <a href="https://homeservicesbusinesscrm.com/" style="text-decoration:none"><span style="font-family:${V.display};font-weight:600;color:${V.ink};letter-spacing:-0.01em">Full&nbsp;Loop</span><span style="font-family:${V.mono};font-size:8px;letter-spacing:0.18em;color:${V.muted}">&nbsp;CRM</span></a><br><span>Autonomous Home Service Business CRM Systems</span></div>`
+  return `<div style="margin-top:16px;font-family:${V.sans};font-size:11px;color:${V.muted};line-height:1.55">© ${new Date().getFullYear()} ${smsEsc(brandName)} · powered by <a href="https://homeservicecrm.ai/" style="text-decoration:none"><span style="font-family:${V.display};font-weight:600;color:${V.ink};letter-spacing:-0.01em">Full&nbsp;Loop</span><span style="font-family:${V.mono};font-size:8px;letter-spacing:0.18em;color:${V.muted}">&nbsp;CRM</span></a><br><span>Autonomous Home Service Business CRM Systems</span></div>`
 }
 function brandRow(brand: CommsBrand): string {
   const logo = brand.logoUrl ? `<td width="40" style="padding-right:13px"><img src="${smsEsc(brand.logoUrl)}" width="40" height="40" alt="${smsEsc(brand.name)}" style="border-radius:8px;display:block"></td>` : ''

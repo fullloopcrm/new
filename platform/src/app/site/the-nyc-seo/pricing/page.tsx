@@ -128,7 +128,7 @@ const organizationSchema = {
     postalCode: "10036",
     addressCountry: "US",
   },
-  sameAs: ["https://www.consortiumnyc.com", "https://homeservicesbusinesscrm.com"],
+  sameAs: ["https://www.consortiumnyc.com", "https://homeservicecrm.ai"],
   parentOrganization: {
     "@type": "Organization",
     name: "Consortium NYC",
@@ -1078,12 +1078,12 @@ export default function PricingPage() {
                 Learn About Full Loop CRM &rarr;
               </Link>
               <a
-                href="https://homeservicesbusinesscrm.com"
+                href="https://homeservicecrm.ai"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center justify-center rounded-lg border border-zinc-600 px-6 py-3 text-sm font-semibold text-white hover:border-zinc-400 hover:bg-white/5"
               >
-                Visit homeservicesbusinesscrm.com
+                Visit homeservicecrm.ai
               </a>
             </div>
           </div>

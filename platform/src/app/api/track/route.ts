@@ -54,7 +54,7 @@ async function notifyLeadEmailIfNeeded(args: {
     `<p>A visitor just clicked a <strong>${ctaType}</strong> CTA${page ? ` on <code>${page}</code>` : ''}.</p>`,
     referrer ? `<p><strong>Referrer:</strong> ${referrer}</p>` : '',
     utmSource ? `<p><strong>UTM source:</strong> ${utmSource}</p>` : '',
-    `<p><a href="${safeUrl(process.env.NEXT_PUBLIC_APP_URL || 'https://app.homeservicesbusinesscrm.com')}/dashboard/leads">Open Leads dashboard</a></p>`,
+    `<p><a href="${safeUrl(process.env.NEXT_PUBLIC_APP_URL || 'https://app.homeservicecrm.ai')}/dashboard/leads">Open Leads dashboard</a></p>`,
   ].filter(Boolean).join('')
 
   await sendEmail({ to, subject, html: lines })
