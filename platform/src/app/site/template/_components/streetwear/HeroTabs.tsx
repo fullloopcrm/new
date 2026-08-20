@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import ZoomImage from './ZoomImage'
 
 export interface HeroTab {
   key: string
@@ -26,12 +27,11 @@ export default function HeroTabs({ tabs }: { tabs: HeroTab[] }) {
       <div className="absolute inset-0 -z-10">
         {tabs.map((t, i) =>
           t.imageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element -- static hero photo, simplest cross-fade without next/image's fill-container ceremony
-            <img
+            <ZoomImage
               key={t.key}
               src={t.imageUrl}
               alt=""
-              className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-500 ease-out ${
+              className={`transition-opacity duration-500 ease-out ${
                 i === active ? 'opacity-100' : 'opacity-0'
               }`}
             />

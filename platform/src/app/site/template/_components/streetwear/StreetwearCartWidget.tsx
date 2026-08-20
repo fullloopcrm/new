@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { type CartLine, readCart, onCartChange, setQty, removeFromCart, cartTotals, money } from '@/app/site/template/_lib/cart'
+import ZoomImage from './ZoomImage'
 
 // Dark-themed cart trigger for the streetwear nav. Reuses the shared cart lib
 // (same localStorage key + checkout endpoint as CartWidget) so items added
@@ -83,11 +84,8 @@ export default function StreetwearCartWidget() {
             <div className="space-y-3 mb-4 max-h-72 overflow-y-auto">
               {lines.map((l) => (
                 <div key={l.id} className="flex items-center gap-3">
-                  <div className="w-11 h-11 flex-shrink-0 bg-white/5 overflow-hidden">
-                    {l.imageUrl && (
-                      // eslint-disable-next-line @next/next/no-img-element -- external stock/product photo, not in next.config's image remotePatterns allowlist
-                      <img src={l.imageUrl} alt={l.name} className="w-full h-full object-cover" />
-                    )}
+                  <div className="relative w-11 h-11 flex-shrink-0 bg-white/5 overflow-hidden">
+                    {l.imageUrl && <ZoomImage src={l.imageUrl} alt={l.name} />}
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-white truncate">{l.name}</p>

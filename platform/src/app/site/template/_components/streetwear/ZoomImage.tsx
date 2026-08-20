@@ -17,10 +17,12 @@ export default function ZoomImage({
   src,
   alt,
   onClick,
+  className,
 }: {
   src: string
   alt: string
   onClick?: () => void
+  className?: string
 }) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const lensImgRef = useRef<HTMLImageElement>(null)
@@ -44,7 +46,7 @@ export default function ZoomImage({
   return (
     <div
       ref={wrapRef}
-      className={`absolute inset-0 overflow-hidden${onClick ? ' cursor-zoom-in' : ''}`}
+      className={`absolute inset-0 overflow-hidden${onClick ? ' cursor-zoom-in' : ''}${className ? ` ${className}` : ''}`}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
       onClick={onClick}
