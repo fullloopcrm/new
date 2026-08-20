@@ -377,7 +377,7 @@ const faqs: QA[] = [
         Full Loop is built for every US metro, and each trade in each city is licensed to
         one operator. Availability is therefore specific to your trade and your market &mdash;
         the only way to know is to check. Browse the{" "}
-        <Link href="/home-service-crm-locations" style={link}>cities we cover</Link> and
+        <Link href="/locations" style={link}>cities we cover</Link> and
         then run a territory check with your trade and city. If it&apos;s open, we&apos;ll show you
         what the loop looks like for your business; if it&apos;s taken, we&apos;ll tell you.
       </>

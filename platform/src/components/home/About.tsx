@@ -67,7 +67,7 @@ export default function About() {
             yours is open across the{" "}
             <Link href="/full-loop-crm-service-business-industries" style={link}>50+ industries we serve</Link>{" "}
             and the{" "}
-            <Link href="/home-service-crm-locations" style={link}>cities we cover</Link>.
+            <Link href="/locations" style={link}>cities we cover</Link>.
           </p>
           <p>
             We can make that promise because Full Loop isn&apos;t a generic SaaS chasing

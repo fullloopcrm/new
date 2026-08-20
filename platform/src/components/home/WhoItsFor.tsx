@@ -69,7 +69,7 @@ export default function WhoItsFor() {
             multi-truck operator can lock down the lead engine, the local SEO network, and
             the AI sales agent for their entire market, leaving competitors without access
             to the platform at all. Combined with{" "}
-            <Link href="/home-service-crm-locations" style={link}>local lead generation in your metro</Link>,
+            <Link href="/locations" style={link}>local lead generation in your metro</Link>,
             that turns operational leverage into market ownership. The{" "}
             <Link href="/case-study/the-nyc-maid" style={link}>NYC Maid case study</Link>{" "}
             shows the model at that scale.

@@ -62,7 +62,7 @@ export default function LocalLeadGen() {
             operator in your trade who wants in is told the market is taken. In a business
             decided by local rankings, that exclusivity is the difference between competing
             on a level field and owning the field. Browse{" "}
-            <Link href="/home-service-crm-locations" style={link}>every city we cover</Link>{" "}
+            <Link href="/locations" style={link}>every city we cover</Link>{" "}
             or find{" "}
             <Link href="/full-loop-crm-service-business-industries" style={link}>your trade</Link>{" "}
             to start.
@@ -94,7 +94,7 @@ export default function LocalLeadGen() {
         </div>
 
         <SectionCloser
-          href="/home-service-crm-locations"
+          href="/locations"
           label="Browse all locations we cover" formLabel="Own My City — Apply"
         />
       </div>

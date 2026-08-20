@@ -5,7 +5,7 @@ import Link from "next/link";
 import { locationPath, metros } from "@/lib/marketing/combos";
 import { groupMetrosByState } from "@/lib/marketing/metroGroups";
 
-const HUB_URL = "/home-service-crm-locations";
+const HUB_URL = "/locations";
 const STATE_GROUPS = groupMetrosByState();
 
 function CitySearch({ query, onChange }: { query: string; onChange: (v: string) => void }) {

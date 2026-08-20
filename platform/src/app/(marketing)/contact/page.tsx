@@ -3,6 +3,8 @@ import {
   JsonLd,
   webPageSchema,
   breadcrumbSchema,
+  organizationSchema,
+  websiteSchema,
 } from "@/lib/schema";
 import ContactForm from "@/components/ContactForm";
 
@@ -14,19 +16,19 @@ const breadcrumbs = [
 ];
 
 export const metadata: Metadata = {
-  title: "Contact",
+  title: "Contact Full Loop CRM",
   description:
     "Get in touch with Full Loop CRM. Send us a message and we'll get back to you within 24–48 hours.",
   alternates: { canonical: URL },
   openGraph: {
-    title: "Contact",
+    title: "Contact Full Loop CRM",
     description: "Reach out about the platform.",
     url: URL,
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Contact",
+    title: "Contact Full Loop CRM",
     description: "Reach out about the platform.",
   },
   robots: { index: true, follow: true },
@@ -36,14 +38,19 @@ export default function ContactPage() {
   return (
     <>
       <JsonLd
-        data={webPageSchema(
-          "Contact",
-          "Reach out about the platform.",
-          URL,
-          breadcrumbs,
-        )}
+        data={{
+          ...webPageSchema(
+            "Contact Full Loop CRM",
+            "Reach out about the platform.",
+            URL,
+            breadcrumbs,
+          ),
+          "@type": "ContactPage",
+        }}
       />
       <JsonLd data={breadcrumbSchema(breadcrumbs)} />
+      <JsonLd data={organizationSchema} />
+      <JsonLd data={websiteSchema} />
 
       <section className="bg-slate-900 min-h-screen py-20 px-6">
         <div className="mx-auto max-w-2xl">

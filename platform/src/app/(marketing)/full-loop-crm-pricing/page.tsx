@@ -15,10 +15,9 @@ import {
 /*  SEO metadata                                                       */
 /* ------------------------------------------------------------------ */
 export const metadata: Metadata = {
-  title:
-    "$2,500/Month: Unlimited Users & Locations | $25,000 Website: Lock Your Territory | Full Loop CRM",
+  title: "Full Loop CRM Pricing — $2,500/Mo, Unlimited Users & Locations",
   description:
-    "$2,500/month gets unlimited users and unlimited locations — no territory lock. The $25,000 full-suite website is what claims your exclusive territory: one website per territory, connects straight to the CRM backend, generates leads and job applications, and it's yours — you own it 100%.",
+    "$2,500/month flat: unlimited users and locations, no per-seat fees. The $25,000 website locks your exclusive territory — you own it 100%.",
   keywords: [
     "Full Loop CRM pricing",
     "home service CRM flat rate pricing",
@@ -31,7 +30,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "$2,500/Month: Unlimited Users & Locations | $25,000 Website: Lock Your Territory",
     description:
-      "$2,500/month flat — unlimited users, unlimited locations. Buy the $25,000 full-suite website and that territory is locked to you: one website per territory, you own it outright.",
+      "$2,500/month flat — unlimited users, unlimited locations. The $25,000 website locks your exclusive territory, and you own it outright.",
     url: "https://homeservicesbusinesscrm.com/full-loop-crm-pricing",
     siteName: "Full Loop CRM",
     type: "website",

@@ -96,7 +96,7 @@ export default function WhyFullLoop() {
             models; it&apos;s the structural advantage that only exists here. Check whether your{" "}
             <Link href="/full-loop-crm-service-business-industries" style={link}>trade</Link>{" "}
             and{" "}
-            <Link href="/home-service-crm-locations" style={link}>city</Link> are still open.
+            <Link href="/locations" style={link}>city</Link> are still open.
           </p>
         </div>
 

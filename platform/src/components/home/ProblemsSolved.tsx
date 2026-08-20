@@ -87,7 +87,7 @@ export default function ProblemsSolved() {
             Reviews are the cheapest lead source you have, and the easiest to neglect. Full
             Loop requests a review automatically the moment a job is completed and paid, then
             feeds your reputation back into the{" "}
-            <Link href="/home-service-crm-locations" style={link}>local search rankings</Link>{" "}
+            <Link href="/locations" style={link}>local search rankings</Link>{" "}
             that generate your next lead &mdash; turning reputation into a compounding asset.
           </p>
 

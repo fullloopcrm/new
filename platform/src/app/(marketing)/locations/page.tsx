@@ -15,7 +15,7 @@ import { stateHubMetro } from "@/lib/marketing/cityContext";
 export const metadata: Metadata = {
   title: "Home Service CRM by State | 400+ Markets | Full Loop CRM",
   description:
-    "Full Loop CRM's exclusive-territory home service CRM, available across 400+ markets in every US state. One operator per trade per city. Browse by state to see local markets and territory availability.",
+    "Full Loop CRM's exclusive-territory home service CRM, available in 400+ markets across every US state. One operator per trade per city.",
   keywords: [
     "home service CRM locations",
     "CRM by state",

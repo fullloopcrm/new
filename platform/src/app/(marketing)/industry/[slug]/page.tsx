@@ -111,7 +111,13 @@ export default async function IndustryPage({
   const industry = findIndustry(slug);
   if (!industry) notFound();
 
-  const pageUrl = `https://homeservicesbusinesscrm.com/industry/${slug}`;
+  // Structured data must describe the canonical URL, not the visited slug —
+  // otherwise a synonym page (e.g. cleaning-services) declares itself
+  // canonical elsewhere via <link rel="canonical"> while its own JSON-LD
+  // @id/url fields still self-reference the non-canonical slug, a mismatch
+  // Google's Rich Results validator flags.
+  const canonicalSlug = getCanonicalIndustrySlug(slug);
+  const pageUrl = `https://homeservicesbusinesscrm.com/industry/${canonicalSlug}`;
   const trade = industry.name.toLowerCase();
   const live = await getCaseStudyStats();
 
@@ -618,7 +624,7 @@ export default async function IndustryPage({
 
           <div className="text-center mt-6">
             <Link
-              href="/home-service-crm-locations"
+              href="/locations"
               className="text-teal-700 hover:text-teal-900 underline underline-offset-2 font-cta text-sm"
             >
               View All {metros.length}+ Available Markets &rarr;

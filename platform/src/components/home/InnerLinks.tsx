@@ -34,7 +34,7 @@ const hubs: { href: string; label: string }[] = [
   { href: "/about-full-loop-crm", label: "About Full Loop" },
   { href: "/full-loop-crm-service-features", label: "All Features" },
   { href: "/full-loop-crm-service-business-industries", label: "All Industries" },
-  { href: "/home-service-crm-locations", label: "All Locations" },
+  { href: "/locations", label: "All Locations" },
   { href: "/case-study/the-nyc-maid", label: "NYC Maid Case Study" },
   { href: "/full-loop-crm-frequently-asked-questions", label: "FAQ" },
   { href: "/why-you-should-choose-full-loop-crm-for-your-business", label: "Why Full Loop" },

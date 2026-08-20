@@ -89,7 +89,7 @@ export default function IndustriesWeServe() {
             CRM page &mdash; or browse the full directory of{" "}
             <Link href="/full-loop-crm-service-business-industries" style={link}>industries we serve</Link>{" "}
             and the{" "}
-            <Link href="/home-service-crm-locations" style={link}>cities we cover across every US metro</Link>.
+            <Link href="/locations" style={link}>cities we cover across every US metro</Link>.
           </p>
         </div>
 

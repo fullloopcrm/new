@@ -51,7 +51,7 @@ export default function ThankYou() {
                 or find{" "}
                 <Link href="/full-loop-crm-service-business-industries" style={link}>your trade</Link>{" "}
                 and{" "}
-                <Link href="/home-service-crm-locations" style={link}>your city</Link>. When
+                <Link href="/locations" style={link}>your city</Link>. When
                 you&apos;re ready, the form is right here.
               </p>
             </div>

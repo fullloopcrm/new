@@ -142,7 +142,7 @@ export default async function LocationPage({
 
   const breadcrumbs = [
     { name: "Home", url: "https://homeservicesbusinesscrm.com" },
-    { name: "Locations", url: "https://homeservicesbusinesscrm.com/home-service-crm-locations" },
+    { name: "Locations", url: "https://homeservicesbusinesscrm.com/locations" },
     { name: metro.state, url: `https://homeservicesbusinesscrm.com/locations/${state.toLowerCase()}` },
     { name: `Home Service CRM in ${metro.city}, ${metro.stateAbbr}`, url: pageUrl },
   ];
@@ -184,7 +184,7 @@ export default async function LocationPage({
         ctaText="Join Waitlist"
         badges={[
           { label: `${metro.city} Territory`, href: "/waitlist" },
-          { label: "All Locations", href: "/home-service-crm-locations" },
+          { label: "All Locations", href: "/locations" },
           { label: "All Industries", href: "/full-loop-crm-service-business-industries" },
           { label: "Case Study", href: "/case-study/the-nyc-maid" },
         ]}
@@ -291,7 +291,7 @@ export default async function LocationPage({
               an operator is properly licensed, the same way it does for every{" "}
               <Link href="/full-loop-crm-service-business-industries" className={linkCls}>industry on the platform</Link>{" "}
               in <Link href={locationPath(metro)} className={linkCls}>{metro.city}</Link>, across every
-              state <Link href="/home-service-crm-locations" className={linkCls}>Full Loop covers</Link>, per
+              state <Link href="/locations" className={linkCls}>Full Loop covers</Link>, per
               the terms in the{" "}
               <Link href="/why-you-should-choose-full-loop-crm-for-your-business" className={linkCls}>ownership model</Link>.
             </>

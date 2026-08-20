@@ -1,6 +1,12 @@
-import { safeJsonLd } from '@/lib/escape-html'
 import type { Metadata } from "next";
 import PartnershipForm from "@/components/PartnershipForm";
+import { JsonLd, breadcrumbSchema, organizationSchema, websiteSchema } from "@/lib/schema";
+
+const URL = "https://homeservicesbusinesscrm.com/waitlist";
+const breadcrumbs = [
+  { name: "Home", url: "https://homeservicesbusinesscrm.com" },
+  { name: "Waitlist", url: URL },
+];
 
 export const metadata: Metadata = {
   title: "Join the Waitlist | Full Loop CRM",
@@ -32,24 +38,22 @@ export const metadata: Metadata = {
 const jsonLd = {
   "@context": "https://schema.org",
   "@type": "WebPage",
+  "@id": `${URL}/#webpage`,
   name: "Join the Full Loop CRM Waitlist",
   description:
     "Request to join the Full Loop CRM waitlist. One partner per trade per city.",
-  url: "https://homeservicesbusinesscrm.com/waitlist",
-  publisher: {
-    "@type": "Organization",
-    name: "Full Loop CRM",
-    url: "https://homeservicesbusinesscrm.com",
-  },
+  url: URL,
+  isPartOf: { "@id": "https://homeservicesbusinesscrm.com/#website" },
+  about: { "@id": "https://homeservicesbusinesscrm.com/#organization" },
 };
 
 export default function WaitlistPage() {
   return (
     <>
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }}
-      />
+      <JsonLd data={jsonLd} />
+      <JsonLd data={breadcrumbSchema(breadcrumbs)} />
+      <JsonLd data={organizationSchema} />
+      <JsonLd data={websiteSchema} />
       <PartnershipForm />
     </>
   );

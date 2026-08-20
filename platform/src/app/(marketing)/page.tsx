@@ -15,9 +15,9 @@ import {
 import { industries, industryPath } from "@/lib/marketing/combos";
 
 export const metadata: Metadata = {
-  title: "Home Service Business CRM | Full Loop — AI Phone, Lead Gen, Sales & Scheduling",
+  title: "Home Service Business CRM | Full Loop — AI Phone & Scheduling",
   description:
-    "Full Loop is the first full-cycle home service CRM: AI lead generation, a 24/7 AI phone & text sales agent that answers live and books, scheduling, GPS field operations, payments, reviews, and retargeting in one platform — proven by a real company it runs almost autonomously. One operator per trade per city.",
+    "The full-cycle home service CRM: 24/7 AI phone & text sales, scheduling, payments, reviews. Proven live by a real business. One operator per trade per city.",
   keywords: [
     "home service business CRM",
     "home service CRM",
@@ -33,7 +33,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Home Service Business CRM That Runs Itself | Full Loop CRM",
     description:
-      "The first full-cycle home service CRM — AI lead gen, a 24/7 AI phone & text agent that answers live and books, scheduling, payments, and reviews in one platform. Proven by a real cleaning company run by one person, ~1 hour a day. One operator per trade per city.",
+      "AI lead gen, a 24/7 AI phone & text sales agent, scheduling, GPS field ops, payments, and reviews — one platform, proven live. One operator per trade per city.",
     url: "https://homeservicesbusinesscrm.com",
     siteName: "Full Loop CRM",
     type: "website",
