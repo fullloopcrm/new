@@ -102,6 +102,39 @@ export const ADMINISTRATOR_QUESTIONS: RecordedQuestion[] = [
   },
 ]
 
+// New-market maid-family tenants (launched 2026-08-16, not yet activated)
+// share one honest tagline: real backing (same team/platform as The NYC
+// Maid, one of NYC's highest-rated cleaning companies) and a real
+// ground-floor opportunity, WITHOUT nycmaid's own specific revenue/growth
+// figures — those are nycmaid's real numbers, not these brand-new
+// businesses', which have zero bookings so far. See
+// feedback_no_fabricated_specifics — do not backfill this with invented
+// metrics later; wait for the tenant's own real numbers.
+const NEW_MARKET_ADMINISTRATOR_TAGLINE =
+  'An entrepreneurial, all-in opportunity: this is a brand-new market launch, backed by the same team and platform behind The NYC Maid, one of New York City’s highest-rated cleaning companies. You would be building this market from the ground floor — team, clients, payments, hiring, quality control — with a real path to leadership and profit-sharing as it grows, plus learning to manage and implement the AI systems that run alongside you.'
+
+function newMarketAdministrator(tenantSlug: string, supportPhone: string): PositionConfig {
+  return {
+    slug: 'administrator',
+    tenantSlug,
+    title: 'Administrator',
+    tagline: NEW_MARKET_ADMINISTRATOR_TAGLINE,
+    compSummary:
+      'Based on experience — discussed directly during the process.',
+    employmentType: '1099 Independent Contractor',
+    schedule: 'Monday–Friday, 8:00 AM–6:00 PM',
+    location: 'Remote — Anywhere in the U.S.',
+    responsibilitiesNote:
+      'You will also train the weekend assistant administrator who covers weekend service — so part of this role is building a playbook someone else can run.',
+    supportPhone,
+    introMessage: DEFAULT_INTRO_MESSAGE,
+    recordingSecondsLimit: DEFAULT_RECORDING_SECONDS_LIMIT,
+    recordedQuestions: ADMINISTRATOR_QUESTIONS,
+    photoRequired: true,
+    resumeRequired: false,
+  }
+}
+
 export const POSITIONS: Record<string, PositionConfig> = {
   'nycmaid:administrator': {
     slug: 'administrator',
@@ -123,6 +156,10 @@ export const POSITIONS: Record<string, PositionConfig> = {
     photoRequired: true,
     resumeRequired: false,
   },
+  'long-island-maid:administrator': newMarketAdministrator('long-island-maid', '5162025900'),
+  'connecticut-maid:administrator': newMarketAdministrator('connecticut-maid', '2034915600'),
+  'new-jersey-maid:administrator': newMarketAdministrator('new-jersey-maid', '9733708800'),
+  'pennsylvania-maid:administrator': newMarketAdministrator('pennsylvania-maid', '2153984500'),
 }
 
 export function getPosition(tenantSlug: string, positionSlug: string): PositionConfig | null {

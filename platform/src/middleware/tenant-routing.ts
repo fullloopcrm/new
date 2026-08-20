@@ -107,6 +107,10 @@ export function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: st
   // route) instead of /site/template/sitemap.xml's real per-tenant coverage.
   const BESPOKE_SITE_TENANTS = new Set<string>([
     'nycmaid',
+    'long-island-maid',
+    'connecticut-maid',
+    'new-jersey-maid',
+    'pennsylvania-maid',
     'we-pay-you-junk',
     'nyc-mobile-salon',
     'the-florida-maid',
