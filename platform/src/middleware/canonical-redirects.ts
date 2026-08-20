@@ -54,28 +54,28 @@ export const APEX_CANONICAL_DOMAINS = new Set<string>([
 
 // --- Brand consolidation to homeservicecrm.ai (308) ---
 // 2026-08-20: homeservicecrm.ai is now the canonical marketing domain.
-// Every prior/duplicate brand domain — the original fullloopcrm.com, the
-// domain the site actually lived on before this move
-// (homeservicesbusinesscrm.com), and the two defensive .ai/.com
-// registrations that were never launched (homeservicebusinesscrm.ai,
-// homeservicebusinesscrm.com) — forwards straight to the new site,
-// preserving path + query. EXACT host match only, not a suffix/endsWith
-// check: a tenant subdomain like acme.homeservicesbusinesscrm.com must
-// keep resolving to that tenant's own site, not get swept into this
-// redirect. Must be checked before anything else (MAIN_HOSTS, tenant
-// lookup, canonical-www below) so it can't be shadowed or looped by that
-// logic. The EMD microsites (gethomeservicecrm.com, automatedcrmsoftware.com,
-// theautomatedcrm.com, crmforhomeservicebusiness.com, whatisacrmsystem.com)
-// are deliberately NOT in this set — they stay live and independent.
+// Every prior/duplicate brand domain that's cleared to redirect forwards
+// straight to the new site, preserving path + query. EXACT host match
+// only, not a suffix/endsWith check: a tenant subdomain like
+// acme.homeservicesbusinesscrm.com must keep resolving to that tenant's
+// own site, not get swept into this redirect. Must be checked before
+// anything else (MAIN_HOSTS, tenant lookup, canonical-www below) so it
+// can't be shadowed or looped by that logic.
+//
+// homeservicesbusinesscrm.com (the domain the site actually lived on) is
+// DELIBERATELY NOT in this set yet — per Jeff, it holds and keeps serving
+// independently until the SEO root-cause audit from the 2026-08-19 rebuild
+// is finished, so its existing DA/backlinks carry into the redirect clean
+// instead of during an active incident. Add it here once that audit closes.
 const CONSOLIDATED_BRAND_HOSTS = new Set<string>([
   'fullloopcrm.com',
   'www.fullloopcrm.com',
-  'homeservicesbusinesscrm.com',
-  'www.homeservicesbusinesscrm.com',
   'homeservicebusinesscrm.ai',
   'www.homeservicebusinesscrm.ai',
   'homeservicebusinesscrm.com',
   'www.homeservicebusinesscrm.com',
+  'gethomeservicecrm.com',
+  'www.gethomeservicecrm.com',
 ])
 export function getBrandConsolidationRedirect(hostname: string, req: NextRequest): NextResponse | null {
   const rawHost = hostname.split(':')[0].toLowerCase()
