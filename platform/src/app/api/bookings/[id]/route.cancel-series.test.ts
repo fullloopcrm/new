@@ -36,7 +36,7 @@ vi.mock('@/lib/require-permission', () => ({
   overridesFor: () => null,
 }))
 vi.mock('@/lib/audit', () => ({ audit: async () => ({ success: true }) }))
-vi.mock('@/lib/notify', () => ({ notify: async () => {} }))
+vi.mock('@/lib/notify', () => ({ notify: vi.fn(async () => {}) }))
 vi.mock('@/lib/sms', () => ({ sendSMS: async () => {} }))
 vi.mock('@/lib/messaging/client-sms', () => ({ clientSmsTemplatesFor: async () => ({}) }))
 vi.mock('@/lib/messaging/team-sms-resolver', () => ({ teamSmsTemplates: () => ({}) }))
@@ -140,12 +140,85 @@ describe('DELETE /api/bookings/[id]?cancel_series=true', () => {
     expect(after1.status).toBe('scheduled')
   })
 
-  it('cancel_series=true on a booking with no schedule_id falls through to single-booking delete, not an error', async () => {
+  it('cancel_series=true on a booking with no schedule_id AND no recurring_type falls through to single-booking delete, not an error', async () => {
     fake._seed('bookings', [
       { id: 'bk-standalone', tenant_id: TENANT_ID, schedule_id: null, client_id: 'c1', status: 'scheduled', start_time: '2026-08-01T10:00:00' },
     ])
     const res = await DELETE(req(true), paramsFor('bk-standalone'))
     expect(res.status).toBe(200)
     expect(fake._all('bookings').find((r) => r.id === 'bk-standalone')).toBeUndefined()
+  })
+})
+
+/**
+ * DELETE ?cancel_series=true on a LEGACY schedule-less series (schedule_id
+ * null, recurring_type set — the self-booking pattern, see client/book/
+ * route.ts). Added 2026-08-19 (Jeff): BookingsAdmin.tsx used to handle this
+ * shape itself with N individual client-side PUT calls, one per future
+ * booking — the literal mechanism behind the 2026-07-26 per-booking
+ * cancellation-email burst once a series had booked out far enough to have
+ * many future rows. Moved server-side so it's structurally impossible for a
+ * future PUT-side notify change to fan this back out per booking: one query
+ * cancels every matching booking, one notify() call regardless of count.
+ */
+describe('DELETE /api/bookings/[id]?cancel_series=true — legacy (no schedule_id, recurring_type set)', () => {
+  const LEGACY_CLICKED_ID = 'legacy-clicked'
+
+  beforeEach(() => {
+    fake._seed('bookings', [
+      { id: 'legacy-before', tenant_id: TENANT_ID, schedule_id: null, recurring_type: 'weekly', client_id: 'c-legacy', status: 'scheduled', start_time: '2026-07-08T10:00:00' },
+      { id: LEGACY_CLICKED_ID, tenant_id: TENANT_ID, schedule_id: null, recurring_type: 'weekly', client_id: 'c-legacy', status: 'scheduled', start_time: '2026-07-15T10:00:00' },
+      { id: 'legacy-after-1', tenant_id: TENANT_ID, schedule_id: null, recurring_type: 'weekly', client_id: 'c-legacy', status: 'scheduled', start_time: '2026-07-22T10:00:00' },
+      { id: 'legacy-after-2', tenant_id: TENANT_ID, schedule_id: null, recurring_type: 'weekly', client_id: 'c-legacy', status: 'pending', start_time: '2026-07-29T10:00:00' },
+      // Same client, DIFFERENT recurring_type — a separate series, must never be touched.
+      { id: 'legacy-other-type', tenant_id: TENANT_ID, schedule_id: null, recurring_type: 'biweekly', client_id: 'c-legacy', status: 'scheduled', start_time: '2026-07-22T10:00:00' },
+      // Same recurring_type, DIFFERENT client — must never be touched.
+      { id: 'legacy-other-client', tenant_id: TENANT_ID, schedule_id: null, recurring_type: 'weekly', client_id: 'c-other', status: 'scheduled', start_time: '2026-07-22T10:00:00' },
+    ])
+  })
+
+  it('cancels the clicked booking and every scheduled/pending booking from it forward, same client+recurring_type', async () => {
+    await DELETE(req(true), paramsFor(LEGACY_CLICKED_ID))
+    const byId = (id: string) => fake._all('bookings').find((r) => r.id === id)!
+    expect(byId(LEGACY_CLICKED_ID).status).toBe('cancelled')
+    expect(byId('legacy-after-1').status).toBe('cancelled')
+    expect(byId('legacy-after-2').status).toBe('cancelled')
+  })
+
+  it('does NOT touch a booking before the clicked one', async () => {
+    await DELETE(req(true), paramsFor(LEGACY_CLICKED_ID))
+    expect(fake._all('bookings').find((r) => r.id === 'legacy-before')!.status).toBe('scheduled')
+  })
+
+  it('does NOT touch a different recurring_type for the same client', async () => {
+    await DELETE(req(true), paramsFor(LEGACY_CLICKED_ID))
+    expect(fake._all('bookings').find((r) => r.id === 'legacy-other-type')!.status).toBe('scheduled')
+  })
+
+  it('does NOT touch the same recurring_type for a different client', async () => {
+    await DELETE(req(true), paramsFor(LEGACY_CLICKED_ID))
+    expect(fake._all('bookings').find((r) => r.id === 'legacy-other-client')!.status).toBe('scheduled')
+  })
+
+  it('soft-cancels rather than hard-deleting — every row still exists after the call', async () => {
+    const before = fake._all('bookings').length
+    await DELETE(req(true), paramsFor(LEGACY_CLICKED_ID))
+    expect(fake._all('bookings')).toHaveLength(before)
+  })
+
+  it('sends exactly ONE client notification regardless of how many bookings are in the series', async () => {
+    const notifyMod = await import('@/lib/notify') as unknown as { notify: ReturnType<typeof vi.fn> }
+    const spy = vi.mocked(notifyMod.notify)
+    spy.mockClear()
+    await DELETE(req(true), paramsFor(LEGACY_CLICKED_ID))
+    expect(spy).toHaveBeenCalledTimes(1)
+  })
+
+  it('returns schedule_cancelled: false (there is no schedule row) and the real cancelled count', async () => {
+    const res = await DELETE(req(true), paramsFor(LEGACY_CLICKED_ID))
+    const body = await res.json()
+    expect(res.status).toBe(200)
+    expect(body.schedule_cancelled).toBe(false)
+    expect(body.bookings_cancelled).toBe(3) // clicked + legacy-after-1 + legacy-after-2
   })
 })

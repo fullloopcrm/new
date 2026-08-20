@@ -2,16 +2,33 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 
 /**
- * Regression test (2026-08-17, Jeff): "Cancel > All future" on a booking
- * with no schedule_id (the self-booking "legacy" recurring pattern -- see
- * client/book/route.ts, which never creates a recurring_schedules row) used
- * to call DELETE on every future booking in the series with no
- * cancel_series flag. The backend only soft-cancels when cancel_series=true
- * AND booking.schedule_id is present -- neither held here, so every call
- * fell straight to the real hard-delete path. This silently, permanently
- * erased Simon Dolsten's (2026-08-14) and Liza Bradburn's (2026-08-17)
- * entire future series. Locks in that this path now soft-cancels (PUT
- * status=cancelled) instead.
+ * Regression test, updated 2026-08-19 (Jeff). "Cancel > All future" on a
+ * booking with no schedule_id (the self-booking "legacy" recurring pattern
+ * -- see client/book/route.ts, which never creates a recurring_schedules
+ * row) originally (2026-08-17) called DELETE on every future booking in the
+ * series with no cancel_series flag, which hard-deleted the entire series
+ * (Simon Dolsten 2026-08-14, Liza Bradburn 2026-08-17). That was fixed by
+ * switching to N individual PUT status=cancelled calls, one per booking.
+ *
+ * That N-calls-per-series shape turned out to be its own incident: on
+ * 2026-07-26 a client whose series had booked out far into the future got a
+ * burst of a dozen-plus cancellation emails seconds apart, because a
+ * per-status-change notify branch briefly existed on the PUT route. PUT has
+ * no such branch today, so the N-calls loop was merely silent rather than
+ * spammy -- but that safety was incidental, not enforced, and schedules
+ * booking a full year out again (instead of the 4-week window adopted after
+ * that incident) means the next thing to trip it won't burst by the
+ * dozens, it'll burst by the hundreds.
+ *
+ * Fixed at the root instead: the legacy case now routes through the exact
+ * same single DELETE ?cancel_series=true request the schedule_id case
+ * already uses. The backend (route.cancel-series.test.ts) matches by
+ * client_id + recurring_type when schedule_id is absent and soft-cancels
+ * everything in one query with one notification -- so there is no N-request
+ * loop left client-side to ever fan back out per booking, and the
+ * hard-delete risk this test originally locked in against doesn't reapply
+ * either (cancel_series=true is always sent, and the server's legacy branch
+ * only ever soft-cancels, never deletes).
  */
 
 vi.mock('next/navigation', () => ({
@@ -82,8 +99,8 @@ function mockFetch() {
     }
     if (url.startsWith('/api/user/preferences')) return { ok: true, json: async () => ({ prefs: { default_status_filter: '' } }) }
     if (url.startsWith('/api/booking-notes')) return { ok: true, json: async () => ([]) }
-    if (/^\/api\/bookings\/bk-[12]$/.test(url) && (init?.method === 'PUT')) {
-      return { ok: true, json: async () => ({ success: true }) }
+    if (url === '/api/bookings/bk-1?cancel_series=true' && init?.method === 'DELETE') {
+      return { ok: true, json: async () => ({ success: true, schedule_cancelled: false, bookings_cancelled: 2 }) }
     }
     return { ok: true, json: async () => ({}) }
   })
@@ -94,40 +111,40 @@ describe('BookingsAdmin — Cancel > All future, legacy (no schedule_id) series'
     vi.restoreAllMocks()
   })
 
-  it('soft-cancels every future booking via PUT status=cancelled, never DELETE', async () => {
+  it('sends exactly one DELETE ?cancel_series=true call, never one PUT/DELETE per booking', async () => {
     const fetchMock = mockFetch()
     vi.stubGlobal('fetch', fetchMock)
     renderPage()
 
     // Open Edit on the row for the EARLIEST occurrence (bk-1, 8/16) --
-    // "All future" must fan out to every booking from that point forward.
+    // "All future" must cancel that one forward, server-side.
     const editButtons = await screen.findAllByTitle('Edit')
     fireEvent.click(editButtons[1])
 
     fireEvent.click(await screen.findByText('Cancel series ▾'))
     fireEvent.click(await screen.findByText('All future'))
 
-    // Only mutating calls (PUT/DELETE) -- the edit modal also does a plain
-    // GET /api/bookings/bk-1 to load detail, which isn't part of the cancel
-    // flow this test is checking.
+    // Only mutating calls (PUT/DELETE) on either booking -- the edit modal
+    // also does a plain GET /api/bookings/bk-1 to load detail, which isn't
+    // part of the cancel flow this test is checking.
     const isMutatingBookingCall = ([url, init]: [string, RequestInit | undefined]) =>
-      /^\/api\/bookings\/bk-[12]$/.test(String(url)) && (init?.method === 'PUT' || init?.method === 'DELETE')
+      /^\/api\/bookings\/bk-[12](\?|$)/.test(String(url)) && (init?.method === 'PUT' || init?.method === 'DELETE')
 
     await waitFor(() => {
       const calls = (fetchMock.mock.calls as [string, RequestInit | undefined][]).filter(isMutatingBookingCall)
-      expect(calls.length).toBe(2)
+      expect(calls.length).toBe(1)
     })
 
-    const bookingCalls = (fetchMock.mock.calls as [string, RequestInit | undefined][]).filter(isMutatingBookingCall)
+    const [[url, init]] = (fetchMock.mock.calls as [string, RequestInit | undefined][]).filter(isMutatingBookingCall)
 
-    // Never a DELETE on these -- that's the exact bug that hard-deleted
-    // Simon's and Liza's entire future series.
-    expect(bookingCalls.every(([, init]) => init?.method !== 'DELETE')).toBe(true)
-
-    for (const [, init] of bookingCalls) {
-      expect((init as RequestInit).method).toBe('PUT')
-      const body = JSON.parse((init as RequestInit).body as string)
-      expect(body).toEqual({ status: 'cancelled' })
-    }
+    // Exactly one request, for the clicked booking, with cancel_series=true --
+    // never a bare DELETE (that's the 2026-08-17 hard-delete bug) and never
+    // N individual PUTs (that's the 2026-07-26 per-booking notification-spam
+    // mechanism). The backend's own legacy branch
+    // (route.cancel-series.test.ts) is what actually fans this out to every
+    // future booking and sends the single notification -- this test only
+    // needs to confirm the client never loops per booking again.
+    expect(url).toBe('/api/bookings/bk-1?cancel_series=true')
+    expect((init as RequestInit).method).toBe('DELETE')
   })
 })
