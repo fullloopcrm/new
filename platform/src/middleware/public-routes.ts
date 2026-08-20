@@ -128,6 +128,15 @@ export const isPublicRoute = createRouteMatcher([
   '/api/tenant/public',        // Public tenant branding (name/colors/logo) for anonymous visitors
   '/sitemap.xml',             // Sitemap
   '/robots.txt',              // Robots
+  // Next.js auto-generated metadata image routes — not in this list, Clerk's
+  // gate 307'd every one of them to /sign-in before their route handler ever
+  // ran. Every schema.tsx `image` field and every page's social-share card
+  // pointed at homeservicesbusinesscrm.com/opengraph-image, which returned
+  // the sign-in page instead of an image. Found 2026-08-19 auditing schema.
+  '/opengraph-image',
+  '/twitter-image',
+  '/icon',
+  '/apple-icon',
   '/(.*)-crm-(.*)',           // Combo pages (industry x location)
   '/site(.*)',                // Tenant sites are public
   '/quote/(.*)',              // Public quote view + accept flow (token-auth)
