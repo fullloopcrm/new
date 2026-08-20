@@ -434,8 +434,10 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
               </div>
 
               <div className={profile.isPhotography ? 'border-t border-white/10 mt-4 pt-6 space-y-3 text-center' : 'border-t border-white/10 mt-4 pt-6 space-y-3 text-center'}>
-                <Link href={bookHref} onClick={closeMenu} className={profile.isPhotography ? 'block bg-[var(--accent)] text-[var(--accent-fg)] py-4 font-bold text-sm tracking-widest uppercase hover:brightness-110 transition-all' : 'block bg-[var(--accent)] text-[var(--accent-fg)] py-3 rounded-lg font-bold text-sm tracking-widest uppercase'}>Book Now{profile.isPhotography ? ', Save 20' : ''}</Link>
-                <Link href={startProjectHref} onClick={closeMenu} className={profile.isPhotography ? 'block border border-white/40 text-white py-4 font-bold text-sm tracking-widest uppercase hover:bg-white/10 transition-colors' : 'block bg-white/10 border border-white/30 text-white py-3 rounded-lg font-bold text-sm tracking-widest uppercase'}>Start a Project</Link>
+                <Link href={bookHref} onClick={closeMenu} className={profile.isPhotography ? 'block bg-[var(--accent)] text-[var(--accent-fg)] py-4 font-bold text-sm tracking-widest uppercase hover:brightness-110 transition-all' : 'block bg-[var(--accent)] text-[var(--accent-fg)] py-3 rounded-lg font-bold text-sm tracking-widest uppercase'}>{profile.isPhotography ? 'Book Your Service, Save 20' : 'Book Now'}</Link>
+                {!profile.isPhotography && (
+                <Link href={startProjectHref} onClick={closeMenu} className="block bg-white/10 border border-white/30 text-white py-3 rounded-lg font-bold text-sm tracking-widest uppercase">Start a Project</Link>
+                )}
                 <a href={`sms:${config.contact.phoneDigits}`} className={profile.isPhotography ? 'block border border-white/40 text-white py-4 font-bold text-sm tracking-widest uppercase hover:bg-white/10 transition-colors' : 'block bg-[var(--brand)] text-white py-3 rounded-lg font-bold text-sm tracking-widest uppercase border border-white/20'}>Text {config.contact.phone}</a>
                 {config.contact.supportPhone && (
                   <a href={`sms:${config.contact.supportPhoneDigits}`} className={profile.isPhotography ? 'block border border-white/40 text-white py-4 font-bold text-sm tracking-widest uppercase hover:bg-white/10 transition-colors' : 'block bg-white/10 text-white py-3 rounded-lg font-bold text-sm tracking-widest uppercase'}>Text Support: {config.contact.supportPhone}</a>

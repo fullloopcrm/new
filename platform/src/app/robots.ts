@@ -62,6 +62,16 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
     disallow.push('/apply')
   }
 
+  // /sitemap-current.xml is a deliberately-new path for the MARKETING site's
+  // own GSC resubmission (see src/app/sitemap-current.xml/route.ts) — it
+  // calls mainSitemapXml(), which is hardcoded to the platform's own
+  // marketing pages with no tenant/host awareness at all. Pointing every
+  // tenant's robots.txt at it (as this previously did unconditionally) told
+  // Google to crawl the Full Loop marketing site's sitemap instead of the
+  // tenant's own — every non-main-host domain needs the real, tenant-aware
+  // /sitemap.xml instead.
+  const sitemapPath = isMainHost ? '/sitemap-current.xml' : '/sitemap.xml'
+
   return {
     rules: [
       {
@@ -70,6 +80,6 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
         disallow,
       },
     ],
-    sitemap: `${origin}/sitemap-current.xml`,
+    sitemap: `${origin}${sitemapPath}`,
   }
 }

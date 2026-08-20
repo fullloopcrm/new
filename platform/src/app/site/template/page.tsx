@@ -31,13 +31,20 @@ export async function generateMetadata(): Promise<Metadata> {
   // review count to cite yet). Streetwear/e-commerce tenants get their own
   // title here instead of routing through that generator.
   const isStreetwear = siteConfig.layoutVariant === 'streetwear-editorial'
+  const isPhotography = industryProfile(siteConfig.industry).isPhotography
   const place = siteConfig.geo.placename !== 'Your City' ? siteConfig.geo.placename : 'New York City'
+  const brand = toBrand(siteConfig)
   const content = isStreetwear
     ? {
         title: `${siteConfig.identity.name} — ${place} Streetwear & Urban Clothing`,
         metaDescription: siteConfig.brandCopy?.heroLine || `${siteConfig.identity.name} — streetwear and urban fashion out of ${place}. Shop hoodies, outerwear, headwear, and accessories.`,
       }
-    : homepageContent(toBrand(siteConfig))
+    : isPhotography
+    ? {
+        title: `${siteConfig.identity.name} — Black and White Film Photography in ${place}`,
+        metaDescription: `${siteConfig.identity.name} — real black and white film photography in ${place}. No AI, ever. Real film, a real darkroom, real prints. Call ${brand.phone}.`,
+      }
+    : homepageContent(brand)
   return {
   title: { absolute: content.title },
   description: content.metaDescription,

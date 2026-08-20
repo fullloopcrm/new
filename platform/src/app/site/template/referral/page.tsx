@@ -145,7 +145,7 @@ function ReferrerPortalContent() {
     <div className="min-h-screen bg-gray-50">
       <header className="bg-[var(--brand)] text-white py-4 px-6">
         <div className="max-w-4xl mx-auto flex justify-between items-center">
-          <div><h1 className="text-xl font-bold">Your Business</h1><p className="text-gray-400 text-sm">Referral Portal</p></div>
+          <div><h1 className="text-xl font-bold">{businessName}</h1><p className="text-gray-400 text-sm">Referral Portal</p></div>
           <div className="text-right"><p className="font-medium">{referrer?.name}</p><p className="text-gray-400 text-sm">{referrer?.ref_code}</p></div>
         </div>
       </header>
@@ -161,7 +161,7 @@ function ReferrerPortalContent() {
             <input type="text" value={origin + '/book/new?ref=' + referrer?.ref_code} readOnly className="flex-1 px-4 py-2 bg-gray-50 border rounded-lg text-gray-600 text-sm" />
             <button onClick={copyLink} className="px-4 py-2 bg-[var(--brand)] text-white rounded-lg hover:bg-[rgb(var(--brand-rgb)/0.9)]">Copy</button>
           </div>
-          <p className="text-sm text-gray-500 mt-2">Share this link. You earn 10% of every cleaning!</p>
+          <p className="text-sm text-gray-500 mt-2">Share this link. You earn 10% of every booking!</p>
         </div>
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <h2 className="font-semibold text-[var(--brand)] mb-4">📊 Link Performance</h2>
@@ -215,6 +215,10 @@ function ReferrerPortalContent() {
 }
 
 export default function ReferrerPortalPage() {
-  useEffect(() => { document.title = 'Referral Program | Your Business' }, []);
+  useEffect(() => {
+    fetch('/api/public/tenant-name').then((r) => r.json()).then((d) => {
+      document.title = `Referral Program | ${d.name || 'Referral Portal'}`
+    }).catch(() => {})
+  }, []);
   return <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><p className="text-gray-500">Loading...</p></div>}><ReferrerPortalContent /></Suspense>
 }

@@ -25,7 +25,7 @@ export default function PhotographyServicePage({ config, service, otherServices 
       ? { label: 'Get in touch', href: '/contact' }
       : config.funnelMode === 'pipeline'
         ? { label: 'Request a quote', href: '/book/new' }
-        : { label: 'Book now', href: '/book/new' }
+        : { label: 'Book Your Service', href: '/book/new' }
 
   const serviceLd = {
     '@context': 'https://schema.org',

@@ -47,7 +47,14 @@ function timeAgo(date: string) {
   return `${Math.floor(diffDays / 30)} months ago`
 }
 
-export default function ReviewsList() {
+interface ReviewsListProps {
+  /** Tenant business name — drives the widget header label and avatar initial. Falls back to a neutral label if omitted. */
+  businessName?: string
+  /** Where "Write a Review" points. Falls back to the in-house /reviews/submit form when the tenant has no real Google review link on file. */
+  reviewLink?: string
+}
+
+export default function ReviewsList({ businessName, reviewLink }: ReviewsListProps = {}) {
   const [reviews, setReviews] = useState<Review[]>([])
   const [totalCount, setTotalCount] = useState(0)
   const [avgRating, setAvgRating] = useState(5.0)
@@ -73,10 +80,10 @@ export default function ReviewsList() {
       <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-[var(--brand)] rounded-full flex items-center justify-center">
-            <span className="text-white text-lg font-bold">M</span>
+            <span className="text-white text-lg font-bold">{(businessName || 'B')[0].toUpperCase()}</span>
           </div>
           <div>
-            <span className="text-gray-900 font-semibold text-lg">Your Business Reviews</span>
+            <span className="text-gray-900 font-semibold text-lg">{businessName ? `${businessName} Reviews` : 'Verified Reviews'}</span>
             <p className="text-gray-400 text-xs">Verified Client Reviews</p>
           </div>
         </div>
@@ -86,7 +93,7 @@ export default function ReviewsList() {
             <span className="text-yellow-400 text-lg">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
             <span className="text-gray-400 text-sm">({totalCount})</span>
           </div>
-          <Link href="https://g.page/r/CSX9IqciUG9SEAE/review" className="hidden sm:inline-block bg-[var(--brand)] text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-[var(--brand-alt)] transition-colors">
+          <Link href={reviewLink || '/reviews/submit'} target={reviewLink ? '_blank' : undefined} rel={reviewLink ? 'noopener noreferrer' : undefined} className="hidden sm:inline-block bg-[var(--brand)] text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-[var(--brand-alt)] transition-colors">
             Write a Review
           </Link>
         </div>
