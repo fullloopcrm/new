@@ -44,15 +44,15 @@ export function tenantDocCategories(agentName: string): DocCategory[] {
         },
         {
           q: `How does check-in/check-out work?`,
-          a: `Your team checks in from their phone when they arrive (GPS-verified) and checks out when the job's done. That gives you confirmed start and end times for every visit, plus your team's hours for payroll.`,
+          a: `Your team checks in from their phone when they arrive and checks out when the job's done, giving you confirmed start and end times for every visit plus hours for payroll. On tenants with GPS enforcement turned on, check-in is blocked if their phone reports them too far from the job address (with a small buffer for normal GPS drift) — ask Full Loop Support if you're not sure whether that's on for your tenant.`,
         },
         {
           q: `What is the "Heads Up" (30-minute) button, and when should it be tapped?`,
           a: `Tap it when your team member is confirmed to be about 30 minutes from FINISHING the job — not on the way there. This is the core of getting paid: that single tap sends the client one text with their balance due, your payment link, and a quick "how'd we do, 1-5" rating ask, all at once. Tap it too early or late and the client gets asked to pay at the wrong moment, so timing it to the real 30-minutes-left mark matters.`,
         },
         {
-          q: `How are job hours rounded for payroll?`,
-          a: `To the nearest half hour, with a 10-minute grace period. A 3-hour job that runs 3:08 still bills as 3 hours; at 3:12 it rounds up to 3.5.`,
+          q: `How are job hours rounded for payroll — and is it the same as what the client is billed?`,
+          a: `No — they use deliberately different grace windows. What the client is billed rounds to the nearest half hour with a 10-minute grace (a job running 3:08 still bills as 3 hours; 3:11 rounds up to 3.5). What your team member is paid uses a wider 15-minute grace before rounding up. So a job that runs long enough to bill the client more doesn't always bump the cleaner's pay in that same instant — the two are tracked independently, on purpose.`,
         },
         {
           q: `What are before/after walkthrough videos?`,
@@ -60,7 +60,7 @@ export function tenantDocCategories(agentName: string): DocCategory[] {
         },
         {
           q: `How do recurring jobs work?`,
-          a: `Set up a weekly, bi-weekly, or monthly schedule for a repeat client under Sales → Schedule (or Production → Schedule). The system generates the next 4 weeks of bookings automatically so your calendar stays full.`,
+          a: `Set up a weekly, bi-weekly, or monthly schedule for a repeat client under Sales → Schedule (or Production → Schedule). The system generates real bookings on your calendar out through the end of the current year automatically, so your calendar stays full without you rebooking each visit by hand.`,
         },
         {
           q: `Where do I find Crews and Projects?`,
