@@ -83,14 +83,20 @@ export const websiteSchema = {
   inLanguage: "en-US",
 };
 
-export function localBusinessSchema(area: string, areaType: string = "City") {
+// 2026-08-19: pageUrl is now a required param — this used to derive @id/url
+// by lowercasing and hyphenating `area` (e.g. "New York, NY" -> a URL with a
+// literal comma in it, "United States" -> the nonexistent /united-states).
+// Every page on the site calls this; every one of them was emitting a
+// broken URL in its own structured data. Pass the page's real, already-known
+// canonical URL instead of re-deriving a fake one from the display label.
+export function localBusinessSchema(pageUrl: string, area: string, areaType: string = "City") {
   return {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    "@id": `https://homeservicesbusinesscrm.com/${area.toLowerCase().replace(/\s+/g, "-")}/#software`,
+    "@id": `${pageUrl}/#software`,
     name: `Full Loop CRM - ${area}`,
     image: "https://homeservicesbusinesscrm.com/opengraph-image",
-    url: `https://homeservicesbusinesscrm.com/${area.toLowerCase().replace(/\s+/g, "-")}`,
+    url: pageUrl,
     applicationCategory: "BusinessApplication",
     operatingSystem: "Web",
     offers: {

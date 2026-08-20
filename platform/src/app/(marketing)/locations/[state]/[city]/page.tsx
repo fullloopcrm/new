@@ -158,7 +158,7 @@ export default async function LocationPage({
         )}
       />
       <JsonLd data={breadcrumbSchema(breadcrumbs)} />
-      <JsonLd data={localBusinessSchema(`${metro.city}, ${metro.stateAbbr}`, "City")} />
+      <JsonLd data={localBusinessSchema(pageUrl, `${metro.city}, ${metro.stateAbbr}`, "City")} />
       <JsonLd data={organizationSchema} />
       <JsonLd data={websiteSchema} />
       <JsonLd data={faqSchema(localFaqs.map((f) => ({ question: f.q, answer: f.a })))} />

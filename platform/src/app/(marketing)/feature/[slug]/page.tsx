@@ -85,7 +85,7 @@ export default async function FeaturePage({
         )}
       />
       <JsonLd data={faqSchema(feature.faqs)} />
-      <JsonLd data={localBusinessSchema("United States", "Country")} />
+      <JsonLd data={localBusinessSchema(url, "United States", "Country")} />
 
       {/* ── Hero ── */}
       <section className="bg-slate-900 py-24 px-6 sm:px-8 lg:px-12">

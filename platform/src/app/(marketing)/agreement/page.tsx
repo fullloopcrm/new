@@ -48,7 +48,7 @@ export default function AgreementPage() {
         )}
       />
       <JsonLd data={breadcrumbSchema(breadcrumbs)} />
-      <JsonLd data={localBusinessSchema("United States", "Country")} />
+      <JsonLd data={localBusinessSchema("https://homeservicesbusinesscrm.com/agreement", "United States", "Country")} />
 
       {/* Hero */}
       <section className="bg-slate-900 py-20 px-6">

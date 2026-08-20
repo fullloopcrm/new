@@ -83,7 +83,7 @@ export default async function StatePage({
         )}
       />
       <JsonLd data={breadcrumbSchema(breadcrumbs)} />
-      <JsonLd data={localBusinessSchema(group.state, "State")} />
+      <JsonLd data={localBusinessSchema(pageUrl, group.state, "State")} />
       <JsonLd data={organizationSchema} />
       <JsonLd data={websiteSchema} />
       <JsonLd

@@ -125,7 +125,7 @@ export default function Home() {
       />
       <JsonLd data={itemListSchema("Home Service Industries Served by Full Loop CRM", industryListItems)} />
       <JsonLd data={faqSchema(homeFaqForSchema)} />
-      <JsonLd data={localBusinessSchema("United States", "Country")} />
+      <JsonLd data={localBusinessSchema("https://homeservicesbusinesscrm.com", "United States", "Country")} />
 
       {/* 1. Hero */}
       <Hero />

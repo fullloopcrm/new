@@ -153,7 +153,7 @@ export default async function IndustryPage({
       />
       <JsonLd data={breadcrumbSchema(breadcrumbs)} />
       <JsonLd
-        data={localBusinessSchema(industry.name, "AdministrativeArea")}
+        data={localBusinessSchema(pageUrl, industry.name, "AdministrativeArea")}
       />
       <JsonLd data={organizationSchema} />
       <JsonLd data={websiteSchema} />

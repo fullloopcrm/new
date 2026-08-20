@@ -290,7 +290,7 @@ export default function FAQPage() {
       />
       <JsonLd data={breadcrumbSchema(breadcrumbs)} />
       <JsonLd data={faqSchema(allFaqs)} />
-      <JsonLd data={localBusinessSchema("United States", "Country")} />
+      <JsonLd data={localBusinessSchema("https://homeservicesbusinesscrm.com/full-loop-crm-frequently-asked-questions", "United States", "Country")} />
 
       {/* Hero */}
       <section className="bg-slate-900 py-24 px-6">

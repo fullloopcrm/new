@@ -52,7 +52,7 @@ export default function PartnersPage() {
         )}
       />
       <JsonLd data={breadcrumbSchema(breadcrumbs)} />
-      <JsonLd data={localBusinessSchema("United States", "Country")} />
+      <JsonLd data={localBusinessSchema("https://homeservicesbusinesscrm.com/partner-with-full-loop-crm", "United States", "Country")} />
 
       {/* Hero */}
       <section className="bg-slate-900 py-24 px-6">

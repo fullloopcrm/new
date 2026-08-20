@@ -152,7 +152,7 @@ export default function PricingPage() {
       />
       <JsonLd data={breadcrumbSchema(breadcrumbs)} />
       <JsonLd data={faqSchema(pricingFaqs)} />
-      <JsonLd data={localBusinessSchema("United States", "Country")} />
+      <JsonLd data={localBusinessSchema("https://homeservicesbusinesscrm.com/full-loop-crm-pricing", "United States", "Country")} />
       <JsonLd data={softwareApplicationSchema(String(MONTHLY_PRICE), "USD")} />
       <JsonLd data={organizationSchema} />
       <JsonLd data={websiteSchema} />

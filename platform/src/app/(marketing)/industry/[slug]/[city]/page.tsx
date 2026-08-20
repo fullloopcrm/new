@@ -204,7 +204,7 @@ export default async function ComboPage({
     <>
       <JsonLd data={webPageSchema(`Best ${industry.name} CRM in ${metro.city}, ${metro.stateAbbr} | Full Loop CRM`, `The best CRM for ${trade} businesses in ${metro.city}, ${metro.stateAbbr}.`, pageUrl, breadcrumbs)} />
       <JsonLd data={breadcrumbSchema(breadcrumbs)} />
-      <JsonLd data={localBusinessSchema(`${metro.city}, ${metro.stateAbbr}`, "City")} />
+      <JsonLd data={localBusinessSchema(pageUrl, `${metro.city}, ${metro.stateAbbr}`, "City")} />
       <JsonLd data={organizationSchema} />
       <JsonLd data={websiteSchema} />
       <JsonLd data={serviceLd} />
