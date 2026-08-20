@@ -99,19 +99,22 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   // Front-office/remote support: The Loop, clients, ComHub/Connect, sales,
   // production (bookings/schedules), full HR (team roster including PIN
   // resets and compensation/compliance-doc visibility, plus payroll data),
-  // and marketing (campaigns). Deliberately no delete anywhere and no
-  // settings access. team.compensation was granted 2026-08-12 specifically
-  // to unlock PIN reset (gated on it in /api/team/[id]'s PUT handler as "same
-  // tier as viewing it") — pay-rate/compliance-doc visibility comes along
-  // with that grant, which is why it's a deliberate, not incidental, choice.
-  // finance.payroll (running actual payouts) stays owner/admin-only —
-  // finance.view only, so payroll data is visible but not executable.
-  // 2026-08-03, first VA hire onboarding role.
+  // and marketing (campaigns). No settings access. team.compensation was
+  // granted 2026-08-12 specifically to unlock PIN reset (gated on it in
+  // /api/team/[id]'s PUT handler as "same tier as viewing it") — pay-rate/
+  // compliance-doc visibility comes along with that grant, which is why
+  // it's a deliberate, not incidental, choice. finance.payroll (running
+  // actual payouts) stays owner/admin-only — finance.view only, so payroll
+  // data is visible but not executable.
+  // 2026-08-03, first VA hire onboarding role. team.delete added 2026-08-20
+  // -- VAs need to offboard cleaners directly, especially in Florida
+  // tenants; deletions are already fully tracked/audited (audit.ts), so
+  // this isn't an untracked-destructive-action risk.
   virtual_assistant: [
     'clients.view', 'clients.create', 'clients.edit',
     'bookings.view', 'bookings.create', 'bookings.edit',
     'schedules.view', 'schedules.create', 'schedules.edit',
-    'team.view', 'team.create', 'team.edit', 'team.compensation',
+    'team.view', 'team.create', 'team.edit', 'team.delete', 'team.compensation',
     'finance.view',
     'campaigns.view', 'campaigns.create',
     'reviews.view', 'reviews.request',
@@ -288,6 +291,6 @@ export const ROLES: { value: Role; label: string; description: string }[] = [
   { value: 'admin', label: 'Admin', description: 'Full access except deleting team and integrations' },
   { value: 'manager', label: 'Manager', description: 'Manage day-to-day operations, no finance payroll or settings' },
   { value: 'staff', label: 'Staff', description: 'View-only access, can create bookings' },
-  { value: 'virtual_assistant', label: 'Virtual Assistant', description: 'The Loop, clients, ComHub/Connect, sales, production, full HR (including PIN reset and compensation data), payroll data, and marketing — no delete anywhere, no settings access, cannot run payroll' },
+  { value: 'virtual_assistant', label: 'Virtual Assistant', description: 'The Loop, clients, ComHub/Connect, sales, production, full HR (including PIN reset, compensation data, and team delete), payroll data, and marketing — no settings access, cannot run payroll' },
   { value: 'contractor', label: 'Contractor', description: 'View-only across clients, ComHub, sales, production, and finance — no create, edit, or delete anywhere, no settings access' },
 ]

@@ -74,11 +74,11 @@ describe('RBAC', () => {
       expect(hasPermission('virtual_assistant', 'schedules.edit')).toBe(true)
     })
 
-    it('can view/create/edit team roster/contact info but not delete', () => {
+    it('can view/create/edit/delete team roster (cleaners) -- 2026-08-20, needed for Florida offboarding', () => {
       expect(hasPermission('virtual_assistant', 'team.view')).toBe(true)
       expect(hasPermission('virtual_assistant', 'team.create')).toBe(true)
       expect(hasPermission('virtual_assistant', 'team.edit')).toBe(true)
-      expect(hasPermission('virtual_assistant', 'team.delete')).toBe(false)
+      expect(hasPermission('virtual_assistant', 'team.delete')).toBe(true)
       // team.compensation was granted 2026-08-12 to unlock PIN reset (see
       // rbac.ts's virtual_assistant comment) -- pay-rate/compliance-doc
       // visibility comes along with that grant, deliberately.
@@ -91,10 +91,10 @@ describe('RBAC', () => {
       expect(hasPermission('virtual_assistant', 'campaigns.send')).toBe(false)
     })
 
-    it('cannot delete anything', () => {
+    it('cannot delete clients or bookings, but can delete team (cleaners) -- see 2026-08-20 note', () => {
       expect(hasPermission('virtual_assistant', 'clients.delete')).toBe(false)
       expect(hasPermission('virtual_assistant', 'bookings.delete')).toBe(false)
-      expect(hasPermission('virtual_assistant', 'team.delete')).toBe(false)
+      expect(hasPermission('virtual_assistant', 'team.delete')).toBe(true)
     })
 
     it('can view finance (read-only) but cannot run payroll, edit expenses, or touch settings', () => {
