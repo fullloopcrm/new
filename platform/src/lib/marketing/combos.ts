@@ -478,6 +478,13 @@ export const metros: ComboMetro[] = [
   { city: "Casper", state: "Wyoming", stateAbbr: "WY", slug: "casper-wy", shortSlug: "casper" },
   { city: "Burlington", state: "Vermont", stateAbbr: "VT", slug: "burlington-vt", shortSlug: "burlington-vt" },
   { city: "Manchester", state: "New Hampshire", stateAbbr: "NH", slug: "manchester-nh", shortSlug: "manchester" },
+  // 2026-08-19: added to close a full 50-state coverage gap — DE, ME, and
+  // WV previously had zero metros, so /locations/de, /locations/me, and
+  // /locations/wv 404'd despite stateMetadata.ts already having real data
+  // for all three. Each is that state's largest city.
+  { city: "Wilmington", state: "Delaware", stateAbbr: "DE", slug: "wilmington-de", shortSlug: "wilmington" },
+  { city: "Portland", state: "Maine", stateAbbr: "ME", slug: "portland-me", shortSlug: "portland-me" },
+  { city: "Charleston", state: "West Virginia", stateAbbr: "WV", slug: "charleston-wv", shortSlug: "charleston" },
 ];
 
 // --- Slug generators ---

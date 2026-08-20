@@ -32,7 +32,7 @@ export default async function CaseStudyTeaser() {
         }}
       />
 
-      <div className="relative w-full max-w-5xl mx-auto px-6 sm:px-8 lg:px-12 py-20 sm:py-28">
+      <div className="relative w-full max-w-6xl mx-auto px-6 sm:px-8 lg:px-12 py-20 sm:py-28">
         {/* Live pulse eyebrow — the pattern-interrupt: this is not copy, it's a real feed */}
         <div
           className="inline-flex items-center gap-2 mb-8"

@@ -58,7 +58,7 @@ export default function LocationsHubPage() {
         )}
       />
       <JsonLd data={breadcrumbSchema(breadcrumbs)} />
-      <JsonLd data={localBusinessSchema("United States", "Country")} />
+      <JsonLd data={localBusinessSchema(URL, "United States", "Country")} />
       <JsonLd
         data={itemListSchema(
           "Home Service CRM by City",

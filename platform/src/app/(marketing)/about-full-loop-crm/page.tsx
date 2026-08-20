@@ -51,7 +51,7 @@ export default function AboutPage() {
         )}
       />
       <JsonLd data={breadcrumbSchema(breadcrumbs)} />
-      <JsonLd data={localBusinessSchema("United States", "Country")} />
+      <JsonLd data={localBusinessSchema("https://homeservicesbusinesscrm.com/about-full-loop-crm", "United States", "Country")} />
 
       {/* Hero */}
       <section className="bg-slate-900 py-24 px-6">

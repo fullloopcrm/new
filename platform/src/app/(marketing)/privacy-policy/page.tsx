@@ -42,7 +42,7 @@ export default function PrivacyPolicyPage() {
         )}
       />
       <JsonLd data={breadcrumbSchema(breadcrumbs)} />
-      <JsonLd data={localBusinessSchema("United States", "Country")} />
+      <JsonLd data={localBusinessSchema("https://homeservicesbusinesscrm.com/privacy-policy", "United States", "Country")} />
 
       <section className="bg-slate-900 py-20 px-6">
         <div className="mx-auto max-w-3xl text-center">

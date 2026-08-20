@@ -10,7 +10,7 @@ const link = { color: C.good, textDecoration: "underline", textUnderlineOffset: 
 export default function About() {
   return (
     <section style={{ background: C.cream, color: C.ink }} className="border-t">
-      <div className="w-full max-w-5xl mx-auto px-6 sm:px-8 lg:px-12 py-20 sm:py-28">
+      <div className="w-full max-w-6xl mx-auto px-6 sm:px-8 lg:px-12 py-20 sm:py-28">
         <SectionHead
           label="Home service CRM software"
           heading="What Is Full Loop CRM? The All-in-One Home Service Business Software Built by a 20-Year Operator"

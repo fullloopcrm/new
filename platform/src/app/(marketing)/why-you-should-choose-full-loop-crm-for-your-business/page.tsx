@@ -169,7 +169,7 @@ export default function WhyFullLoopPage() {
         )}
       />
       <JsonLd data={breadcrumbSchema(breadcrumbs)} />
-      <JsonLd data={localBusinessSchema("United States", "Country")} />
+      <JsonLd data={localBusinessSchema("https://homeservicesbusinesscrm.com/why-you-should-choose-full-loop-crm-for-your-business", "United States", "Country")} />
 
       {/* ============================================================ */}
       {/*  1. HERO                                                     */}

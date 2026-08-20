@@ -15,7 +15,7 @@ import {
 import { industries as comboIndustries, metros, industryPath, comboPath } from "@/lib/marketing/combos";
 import { industries as richIndustries } from "@/lib/marketing/industries";
 import { getIndustryContent } from "@/lib/marketing/allIndustryContent";
-import { getIndustryContentSlug } from "@/lib/marketing/industryMapping";
+import { getIndustryContentSlug, getCanonicalIndustrySlug } from "@/lib/marketing/industryMapping";
 import { faqs as globalFaqs } from "@/lib/marketing/faqs";
 import { getCaseStudyStats } from "@/lib/caseStudyStats";
 import LiveProofBand from "@/components/LiveProofBand";
@@ -48,9 +48,11 @@ export async function generateMetadata({
   if (!industry) return {};
 
   const trade = industry.name.toLowerCase();
-  const title = `Best CRM for ${industry.name} Businesses | Full Loop CRM`;
-  const description = `The full-cycle, AI-managed CRM for ${trade} businesses — runs an automated business. Live-proven by The NYC Maid: ~200 services/month, one person, under an hour a day. AI lead gen, sales, scheduling, GPS dispatch, invoicing & reviews in one platform.`;
+  const title = `Best CRM for ${industry.name} | Full Loop CRM`;
+  const description = `AI-managed CRM for ${trade} businesses. Proven live: ~200 jobs/mo, one person, under an hour a day. Leads, sales, scheduling, payments, reviews.`;
   const url = `https://homeservicesbusinesscrm.com/industry/${slug}`;
+  const canonicalSlug = getCanonicalIndustrySlug(slug);
+  const canonicalUrl = `https://homeservicesbusinesscrm.com/industry/${canonicalSlug}`;
 
   return {
     title,
@@ -74,7 +76,7 @@ export async function generateMetadata({
       title: `Best CRM for ${industry.name} Businesses`,
       description,
     },
-    alternates: { canonical: url },
+    alternates: { canonical: canonicalUrl },
   };
 }
 
@@ -151,7 +153,7 @@ export default async function IndustryPage({
       />
       <JsonLd data={breadcrumbSchema(breadcrumbs)} />
       <JsonLd
-        data={localBusinessSchema(industry.name, "AdministrativeArea")}
+        data={localBusinessSchema(pageUrl, industry.name, "AdministrativeArea")}
       />
       <JsonLd data={organizationSchema} />
       <JsonLd data={websiteSchema} />
@@ -403,7 +405,7 @@ export default async function IndustryPage({
             AI sales, scheduling, GPS operations, payments, reviews,
             referrals, retargeting, and analytics — with one integrated
             platform. The license includes your exclusive territory,
-            all 7 lifecycle stages, the Our AI receptionist assistant, client and team
+            all 7 lifecycle stages, the AI receptionist assistant, client and team
             portals, full bookkeeping with 1099-ready exports, and all
             core updates.
           </p>

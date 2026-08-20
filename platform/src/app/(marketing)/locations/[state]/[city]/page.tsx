@@ -28,6 +28,10 @@ import { getStateMeta } from "@/lib/marketing/stateMetadata";
 import { buildLocationFaqs } from "@/lib/marketing/localFaqs";
 import { groupMetrosByState } from "@/lib/marketing/metroGroups";
 import { PageHero } from "@/components/marketing/PageHero";
+import { buildCityContextSection } from "@/lib/marketing/cityContext";
+import { SectionBlock } from "@/components/marketing/SeoSection";
+import { climateAwareFeaturedIndustries } from "@/lib/marketing/climateIndustries";
+import type { StateMetadata } from "@/lib/marketing/stateMetadata";
 
 // ---------------------------------------------------------------------------
 // Section format (every section on this page follows this exact shape):
@@ -78,15 +82,12 @@ function getNearbyMarkets(metro: ComboMetro): ComboMetro[] {
   return metros.filter((m) => m.stateAbbr === metro.stateAbbr && m.slug !== metro.slug).slice(0, 12);
 }
 
-// Deterministic "featured trades" per city (varies by city so every page
-// links to a different slice of the industry list, not the same 6 every time).
-function featuredIndustries(metro: ComboMetro, count: number) {
-  const start = metro.slug.charCodeAt(0) % industries.length;
-  const out = [];
-  for (let i = 0; i < count; i++) {
-    out.push(industries[(start + i * 7) % industries.length]);
-  }
-  return out;
+// Climate-relevant trades first (real regional demand signal — snow removal
+// for cold zones, pool cleaning for hot zones, mold/water remediation for
+// humid and marine zones), then deterministically filled out with the rest
+// of the catalog so every city still gets variety.
+function featuredIndustries(metro: ComboMetro, stateMeta: StateMetadata | null, count: number) {
+  return climateAwareFeaturedIndustries(industries, stateMeta?.climateZone, metro.slug, count);
 }
 
 export async function generateMetadata({
@@ -99,7 +100,7 @@ export async function generateMetadata({
   if (!metro) return {};
 
   const title = `Home Service CRM in ${metro.city}, ${metro.stateAbbr} | Full Loop CRM`;
-  const description = `The full-cycle, AI-managed home service CRM in ${metro.city}, ${metro.stateAbbr} — runs an automated business. Live-proven by The NYC Maid: real clients, one person, under an hour a day. One partner per trade.`;
+  const description = `The full-cycle, AI-managed home service CRM in ${metro.city}, ${metro.stateAbbr}. Live-proven by The NYC Maid: real clients, one person, under an hour a day. One partner per trade.`;
   const url = `https://homeservicesbusinesscrm.com${locationPath(metro)}`;
 
   return {
@@ -116,7 +117,6 @@ export async function generateMetadata({
     openGraph: { title: `Home Service CRM in ${metro.city}, ${metro.stateAbbr}`, description, url, type: "website" },
     twitter: { card: "summary_large_image", title: `Home Service CRM in ${metro.city}, ${metro.stateAbbr}`, description },
     alternates: { canonical: url },
-    robots: { index: false, follow: true },
   };
 }
 
@@ -135,8 +135,9 @@ export default async function LocationPage({
   const stateMeta = getStateMeta(metro.stateAbbr);
   const nearbyMarkets = getNearbyMarkets(metro);
   const localFaqs = buildLocationFaqs(metro, stateMeta);
-  const trades6 = featuredIndustries(metro, 6);
-  const trades5 = featuredIndustries(metro, 5);
+  const citySection = buildCityContextSection(metro, stateMeta, "home service");
+  const trades6 = featuredIndustries(metro, stateMeta, 6);
+  const trades5 = featuredIndustries(metro, stateMeta, 5);
   const nearby5 = nearbyMarkets.slice(0, 5);
 
   const breadcrumbs = [
@@ -157,7 +158,7 @@ export default async function LocationPage({
         )}
       />
       <JsonLd data={breadcrumbSchema(breadcrumbs)} />
-      <JsonLd data={localBusinessSchema(`${metro.city}, ${metro.stateAbbr}`, "City")} />
+      <JsonLd data={localBusinessSchema(pageUrl, `${metro.city}, ${metro.stateAbbr}`, "City")} />
       <JsonLd data={organizationSchema} />
       <JsonLd data={websiteSchema} />
       <JsonLd data={faqSchema(localFaqs.map((f) => ({ question: f.q, answer: f.a })))} />
@@ -230,7 +231,7 @@ export default async function LocationPage({
 
       {/* 2. Market */}
       <Section
-        alt={true}
+        alt={false}
         badge="Market"
         heading={`Running a Home Service Business in ${metro.city}, ${metro.state}`}
         description={
@@ -272,10 +273,15 @@ export default async function LocationPage({
         </p>
       </Section>
 
+      {/* 2b. City Context — real per-city data (county, population, geography,
+          neighbors, climate zone) so this page reads as genuinely specific to
+          {metro.city} rather than a template with the city name swapped in. */}
+      <SectionBlock section={citySection} alt={true} />
+
       {/* 3. Licensing */}
       {stateMeta && (
         <Section
-          alt={false}
+          alt={true}
           badge="Licensing"
           heading={`${metro.state} Licensing Rules for Home Service Contractors`}
           description={
@@ -298,7 +304,7 @@ export default async function LocationPage({
       {/* 4. Seasonal */}
       {stateMeta && (
         <Section
-          alt={true}
+          alt={false}
           badge="Seasonal"
           heading={`Seasonal Demand for Home Services in ${metro.city}, ${metro.stateAbbr}`}
           description={
@@ -322,7 +328,7 @@ export default async function LocationPage({
 
       {/* 5. Trades */}
       <Section
-        alt={false}
+        alt={true}
         badge="Trades"
         heading={`Home Service Trades Available in ${metro.city}, ${metro.stateAbbr}`}
         description={
@@ -352,7 +358,7 @@ export default async function LocationPage({
 
       {/* 6. Exclusive */}
       <Section
-        alt={true}
+        alt={false}
         badge="Exclusive"
         heading={`One Exclusive Operator Per Trade in ${metro.city}`}
         description={
@@ -378,7 +384,7 @@ export default async function LocationPage({
 
       {/* 7. Proof */}
       <Section
-        alt={false}
+        alt={true}
         badge="Proof"
         heading={`The Real Business This Platform Already Runs`}
         description={

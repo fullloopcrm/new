@@ -89,7 +89,7 @@ export default function IndustriesPage() {
         )}
       />
       <JsonLd data={breadcrumbSchema(breadcrumbs)} />
-      <JsonLd data={localBusinessSchema("United States", "Country")} />
+      <JsonLd data={localBusinessSchema("https://homeservicesbusinesscrm.com/full-loop-crm-service-business-industries", "United States", "Country")} />
       <JsonLd
         data={itemListSchema(
           "Home Service Industries Supported by Full Loop CRM",

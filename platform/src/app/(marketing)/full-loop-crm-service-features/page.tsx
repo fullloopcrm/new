@@ -69,7 +69,7 @@ export default function FeaturesPage() {
           "All-in-one home service CRM with AI lead generation, automated sales, smart scheduling, GPS field operations, invoicing, review management, and client retargeting."
         )}
       />
-      <JsonLd data={localBusinessSchema("United States", "Country")} />
+      <JsonLd data={localBusinessSchema("https://homeservicesbusinesscrm.com/full-loop-crm-service-features", "United States", "Country")} />
 
       {/* ── Hero ── */}
       <section className="bg-slate-900 py-24 px-6 sm:px-8 lg:px-12">

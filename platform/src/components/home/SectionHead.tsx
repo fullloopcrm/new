@@ -29,11 +29,11 @@ export default function SectionHead({ label, heading, description, dark = false 
       >
         {label}
       </span>
-      <h2 style={{ ...h2Style, color: headColor }} className="mt-6 max-w-4xl">
+      <h2 style={{ ...h2Style, color: headColor }} className="mt-6">
         {heading}
       </h2>
       <p
-        className="mt-6 max-w-3xl"
+        className="mt-6"
         style={{
           fontFamily: display,
           fontWeight: 500,

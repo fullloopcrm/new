@@ -22,7 +22,7 @@ import {
   type ComboIndustry,
   type ComboMetro,
 } from "@/lib/marketing/combos";
-import { buildCityContextSection, stateHubMetro, isHubOrMajorCity } from "@/lib/marketing/cityContext";
+import { buildCityContextSection } from "@/lib/marketing/cityContext";
 import { SectionBlock, RelatedLinksHub } from "@/components/marketing/SeoSection";
 import { industries as richIndustries } from "@/lib/marketing/industries";
 import { getIndustryContent } from "@/lib/marketing/allIndustryContent";
@@ -69,26 +69,25 @@ export async function generateMetadata({
   const statusTag =
     status === "claimed" ? "Territory Claimed" : status === "pending" ? "Application Pending" : "Territory Available";
 
-  const title = `${industry.name} CRM in ${metro.city}, ${metro.stateAbbr} — One Exclusive License | Full Loop CRM`;
+  const title = `${industry.name} CRM — ${metro.city}, ${metro.stateAbbr} | Full Loop`;
   const description =
     status === "claimed"
-      ? `The exclusive ${trade} CRM license for ${metro.city}, ${metro.stateAbbr} has been claimed. Full Loop CRM licenses only one ${trade} partner per city — see nearby markets still available.`
+      ? `The exclusive ${trade} CRM license for ${metro.city}, ${metro.stateAbbr} is claimed. One partner per city — see nearby open markets.`
       : status === "pending"
-        ? `A ${trade} operator in ${metro.city}, ${metro.stateAbbr} has applied for the exclusive Full Loop CRM license. Only one per city — get on the waitlist if the application falls through.`
-        : `The only full-cycle CRM built for ${trade} businesses in ${metro.city}, ${metro.stateAbbr} — and it powers our own portfolio of vertical brands. AI lead generation, sales, scheduling, GPS dispatch, invoicing, reviews, and retargeting on one system.`;
+        ? `A ${trade} operator in ${metro.city}, ${metro.stateAbbr} has applied for this exclusive license. Join the waitlist if it falls through.`
+        : `The only full-cycle CRM for ${trade} businesses in ${metro.city}, ${metro.stateAbbr}. AI leads, sales, scheduling & payments — one operator per city.`;
   const url = `https://homeservicesbusinesscrm.com${comboPath(industry, metro)}`;
 
   const override = await getSeoOverride(url);
   const finalTitle = override?.title || title;
   const finalDescription = override?.description || description;
 
-  let canonicalUrl = url;
-  if (!override && !isHubOrMajorCity(metro)) {
-    const hub = stateHubMetro(metro.stateAbbr);
-    if (hub && hub.slug !== metro.slug) {
-      canonicalUrl = `https://homeservicesbusinesscrm.com${comboPath(industry, hub)}`;
-    }
-  }
+  // 2026-08-19: every combo page is self-canonical again — restored
+  // alongside the sitemap re-add (see src/lib/seo/main-sitemap.ts). Previously
+  // non-hub cities canonicalized to their state hub to avoid duplicate
+  // content across near-identical pages; that consolidation is off per
+  // Jeff's "we need them all back."
+  const canonicalUrl = url;
 
   return {
     title: finalTitle,
@@ -114,7 +113,6 @@ export async function generateMetadata({
       description: finalDescription,
     },
     alternates: { canonical: canonicalUrl },
-    robots: { index: false, follow: true },
   };
 }
 
@@ -206,7 +204,7 @@ export default async function ComboPage({
     <>
       <JsonLd data={webPageSchema(`Best ${industry.name} CRM in ${metro.city}, ${metro.stateAbbr} | Full Loop CRM`, `The best CRM for ${trade} businesses in ${metro.city}, ${metro.stateAbbr}.`, pageUrl, breadcrumbs)} />
       <JsonLd data={breadcrumbSchema(breadcrumbs)} />
-      <JsonLd data={localBusinessSchema(`${metro.city}, ${metro.stateAbbr}`, "City")} />
+      <JsonLd data={localBusinessSchema(pageUrl, `${metro.city}, ${metro.stateAbbr}`, "City")} />
       <JsonLd data={organizationSchema} />
       <JsonLd data={websiteSchema} />
       <JsonLd data={serviceLd} />

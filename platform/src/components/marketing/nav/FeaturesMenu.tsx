@@ -12,7 +12,7 @@ export function FeaturesDesktopPanel() {
           href={`${FEATURES_URL}#${mod.id}`}
           className="block rounded px-3 py-2.5 transition-colors hover:bg-[#FBFBF8]"
         >
-          <span className="text-[13px] font-semibold" style={{ color: "#1C1C1C" }}>{mod.name}</span>
+          <span className="text-[13px]" style={{ color: "#1C1C1C" }}>{mod.name}</span>
           <span className="block text-[11px] mt-0.5" style={{ color: "#A8A8A4" }}>{mod.desc}</span>
         </Link>
       ))}

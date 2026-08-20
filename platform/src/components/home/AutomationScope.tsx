@@ -20,7 +20,7 @@ const subhead: React.CSSProperties = {
 export default function AutomationScope() {
   return (
     <section style={{ background: C.cream, color: C.ink }} className="border-t">
-      <div className="w-full max-w-5xl mx-auto px-6 sm:px-8 lg:px-12 py-20 sm:py-28">
+      <div className="w-full max-w-6xl mx-auto px-6 sm:px-8 lg:px-12 py-20 sm:py-28">
         <SectionHead
           label="Home service business automation"
           heading="Home Service Business Automation: What Full Loop CRM Runs for You and What You Still Control"

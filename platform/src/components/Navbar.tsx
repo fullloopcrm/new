@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   motion,
   AnimatePresence,
@@ -15,12 +16,12 @@ import { FeaturesDesktopPanel, FeaturesMobileList } from "@/components/marketing
 
 type PanelKey = "caseStudy" | "features" | "industries" | "locations" | "more" | null;
 
-const navLinks: { label: string; href: string; panel?: PanelKey }[] = [
+const navLinks: { label: string; href: string; panel?: PanelKey; matchPrefix?: string }[] = [
   { label: "Case Study", href: "/case-study/the-nyc-maid", panel: "caseStudy" },
   { label: "Features", href: "/full-loop-crm-service-features", panel: "features" },
   { label: "Why Full Loop", href: "/why-you-should-choose-full-loop-crm-for-your-business" },
-  { label: "Industries", href: "/full-loop-crm-service-business-industries", panel: "industries" },
-  { label: "Locations", href: "/home-service-crm-locations", panel: "locations" },
+  { label: "Industries", href: "/full-loop-crm-service-business-industries", panel: "industries", matchPrefix: "/industry" },
+  { label: "Locations", href: "/home-service-crm-locations", panel: "locations", matchPrefix: "/locations" },
   { label: "Pricing", href: "/full-loop-crm-pricing" },
 ];
 
@@ -34,6 +35,9 @@ const moreLinks = [
 ];
 
 export default function Navbar() {
+  const pathname = usePathname();
+  const isActive = (href: string, matchPrefix?: string) =>
+    pathname === href || pathname?.startsWith(href + "/") || (!!matchPrefix && pathname?.startsWith(matchPrefix));
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openPanel, setOpenPanel] = useState<PanelKey>(null);
@@ -156,7 +160,9 @@ export default function Navbar() {
                 <div key={link.href} className="relative">
                   <button
                     onClick={() => setOpenPanel(openPanel === link.panel ? null : link.panel!)}
-                    className="flex items-center text-[10.5px] uppercase tracking-[0.18em] text-white/70 transition-colors hover:text-white font-mono whitespace-nowrap"
+                    className={`flex items-center text-[10.5px] uppercase tracking-[0.18em] transition-colors hover:text-[#FDE047] font-mono whitespace-nowrap ${
+                      isActive(link.href, link.matchPrefix) || openPanel === link.panel ? "text-[#FDE047]" : "text-white"
+                    }`}
                   >
                     {link.label}
                     {chevron(openPanel === link.panel)}
@@ -180,7 +186,9 @@ export default function Navbar() {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="text-[10.5px] uppercase tracking-[0.18em] text-white/70 transition-colors hover:text-white font-mono whitespace-nowrap"
+                  className={`text-[10.5px] uppercase tracking-[0.18em] transition-colors hover:text-[#FDE047] font-mono whitespace-nowrap ${
+                    isActive(link.href, link.matchPrefix) ? "text-[#FDE047]" : "text-white"
+                  }`}
                 >
                   {link.label}
                 </Link>
@@ -191,7 +199,9 @@ export default function Navbar() {
             <div className="relative">
               <button
                 onClick={() => setOpenPanel(openPanel === "more" ? null : "more")}
-                className="flex items-center text-[10.5px] uppercase tracking-[0.18em] text-white/70 transition-colors hover:text-white font-mono"
+                className={`flex items-center text-[10.5px] uppercase tracking-[0.18em] transition-colors hover:text-[#FDE047] font-mono ${
+                  openPanel === "more" ? "text-[#FDE047]" : "text-white"
+                }`}
               >
                 More
                 {chevron(openPanel === "more")}

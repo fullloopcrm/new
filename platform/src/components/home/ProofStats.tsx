@@ -27,7 +27,7 @@ export default async function ProofStats() {
 
   return (
     <section style={{ background: C.cream, color: C.ink }} className="border-t">
-      <div className="w-full max-w-5xl mx-auto px-6 sm:px-8 lg:px-12 py-20 sm:py-28">
+      <div className="w-full max-w-6xl mx-auto px-6 sm:px-8 lg:px-12 py-20 sm:py-28">
         <SectionHead
           label="Live results & proof"
           heading="The NYC Maid, By the Numbers: Live Proof From the Home Service Business Full Loop Runs"

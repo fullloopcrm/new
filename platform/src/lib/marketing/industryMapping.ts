@@ -41,21 +41,43 @@ const comboToIndustrySlug: Record<string, string> = {
   'pet-waste-removal': 'pet-waste-removal-business-crm',
   // Industries with content in industries.ts but no direct combo match — map anyway for completeness
   'solar-panel-cleaning': 'solar-installation-business-crm',
-  'mold-remediation': 'waterproofing-business-crm',
   'water-damage-restoration': 'waterproofing-business-crm',
-  'fire-damage-restoration': 'foundation-repair-business-crm',
-  'concrete-masonry': 'general-contracting-business-crm',
-  'hauling-services': 'junk-removal-business-crm',
-  'demolition': 'general-contracting-business-crm',
-  'paving': 'general-contracting-business-crm',
-  'stucco-repair': 'drywall-repair-business-crm',
-  'siding-installation': 'exterior-painting-business-crm',
-  'irrigation': 'landscaping-business-crm',
-  'dryer-vent-cleaning': 'air-duct-cleaning-business-crm',
-  'mobile-pet-grooming': 'mobile-car-detailing-business-crm',
-  'mobile-salon-services': 'mobile-car-detailing-business-crm',
+
+  // 2026-08-19: previously force-mapped onto an unrelated or duplicated
+  // content block (see git history) — each now has its own dedicated
+  // content in industryPageContent4.ts.
+  'mold-remediation': 'mold-remediation-business-crm',
+  'fire-damage-restoration': 'fire-damage-restoration-business-crm',
+  'concrete-masonry': 'concrete-masonry-business-crm',
+  'hauling-services': 'hauling-services-business-crm',
+  'demolition': 'demolition-business-crm',
+  'paving': 'paving-business-crm',
+  'stucco-repair': 'stucco-repair-business-crm',
+  'siding-installation': 'siding-installation-business-crm',
+  'irrigation': 'irrigation-business-crm',
+  'dryer-vent-cleaning': 'dryer-vent-cleaning-business-crm',
+  'mobile-pet-grooming': 'mobile-pet-grooming-business-crm',
+  'mobile-salon-services': 'mobile-salon-services-business-crm',
 };
 
 export function getIndustryContentSlug(comboSlug: string): string | null {
   return comboToIndustrySlug[comboSlug] ?? null;
+}
+
+// 2026-08-19: 'cleaning-services'/'house-cleaning' and 'power-washing'/
+// 'pressure-washing' are genuine synonyms, not distinct trades — they
+// intentionally share the same deep content (see comboToIndustrySlug
+// above). Writing artificially distinct copy for the same search intent
+// is worse SEO than acknowledging the overlap, but two live pages with
+// identical body content need a canonical pointing to one authoritative
+// page or they compete against each other in search instead of the
+// combined signal going to one URL. Both URLs stay live and indexable —
+// this only sets which one Google should treat as authoritative.
+const SYNONYM_CANONICAL: Record<string, string> = {
+  'cleaning-services': 'house-cleaning',
+  'power-washing': 'pressure-washing',
+};
+
+export function getCanonicalIndustrySlug(comboSlug: string): string {
+  return SYNONYM_CANONICAL[comboSlug] ?? comboSlug;
 }

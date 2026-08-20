@@ -72,7 +72,6 @@ import LocalLeadGen from "@/components/home/LocalLeadGen";
 import HowToSwitch from "@/components/home/HowToSwitch";
 import HomeFAQ, { homeFaqForSchema } from "@/components/home/HomeFAQ";
 import ThankYou from "@/components/home/ThankYou";
-import InnerLinks from "@/components/home/InnerLinks";
 
 const SITE = "https://homeservicesbusinesscrm.com";
 const breadcrumbs = [{ name: "Home", url: SITE }];
@@ -126,7 +125,7 @@ export default function Home() {
       />
       <JsonLd data={itemListSchema("Home Service Industries Served by Full Loop CRM", industryListItems)} />
       <JsonLd data={faqSchema(homeFaqForSchema)} />
-      <JsonLd data={localBusinessSchema("United States", "Country")} />
+      <JsonLd data={localBusinessSchema("https://homeservicesbusinesscrm.com", "United States", "Country")} />
 
       {/* 1. Hero */}
       <Hero />
@@ -213,7 +212,6 @@ export default function Home() {
       <ThankYou />
 
       {/* 100+ inner links */}
-      <InnerLinks />
     </>
   );
 }
