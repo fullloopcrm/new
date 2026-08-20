@@ -57,6 +57,20 @@ export async function POST(request: Request) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // A sales note ("call, follow-up, objection…") is a real contact touch —
+  // reset the lead's last-contacted clock + notified flags the same way a
+  // stage move does. Best-effort: a failure here shouldn't fail the note.
+  if (subject_type === 'lead') {
+    await supabaseAdmin
+      .from('partner_requests')
+      .update({ last_contacted_at: new Date().toISOString(), notified_7d_at: null, notified_14d_at: null, notified_30d_at: null })
+      .eq('id', subject_id)
+      .then(({ error: touchErr }) => {
+        if (touchErr) console.error('[admin/notes] failed to bump lead last_contacted_at:', touchErr.message)
+      })
+  }
+
   return NextResponse.json({ note: data })
 }
 

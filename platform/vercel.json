@@ -235,6 +235,10 @@
     {
       "path": "/api/cron/refresh-social-tokens",
       "schedule": "30 3 * * *"
+    },
+    {
+      "path": "/api/cron/lead-followup-nudge",
+      "schedule": "0 15 * * *"
     }
   ],
   "ignoreCommand": "if [ \"$VERCEL_ENV\" = \"production\" ]; then git log -1 --pretty=%B | grep -qE '\\[deploy\\]' && exit 1 || exit 0; fi; if [ -n \"$VERCEL_GIT_PULL_REQUEST_ID\" ]; then exit 1; fi; git log -1 --pretty=%B | grep -qE '\\[deploy\\]|\\[preview\\]' && exit 1 || exit 0"
