@@ -1,3 +1,5 @@
+import ZoomImage from './ZoomImage'
+
 // Editorial bento collage of brand-lifestyle shots — games, bars, bridges, a
 // car, a cop, a bike ride — deliberately not the clean on-model product
 // photography used in the 212H/212T/212HR sections above. This is "the
@@ -45,8 +47,7 @@ export default function CityMontage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 auto-rows-[160px] sm:auto-rows-[220px] gap-2 sm:gap-3">
           {TILES.map((tile) => (
             <div key={tile.src} className={`relative overflow-hidden ${tile.span}`}>
-              {/* eslint-disable-next-line @next/next/no-img-element -- fixed-height bento grid, plain img avoids next/image's fill-container ceremony for a collage this size */}
-              <img src={tile.src} alt={tile.alt} className="absolute inset-0 w-full h-full object-cover" />
+              <ZoomImage src={tile.src} alt={tile.alt} />
             </div>
           ))}
         </div>
