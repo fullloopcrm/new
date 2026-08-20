@@ -38,7 +38,7 @@ const trustFAQs = [
   { question: 'What if I\'m not satisfied with the cleaning?', answer: 'We offer a satisfaction guarantee. If you\'re not happy with any part of the cleaning, contact us within 24 hours and we\'ll send a team back to address the issue at no extra charge.' },
   { question: 'Do you bring your own supplies?', answer: 'It\'s your choice. At $59/hr you provide the supplies. At $69/hr we bring everything — professional-grade cleaning products and all equipment needed. $89/hr for same-day emergency service, we bring everything.' },
   { question: 'Are there any contracts or commitments?', answer: 'No contracts. Stay because you\'re happy, not because you\'re locked in. Cancel recurring service anytime with 7 days notice.' },
-  { question: 'What areas do you serve?', answer: 'We serve New Jersey, New Jersey, New Jersey, the New Jersey, New Jersey, Long Island (Great Neck, Manhasset, Port Washington, Garden City, Roslyn, and western Suffolk through Smithtown), New Jersey County (Yonkers, Bronxville, Scarsdale, White Plains, Larchmont, Rye, the Rivertowns, and beyond), and New Jersey (Hoboken, Jersey City, Weehawken, Edgewater, Fort Lee, plus close-in Bergen). Same rates everywhere.' },
+  { question: 'What areas do you serve?', answer: 'We serve Central Jersey — New Brunswick, Highland Park, Edison, East Brunswick, Piscataway, North Brunswick, and Somerset. Same rates everywhere.' },
   { question: 'How long does a cleaning take?', answer: 'Regular cleaning: 2–4 hours. Deep cleaning: 2–4 hours. Move-in/out: 4–8 hours. Post-renovation: 5–10 hours. Time depends on home size and condition. All time is billed in 30-minute increments.' },
 ]
 
@@ -46,7 +46,7 @@ const allFAQs = [...pricingFAQs, ...serviceFAQs, ...schedulingFAQs, ...trustFAQs
 
 const pageUrl = 'https://www.thenewjerseymaid.com/new-jersey-cleaning-service-frequently-asked-questions-in-2025'
 const pageTitle = 'New Jersey Cleaning Service FAQ — Pricing, Services & Scheduling | The New Jersey Maid'
-const pageDescription = 'Answers to 24 common questions about The New Jersey Maid — pricing ($59–$89/hr) plus 20% off weekly recurring, what\'s included, scheduling, insurance, service areas, and more. Serving New Jersey, New Jersey, New Jersey, the New Jersey, New Jersey, Long Island, New Jersey & NJ. (973) 370-8800'
+const pageDescription = 'Answers to 24 common questions about The New Jersey Maid — pricing ($59–$89/hr) plus 20% off weekly recurring, what\'s included, scheduling, insurance, service areas, and more. Serving New Jersey & NJ. (973) 370-8800'
 
 export const metadata: Metadata = {
   title: pageTitle,
@@ -203,7 +203,7 @@ export default function FAQPage() {
           </Link>
           <Link href="/service-areas-served-by-the-new-jersey-maid" className="group border border-gray-200 rounded-xl p-6 hover:border-[#A8F0DC] transition-all">
             <p className="font-semibold text-[#1E2A4A] group-hover:underline underline-offset-2 mb-1">Service Areas</p>
-            <p className="text-gray-500 text-sm">New Jersey, New Jersey, New Jersey, the New Jersey, New Jersey, Long Island, New Jersey &amp; NJ</p>
+            <p className="text-gray-500 text-sm">New Jersey &amp; NJ</p>
           </Link>
           <Link href="/reviews" className="group border border-gray-200 rounded-xl p-6 hover:border-[#A8F0DC] transition-all">
             <p className="font-semibold text-[#1E2A4A] group-hover:underline underline-offset-2 mb-1">Read Reviews</p>
@@ -212,7 +212,7 @@ export default function FAQPage() {
         </div>
       </div>
 
-      <CTABlock title="Ready to Book Your Cleaning?" subtitle="Text us — trusted by New Yorkers across New Jersey, New Jersey, New Jersey, the New Jersey, New Jersey, Long Island, New Jersey & New Jersey." />
+      <CTABlock title="Ready to Book Your Cleaning?" subtitle="Text us — trusted by New Yorkers across New Jersey." />
     </>
   )
 }

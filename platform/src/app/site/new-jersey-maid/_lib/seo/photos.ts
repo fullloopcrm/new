@@ -38,7 +38,7 @@ export const PHOTOS: SitePhoto[] = [
     "id": 6196575,
     "src": "/photos/nyc-maid-mopping-tiled-apartment-floor.jpg",
     "alt": "A maid from The New Jersey Maid mopping a tiled floor in a cozy New Jersey apartment",
-    "caption": "Tile floor cleaning in a New York apartment",
+    "caption": "Tile floor cleaning in an apartment",
     "pool": "lifestyle",
     "category": "mop",
     "width": 1880,
@@ -102,7 +102,7 @@ export const PHOTOS: SitePhoto[] = [
   {
     "id": 6195199,
     "src": "/photos/nyc-house-cleaning-wiping-table-gloves.jpg",
-    "alt": "Professional house cleaner wiping a table in a contemporary New York apartment",
+    "alt": "Professional house cleaner wiping a table in a contemporary apartment",
     "caption": "Surface wipe down in an New Jersey home",
     "pool": "lifestyle",
     "category": "dust",
@@ -219,7 +219,7 @@ export const PHOTOS: SitePhoto[] = [
   {
     "id": 6195122,
     "src": "/photos/nyc-cleaning-team-vacuuming-red-uniforms.jpg",
-    "alt": "A team of professional New Jersey Maid cleaners in red uniforms using a vacuum in a New York home",
+    "alt": "A team of professional New Jersey Maid cleaners in red uniforms using a vacuum",
     "caption": "New Jersey Maid team vacuuming",
     "pool": "team",
     "category": "vacuum",
@@ -258,7 +258,7 @@ export const PHOTOS: SitePhoto[] = [
   {
     "id": 6197108,
     "src": "/photos/nyc-cleaning-crew-mopping-dining-room.jpg",
-    "alt": "The New Jersey Maid cleaning crew in red uniforms mopping and wiping glass in a New York dining room",
+    "alt": "The New Jersey Maid cleaning crew in red uniforms mopping and wiping glass in a dining room",
     "caption": "Dining room detail, New Jersey Maid",
     "pool": "team",
     "category": "team",

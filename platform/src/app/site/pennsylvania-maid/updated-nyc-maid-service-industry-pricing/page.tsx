@@ -8,7 +8,7 @@ import CTABlock from '@/app/site/pennsylvania-maid/_components/CTABlock'
 
 const url = 'https://www.thepennsylvaniamaid.com/updated-pennsylvania-maid-service-industry-pricing'
 const title = 'Pennsylvania Maid Service Pricing From $59/hr | Transparent Rates | The Pennsylvania Maid'
-const description = 'Transparent hourly cleaning rates across Pennsylvania, Pennsylvania, Pennsylvania, the Pennsylvania, Pennsylvania, Long Island, Pennsylvania & NJ. $59/hr your supplies (10% off weekly, 5% biweekly/monthly), $69/hr we bring everything (20% off weekly, 10% biweekly/monthly), $89/hr same-day. No hidden fees. 5.0★ Rated. (215) 398-4500'
+const description = 'Transparent hourly cleaning rates across Pennsylvania & NJ. $59/hr your supplies (10% off weekly, 5% biweekly/monthly), $69/hr we bring everything (20% off weekly, 10% biweekly/monthly), $89/hr same-day. No hidden fees. 5.0★ Rated. (215) 398-4500'
 
 export const metadata: Metadata = {
   title: { absolute: title },
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   alternates: { canonical: url },
   openGraph: { title, description, url, type: 'website', siteName: 'The Pennsylvania Maid', locale: 'en_US' },
   twitter: { card: 'summary_large_image', title, description },
-  other: { 'geo.region': 'US-PA', 'geo.placename': 'Pennsylvania', 'geo.position': '39.9526;-75.1652', 'ICBM': '40.7589, -73.9851' },
+  other: { 'geo.region': 'US-PA', 'geo.placename': 'Pennsylvania', 'geo.position': '39.9526;-75.1652', 'ICBM': '39.9526, -75.1652' },
 }
 
 const pricingFaqs = [

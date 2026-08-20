@@ -158,7 +158,7 @@ export default async function NeighborhoodJobPage({ params }: { params: Promise<
           <div className="flex items-center gap-3 mb-4">
             <p className="text-[#A8F0DC] text-xs font-semibold tracking-[0.2em] uppercase">Open 24/7</p>
             <span className="text-white/30">·</span>
-            <p className="text-white/60 text-xs">New Jersey, Long Island &amp; NJ</p>
+            <p className="text-white/60 text-xs">New Jersey &amp; NJ</p>
           </div>
           <h1 className="font-[family-name:var(--font-bebas)] text-3xl md:text-5xl lg:text-6xl text-white tracking-wide leading-[0.95] mb-6">
             Cleaning Jobs in {n.name} — Starting $30/hr + Bonuses

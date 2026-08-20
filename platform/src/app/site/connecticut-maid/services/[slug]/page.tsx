@@ -65,8 +65,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     other: {
       'geo.region': 'US-NY',
       'geo.placename': 'Connecticut',
-      'geo.position': '40.7589;-73.9851',
-      'ICBM': '40.7589, -73.9851',
+      'geo.position': '41.6032;-73.0877',
+      'ICBM': '41.6032, -73.0877',
     },
   }
 }

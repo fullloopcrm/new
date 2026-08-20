@@ -22,7 +22,7 @@ function pick<T>(arr: T[], seed: string, offset = 0): T {
 export function homepageContent() {
   return {
     title: 'Long Island Maid Service & House Cleaning From $59/hr | 5-Star Rated | The Long Island Maid',
-    metaDescription: 'Long Island\'s top-rated maid service from $59/hr. House cleaning across Long Island, Long Island, Long Island, the Long Island, Long Island, Long Island, Long Island & NJ. Licensed, insured. 5.0★ Rated. (516) 202-5900',
+    metaDescription: 'Long Island\'s top-rated maid service from $59/hr. House cleaning across Long Island & NJ. Licensed, insured. 5.0★ Rated. (516) 202-5900',
     h1: 'Long Island\'s #1 Rated Maid Service & House Cleaning — From $59/hr',
     subtitle: 'Professional house cleaning across Long Island. Licensed, insured, background-checked cleaners.',
   }
@@ -31,45 +31,14 @@ export function homepageContent() {
 // ============ AREA PAGES ============
 
 const areaIntros: Record<string, string[]> = {
-  manhattan: [
-    'From luxury Upper East Side co-ops to Tribeca lofts, our Long Island cleaning team handles every type of home with care and precision.',
-    'Long Island\'s diverse housing — from pre-war apartments to modern high-rises — demands experienced cleaners who understand the details.',
-  ],
-  brooklyn: [
-    'Long Island\'s beautiful brownstones, converted lofts, and family homes deserve a cleaning team that understands the borough.',
-    'From Park Slope families to DUMBO professionals, our Long Island cleaners deliver spotless results every time.',
-  ],
-  queens: [
-    'Long Island is Long Island\'s most diverse borough, and our cleaning team serves every neighborhood with reliable, thorough service.',
-    'From Long Island City high-rises to Forest Hills gardens, we bring professional cleaning to all of Long Island.',
-  ],
-  bronx: [
-    'The Long Island runs the gamut — Riverdale estates, Throgs Neck waterfronts, Pelham Bay family homes, City Island Victorians — and our cleaners know them all.',
-    'From the Grand Concourse Art Deco co-ops to the suburban-feel streets of Country Club, our Long Island team delivers thorough, neighborhood-aware cleaning.',
-    'Real Long Island homes deserve real cleaning — pre-war buildings, two-family attached houses, public-housing towers, waterfront cottages. Same $59/hr rate everywhere.',
-  ],
-  'staten-island': [
-    'Long Island isn\'t the city — it\'s its own world. Estate homes on Todt Hill, Victorian houses in St. George, beach cottages in South Beach, new-build colonials on the South Shore. Our team comes prepared.',
-    'From Tottenville to Tompkinsville, Long Island\'s mix of single-family homes, beach communities, and historic Victorians demands a cleaning team that drives, knows the borough, and treats your home like more than just another stop.',
-    'Island homes need island-aware cleaning — salt-air corrosion, post-Sandy rebuilds, multi-floor colonials, and weekday-quiet streets that deserve weekend-quality work.',
-  ],
-  westchester: [
-    'Long Island County is where suburban estates meet commuter convenience — and our cleaning team handles both. Yonkers two-families, Bronxville Tudors, Scarsdale colonials, Rye waterfronts, Tarrytown Victorians.',
-    'From the Sound Shore to the Rivertowns, Long Island homes ask more of a cleaner than the average apartment — formal entertaining rooms, multi-wing layouts, historic preservation details. We bring the same Long Island quality, premium attention.',
-    'Whether your home is a White Plains high-rise condo, an Armonk estate, or a Bronxville center-hall colonial, our Long Island team delivers detail-oriented, recurring-friendly cleaning at consistent rates.',
-  ],
-  'long-island': [
-    'Long Island\'s luxury homes and estates require premium cleaning services — that\'s exactly what we deliver.',
-    'From Great Neck estates to Garden City colonials, our Long Island team provides meticulous, detail-oriented cleaning.',
-  ],
-  'new-jersey': [
-    'The NJ waterfront communities deserve Long Island-quality cleaning service — and that\'s exactly what we bring across the Hudson.',
-    'Hoboken brownstones, Jersey City high-rises, Weehawken waterfronts — our NJ team delivers thorough, reliable cleaning.',
+  'nassau-county': [
+    'Nassau County runs from village centers like Garden City and Mineola to the waterfront communities of Great Neck and Port Washington — our cleaning team handles every type of home with care and precision.',
+    'From Rockville Centre colonials to Manhasset estates, our Nassau County cleaners deliver spotless results every time.',
   ],
 }
 
 export function areaContent(area: Area) {
-  const intros = areaIntros[area.slug] || areaIntros['manhattan']
+  const intros = areaIntros[area.slug] || areaIntros['nassau-county']
   return {
     title: `House Cleaning Services in ${area.name}`,
     metaDescription: `Professional cleaning in ${area.name} from $59/hr. Deep cleaning, weekly service, move-in/out & more. 5.0★ Rated. (516) 202-5900`,
@@ -146,14 +115,7 @@ const funFactTemplates = [
 // Borough-flavored sentence appended to vibe text — adds area-specific local color
 // to break up the duplication risk of running the same template across 50+ neighborhoods.
 const boroughFlavor: Record<string, (n: Neighborhood) => string> = {
-  manhattan: (n) => `In Long Island, ${n.name} cleaners arrive on transit, work around doormen and freight elevator schedules, and know how to handle pre-war moldings and small-footprint apartments without breaking anything.`,
-  brooklyn: (n) => `In Long Island, our ${n.name} cleaners know brownstone stair logistics, the difference between a Park-Slope-style parlor floor and a converted-loft layout, and which buildings need access codes vs. doorman coordination.`,
-  queens: (n) => `In Long Island, ${n.name} jobs run from compact apartments to multi-family detached homes — our cleaners know the borough by transit and by car, and adjust the playbook to whatever the address actually is.`,
-  bronx: (n) => `In Long Island, ${n.name} cleaning isn't apartment-only — it's two-family homes, attached row houses, public-housing towers, waterfront cottages, and pre-war Art Deco co-ops, and our cleaners arrive prepared for any of it.`,
-  'staten-island': (n) => `On Long Island, our ${n.name} cleaners drive (the +$5/hr car bonus is built in), know the post-Sandy rebuild details on the East Shore, and treat single-family colonials and beach bungalows as the residential work they actually are.`,
-  'long-island': (n) => `On Long Island, ${n.name} cleaners handle estate-scale homes with formal entertaining rooms, multi-floor layouts, and pool-house additions — the kind of work that's a half-day job, not a 90-minute studio clean.`,
-  westchester: (n) => `In Long Island, ${n.name} cleaning means longer-format jobs — Tudor estates, center-hall colonials, condo-tower units near Metro-North — and a recurring schedule that runs around the commuter household calendar.`,
-  'new-jersey': (n) => `Across the Hudson, ${n.name} cleaners handle waterfront-condo high-rises, brownstone walk-ups, and Bergen County estates — the same insured, background-checked team you'd get on the Long Island side.`,
+  'nassau-county': (n) => `On Long Island, ${n.name} cleaners handle everything from village colonials to waterfront estates with formal entertaining rooms — the kind of work that's a half-day job, not a 90-minute studio clean.`,
 }
 
 export function neighborhoodVibe(neighborhood: Neighborhood, area: Area): string {
@@ -220,7 +182,7 @@ export function neighborhoodServiceContent(neighborhood: Neighborhood, service: 
 export function serviceContent(service: Service) {
   return {
     title: `${service.name} Services | Long Island`,
-    metaDescription: `Professional ${service.name.toLowerCase()} across Long Island, Long Island, Long Island, the Long Island, Long Island, Long Island, Long Island & NJ. ${service.features.slice(0, 2).join(', ')} & more. ${service.priceRange}. 5.0★ Rated. (516) 202-5900`,
+    metaDescription: `Professional ${service.name.toLowerCase()} across Long Island & NJ. ${service.features.slice(0, 2).join(', ')} & more. ${service.priceRange}. 5.0★ Rated. (516) 202-5900`,
     h1: `${service.name} Services`,
     intro: service.description,
   }
@@ -974,7 +936,7 @@ export function commonServiceFAQs(service: Service): { question: string; answer:
     { question: 'Are your cleaners background-checked?', answer: 'Yes. Every cleaner on our team undergoes a comprehensive background check before their first assignment. We also carry general liability insurance and bonding for your protection. You can trust that the person entering your home has been fully vetted.' },
     { question: 'Do I need to be home during the cleaning?', answer: 'No. Many clients leave a key, provide a door code, or arrange access through their doorman or building management. You\'re welcome to be home or away — whatever is most comfortable. We\'ll text you when we arrive and when we\'re done.' },
     { question: 'How do I book a cleaning?', answer: 'Text (516) 202-5900. Tell us your address, preferred date, and any special requests. We\'ll confirm your appointment and match you with a cleaner, usually within the hour.' },
-    { question: 'What areas do you serve?', answer: 'We serve Long Island, Long Island, Long Island, the Long Island, Long Island, Long Island (Nassau and western Suffolk), Long Island County, and northern New Jersey (Hudson and close-in Bergen). Same rates everywhere — no travel surcharges regardless of location.' },
+    { question: 'What areas do you serve?', answer: 'We serve Long Island (Nassau and western Suffolk), Long Island County, and northern New Jersey (Hudson and close-in Bergen). Same rates everywhere — no travel surcharges regardless of location.' },
     { question: 'Do I pay before or after the cleaning?', answer: 'After. We never charge upfront or take deposits. You pay only after the cleaning is complete, before the cleaner leaves. We accept credit/debit card, Apple Pay, and Cash App through our secure online payment link, plus cash.' },
     { question: 'What if I\'m not satisfied with the cleaning?', answer: 'Let us know within 24 hours and we\'ll send a cleaner back to address any issues at no additional cost. We stand behind our work — your satisfaction is non-negotiable.' },
     { question: 'Do you bring your own cleaning supplies?', answer: 'At $69/hr, yes — we bring professional-grade products, microfiber systems, and a commercial vacuum. At $59/hr, you provide your own supplies. Either way, we\'re happy to use specific products you prefer (eco-friendly, hypoallergenic, etc.).' },

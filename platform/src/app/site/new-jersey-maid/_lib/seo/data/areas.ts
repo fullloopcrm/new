@@ -8,7 +8,6 @@ export interface Area {
   lng: number
 }
 
-// NYC-borough area data was removed 2026-08-19 — this tenant is an independent
-// business with its own service area, not an extension of NYC Maid's coverage.
-// Real area/neighborhood data for this tenant has not been built yet.
-export const AREAS: Area[] = []
+export const AREAS: Area[] = [
+  { slug: 'central-jersey', urlSlug: 'central-jersey-maid-service', name: 'Central Jersey', state: 'NJ', description: 'Professional house cleaning across central New Jersey — New Brunswick, Highland Park, Edison, East Brunswick, Piscataway, North Brunswick, and Somerset.', lat: 40.4862, lng: -74.4518 },
+]

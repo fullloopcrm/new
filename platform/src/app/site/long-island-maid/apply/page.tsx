@@ -321,9 +321,9 @@ export default function ApplyPage() {
               />
               <div>
                 <span className="text-sm font-medium text-[#1E2A4A]">Do you have a car? / ¿Tiene auto?</span>
-                <p className="text-xs text-gray-500">Required for Long Island, Long Island, Long Island, and some outer borough areas</p>
-                <p className="text-xs text-gray-500">Requerido para Long Island, Long Island, Long Island, y algunas áreas exteriores</p>
-                <p className="text-xs text-green-600 font-medium mt-1">+$5/hr bonus for car-required locations (Long Island, Long Island, Long Island, NJ) / +$5/hr bonificación para ubicaciones que requieren auto</p>
+                <p className="text-xs text-gray-500">Required for Long Island, and some outer borough areas</p>
+                <p className="text-xs text-gray-500">Requerido para Long Island, y algunas áreas exteriores</p>
+                <p className="text-xs text-green-600 font-medium mt-1">+$5/hr bonus for car-required locations (Long Island, NJ) / +$5/hr bonificación para ubicaciones que requieren auto</p>
               </div>
             </label>
           </div>

@@ -8,7 +8,7 @@ import CTABlock from '@/app/site/new-jersey-maid/_components/CTABlock'
 
 const url = 'https://www.thenewjerseymaid.com/updated-new-jersey-maid-service-industry-pricing'
 const title = 'New Jersey Maid Service Pricing From $59/hr | Transparent Rates | The New Jersey Maid'
-const description = 'Transparent hourly cleaning rates across New Jersey, New Jersey, New Jersey, the New Jersey, New Jersey, Long Island, New Jersey & NJ. $59/hr your supplies (10% off weekly, 5% biweekly/monthly), $69/hr we bring everything (20% off weekly, 10% biweekly/monthly), $89/hr same-day. No hidden fees. 5.0★ Rated. (973) 370-8800'
+const description = 'Transparent hourly cleaning rates across New Jersey & NJ. $59/hr your supplies (10% off weekly, 5% biweekly/monthly), $69/hr we bring everything (20% off weekly, 10% biweekly/monthly), $89/hr same-day. No hidden fees. 5.0★ Rated. (973) 370-8800'
 
 export const metadata: Metadata = {
   title: { absolute: title },
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   alternates: { canonical: url },
   openGraph: { title, description, url, type: 'website', siteName: 'The New Jersey Maid', locale: 'en_US' },
   twitter: { card: 'summary_large_image', title, description },
-  other: { 'geo.region': 'US-NJ', 'geo.placename': 'New Jersey', 'geo.position': '40.0583;-74.4057', 'ICBM': '40.7589, -73.9851' },
+  other: { 'geo.region': 'US-NJ', 'geo.placename': 'New Jersey', 'geo.position': '40.0583;-74.4057', 'ICBM': '40.0583, -74.4057' },
 }
 
 const pricingFaqs = [

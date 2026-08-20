@@ -178,7 +178,7 @@ const faqData = [
   { q: 'Do you handle apartment emergencies or just houses?', a: 'We primarily serve Connecticut apartments — that\'s our specialty. We\'re experienced with the unique challenges of apartment emergencies: limited access, shared building systems, landlord coordination, building management communication, and the tight spaces common in Connecticut apartments.' },
   { q: 'What about my landlord\'s responsibility?', a: 'In Connecticut, landlords are responsible for maintaining habitable conditions. Water damage from building systems (not your negligence), mold from building ventilation issues, and sewage from building plumbing are landlord responsibilities. Document everything, notify them in writing, and know your rights under Connecticut Housing Maintenance Code.' },
   { q: 'Are you available on weekends and holidays?', a: 'Yes. Emergencies don\'t wait for business hours. We have team members available 7 days a week including holidays. Weekend and holiday rates may apply for non-urgent situations, but true emergencies are always prioritized regardless of when they happen.' },
-  { q: 'What areas do you cover for emergency service?', a: 'We cover all five Connecticut boroughs: Connecticut, Connecticut, Connecticut, the Connecticut, and Connecticut, plus Long Island (Nassau and western Suffolk), Connecticut County, and northern New Jersey for emergency situations. Response times are fastest in Connecticut and Connecticut.' },
+  { q: 'What areas do you cover for emergency service?', a: 'We cover all five Connecticut boroughs: Connecticut, plus Long Island (Nassau and western Suffolk), Connecticut County, and northern New Jersey for emergency situations. Response times are fastest in Connecticut and Connecticut.' },
 ]
 
 export const metadata: Metadata = {
@@ -215,7 +215,7 @@ export default function EmergencyCleaningPage() {
       telephone: '+12034915600',
       address: { '@type': 'PostalAddress', addressLocality: 'New York', addressRegion: 'NY', addressCountry: 'US' },
     },
-    areaServed: { '@type': 'City', name: 'New York' },
+    areaServed: { '@type': 'AdministrativeArea', name: 'Connecticut' },
     serviceType: 'Emergency Cleaning',
     offers: {
       '@type': 'Offer',
@@ -270,7 +270,7 @@ export default function EmergencyCleaningPage() {
         <div className="max-w-5xl mx-auto px-4 text-center">
           <p className="text-xs font-semibold text-red-400 tracking-[0.25em] uppercase mb-4">24/7 Emergency Response</p>
           <h1 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl lg:text-7xl text-white tracking-wide leading-[0.95] mb-6">Emergency Cleaning Service in Connecticut</h1>
-          <p className="text-white/60 text-lg max-w-3xl mx-auto mb-8">Flooding, fire damage, sewage, biohazard, mold — when disaster hits your apartment, you need professionals who respond fast and know what they&apos;re doing. We&apos;ve handled hundreds of emergency cleanups across Connecticut, Connecticut, Connecticut, the Connecticut, Connecticut, Long Island, Connecticut &amp; New Jersey.</p>
+          <p className="text-white/60 text-lg max-w-3xl mx-auto mb-8">Flooding, fire damage, sewage, biohazard, mold — when disaster hits your apartment, you need professionals who respond fast and know what they&apos;re doing. We&apos;ve handled hundreds of emergency cleanups across Connecticut &amp; New Jersey.</p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <a href="/book/new" className="bg-red-600 text-white px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-red-700 transition-colors">
               Self-book, save $10
@@ -368,7 +368,7 @@ export default function EmergencyCleaningPage() {
         {/* Emergency CTA */}
         <div className="bg-red-600 rounded-xl p-8 md:p-10 mb-20 text-center">
           <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-white tracking-wide mb-2">Dealing With an Emergency Right Now?</h2>
-          <p className="text-red-100 mb-6">Don&apos;t wait. Our team is available 24/7 for emergency response across Connecticut, Connecticut, Connecticut, the Connecticut, Connecticut, Long Island, Connecticut &amp; New Jersey.</p>
+          <p className="text-red-100 mb-6">Don&apos;t wait. Our team is available 24/7 for emergency response across Connecticut &amp; New Jersey.</p>
           <a href="/book/new" className="inline-block bg-white text-red-600 px-10 py-4 rounded-lg font-bold text-lg hover:bg-red-50 transition-colors">
             Self-book, save $10
           </a>
@@ -462,7 +462,7 @@ export default function EmergencyCleaningPage() {
         {/* Coverage */}
         <section className="mb-16">
           <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-6">Emergency Service Coverage</h2>
-          <p className="text-gray-600 mb-8">We cover Connecticut, Connecticut, Connecticut, the Connecticut, Connecticut, Long Island, Connecticut &amp; New Jersey for emergency cleaning. Response times are fastest in Connecticut and Connecticut.</p>
+          <p className="text-gray-600 mb-8">We cover Connecticut &amp; New Jersey for emergency cleaning. Response times are fastest in Connecticut and Connecticut.</p>
           {AREAS.map(area => {
             const neighborhoods = getNeighborhoodsByArea(area.slug)
             return (

@@ -9,11 +9,11 @@ import ReviewsList from './ReviewsList'
 
 export const metadata: Metadata = {
   title: 'Pennsylvania Maid Service Reviews | 5-Star Verified Client Reviews',
-  description: 'See why New Yorkers trust our background-checked, insured cleaners for apartments across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester & NJ. From $59/hr, no contracts. (215) 398-4500',
+  description: 'See why Pennsylvania residents trust our background-checked, insured cleaners. From $59/hr, no contracts.',
   alternates: { canonical: 'https://www.thepennsylvaniamaid.com/reviews' },
   openGraph: {
     title: 'Pennsylvania Maid Service Reviews | 5-Star Verified Client Reviews',
-    description: 'See reviews from across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester & NJ.',
+    description: 'See reviews from across Pennsylvania.',
     url: 'https://www.thepennsylvaniamaid.com/reviews',
   },
 }
@@ -54,7 +54,7 @@ export default async function ReviewsPage() {
             Real Reviews From Real Clients
           </h1>
           <p className="text-blue-200/80 text-lg max-w-2xl leading-relaxed">
-            Don&rsquo;t take our word for it &mdash; hear directly from the families, professionals, and New Yorkers who trust us to clean their homes every week. These are verified reviews from real <Link href="/services/apartment-cleaning-service-in-nyc" className="text-white underline underline-offset-2">apartment cleaning</Link>, <Link href="/services/deep-cleaning-service-in-nyc" className="text-white underline underline-offset-2">deep cleaning</Link>, and <Link href="/services/weekly-maid-service-in-nyc" className="text-white underline underline-offset-2">weekly maid service</Link> clients across <Link href="/manhattan-maid-service" className="text-white underline underline-offset-2">Manhattan</Link>, <Link href="/brooklyn-maid-service" className="text-white underline underline-offset-2">Brooklyn</Link>, <Link href="/queens-maid-service" className="text-white underline underline-offset-2">Queens</Link>, the <Link href="/bronx-maid-service" className="text-white underline underline-offset-2">Bronx</Link>, <Link href="/staten-island-maid-service" className="text-white underline underline-offset-2">Staten Island</Link>, <Link href="/long-island-maid-service" className="text-white underline underline-offset-2">Long Island</Link>, <Link href="/westchester-maid-service" className="text-white underline underline-offset-2">Westchester</Link> &amp; <Link href="/new-jersey-maid-service" className="text-white underline underline-offset-2">New Jersey</Link>. No fake reviews, no cherry-picking &mdash; just honest feedback from people who chose us and keep coming back.
+            Don&rsquo;t take our word for it &mdash; hear directly from the families and professionals across Pennsylvania who trust us to clean their homes every week. These are verified reviews from real <Link href="/services/apartment-cleaning-service-in-nyc" className="text-white underline underline-offset-2">apartment cleaning</Link>, <Link href="/services/deep-cleaning-service-in-nyc" className="text-white underline underline-offset-2">deep cleaning</Link>, and <Link href="/services/weekly-maid-service-in-nyc" className="text-white underline underline-offset-2">weekly maid service</Link> clients. No fake reviews, no cherry-picking &mdash; just honest feedback from people who chose us and keep coming back.
           </p>
         </div>
       </section>

@@ -1,4 +1,5 @@
 import { AREAS, type Area } from './data/areas'
+import { CENTRAL_JERSEY_NEIGHBORHOODS } from './data/central-jersey'
 
 export interface Neighborhood {
   slug: string
@@ -17,7 +18,9 @@ export interface Neighborhood {
 // NYC-borough neighborhood data was removed 2026-08-19 — this tenant is an
 // independent business, not an extension of NYC Maid's coverage. Real
 // neighborhood data for this tenant has not been built yet.
-export const ALL_NEIGHBORHOODS: Neighborhood[] = []
+export const ALL_NEIGHBORHOODS: Neighborhood[] = [
+  ...CENTRAL_JERSEY_NEIGHBORHOODS,
+]
 
 export function getArea(slug: string): Area | undefined {
   return AREAS.find(a => a.slug === slug)

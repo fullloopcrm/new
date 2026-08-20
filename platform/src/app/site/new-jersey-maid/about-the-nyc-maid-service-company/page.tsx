@@ -18,15 +18,15 @@ export const metadata: Metadata = {
   alternates: { canonical: url },
   openGraph: { title, description, url, type: 'website', siteName: 'The New Jersey Maid', locale: 'en_US' },
   twitter: { card: 'summary_large_image', title, description },
-  other: { 'geo.region': 'US-NJ', 'geo.placename': 'New Jersey', 'geo.position': '40.0583;-74.4057', 'ICBM': '40.7589, -73.9851' },
+  other: { 'geo.region': 'US-NJ', 'geo.placename': 'New Jersey', 'geo.position': '40.0583;-74.4057', 'ICBM': '40.0583, -74.4057' },
 }
 
 const aboutFaqs = [
-  { question: 'How long has The New Jersey Maid been in business?', answer: 'Since 2018. We started serving New Jersey and have expanded to New Jersey, New Jersey, the New Jersey, New Jersey, Long Island, New Jersey, and New Jersey. We\'ve completed thousands of cleanings and maintain a 5.0-star rating with 50+ verified reviews.' },
+  { question: 'How long has The New Jersey Maid been in business?', answer: 'Since 2018. We started serving New Jersey and have expanded to New Jersey. We\'ve completed thousands of cleanings and maintain a 5.0-star rating with 50+ verified reviews.' },
   { question: 'Are your cleaners employees or contractors?', answer: 'Our cleaners are independent professionals who work exclusively with us. Every cleaner is background-checked, trained on our quality standards, and covered by our general liability insurance while working in your home.' },
   { question: 'How do you keep prices so affordable?', answer: 'We keep overhead low — no storefront, no middle-management layer, no expensive marketing budgets. We pass those savings to you. Our cleaners earn competitive pay while you get rates well below the New Jersey average.' },
   { question: 'What makes you different from other cleaning companies?', answer: 'Three things: consistency (same cleaner every visit for recurring clients), affordability ($59/hr is among the lowest rates in New Jersey for licensed, insured service), and reliability (we show up on time, every time, and we don\'t cancel).' },
-  { question: 'How many neighborhoods do you serve?', answer: `We serve ${ALL_NEIGHBORHOODS.length}+ neighborhoods across New Jersey, New Jersey, New Jersey, the New Jersey, New Jersey, Long Island, New Jersey, and New Jersey. Same rates everywhere — no travel surcharges.` },
+  { question: 'How many neighborhoods do you serve?', answer: `We serve ${ALL_NEIGHBORHOODS.length}+ neighborhoods across New Jersey. Same rates everywhere — no travel surcharges.` },
   { question: 'Do you serve commercial spaces too?', answer: 'Yes. We clean offices, co-working spaces, medical offices, and retail spaces. Same hourly rates, same quality. Many of our residential clients also use us for their workspaces.' },
   { question: 'How do I know I can trust your cleaners?', answer: 'Every cleaner undergoes a comprehensive background check. We carry general liability insurance and bonding. We\'ve been in business since 2018 with a perfect 5.0-star rating with 50+ verified reviews and zero complaints filed with the BBB.' },
   { question: 'What languages do your cleaners speak?', answer: 'Our team is bilingual — English and Spanish. We can accommodate communication preferences for both languages.' },
@@ -56,7 +56,7 @@ export default function AboutPage() {
             Affordable. Reliable. Friendly.
           </h1>
           <p className="text-blue-200/60 text-lg max-w-2xl mx-auto leading-relaxed">
-            The New Jersey Maid has been keeping New York homes clean since 2018. No gimmicks, no corporate nonsense — just honest, dependable cleaning from people who care.
+            The New Jersey Maid has been keeping New Jersey homes clean since 2018. No gimmicks, no corporate nonsense — just honest, dependable cleaning from people who care.
           </p>
         </div>
       </section>
@@ -74,16 +74,16 @@ export default function AboutPage() {
               <p className="font-[family-name:var(--font-bebas)] text-4xl text-[#1E2A4A] tracking-wide leading-tight mb-6">Built on a Simple Idea: Show Up, Do Great Work, Charge Fair Prices</p>
               <div className="space-y-5 text-gray-600 leading-relaxed">
                 <p>
-                  We started The New Jersey Maid in 2018 because we were frustrated with the cleaning industry in New York. Prices were inflated, quality was inconsistent, and companies treated cleaners and clients like numbers. We knew there had to be a better way.
+                  We started The New Jersey Maid in 2018 because we were frustrated with the cleaning industry. Prices were inflated, quality was inconsistent, and companies treated cleaners and clients like numbers. We knew there had to be a better way.
                 </p>
                 <p>
                   Our approach was simple from day one: hire great people, pay them well, charge honest prices, and show up on time. No surge pricing when demand is high. No bait-and-switch quotes. No cancelling on clients because a higher-paying job came in. Just reliable, thorough cleaning from people who genuinely take pride in their work.
                 </p>
                 <p>
-                  That approach has earned us a perfect 5.0-star rating with 50+ verified client reviews, thousands of completed cleanings, and a client base that includes everyone from studios in Astoria to brownstones in Park Slope to offices in Midtown. Many of our clients have been with us for years — and they stay because we deliver the same quality every single visit.
+                  That approach has earned us a perfect 5.0-star rating with 50+ verified client reviews, thousands of completed cleanings, and a client base that includes homes across New Brunswick, Edison, and the surrounding towns. Many of our clients have been with us for years — and they stay because we deliver the same quality every single visit.
                 </p>
                 <p>
-                  Today we serve {ALL_NEIGHBORHOODS.length}+ neighborhoods across New Jersey, New Jersey, New Jersey, the New Jersey, New Jersey, Long Island, New Jersey, and New Jersey. Our team is bilingual (English and Spanish), background-checked, licensed, and insured. Our pricing is straightforward — $59/hr with your supplies (recurring: 10% off weekly, 5% off biweekly/monthly), $69/hr when we bring everything (recurring: 20% off weekly, 10% off biweekly/monthly), $89/hr for same-day emergency service.
+                  Today we serve {ALL_NEIGHBORHOODS.length}+ neighborhoods across New Jersey. Our team is bilingual (English and Spanish), background-checked, licensed, and insured. Our pricing is straightforward — $59/hr with your supplies (recurring: 10% off weekly, 5% off biweekly/monthly), $69/hr when we bring everything (recurring: 20% off weekly, 10% off biweekly/monthly), $89/hr for same-day emergency service.
                 </p>
               </div>
             </div>

@@ -8,7 +8,7 @@ import CTABlock from '@/app/site/long-island-maid/_components/CTABlock'
 
 const url = 'https://www.thelongislandmaid.com/updated-long-island-maid-service-industry-pricing'
 const title = 'Long Island Maid Service Pricing From $59/hr | Transparent Rates | The Long Island Maid'
-const description = 'Transparent hourly cleaning rates across Long Island, Long Island, Long Island, the Long Island, Long Island, Long Island, Long Island & NJ. $59/hr your supplies (10% off weekly, 5% biweekly/monthly), $69/hr we bring everything (20% off weekly, 10% biweekly/monthly), $89/hr same-day. No hidden fees. 5.0★ Rated. (516) 202-5900'
+const description = 'Transparent hourly cleaning rates across Long Island & NJ. $59/hr your supplies (10% off weekly, 5% biweekly/monthly), $69/hr we bring everything (20% off weekly, 10% biweekly/monthly), $89/hr same-day. No hidden fees. 5.0★ Rated. (516) 202-5900'
 
 export const metadata: Metadata = {
   title: { absolute: title },
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   alternates: { canonical: url },
   openGraph: { title, description, url, type: 'website', siteName: 'The Long Island Maid', locale: 'en_US' },
   twitter: { card: 'summary_large_image', title, description },
-  other: { 'geo.region': 'US-NY', 'geo.placename': 'Long Island', 'geo.position': '40.7370;-73.5594', 'ICBM': '40.7589, -73.9851' },
+  other: { 'geo.region': 'US-NY', 'geo.placename': 'Long Island', 'geo.position': '40.7370;-73.5594', 'ICBM': '40.7370, -73.5594' },
 }
 
 const pricingFaqs = [

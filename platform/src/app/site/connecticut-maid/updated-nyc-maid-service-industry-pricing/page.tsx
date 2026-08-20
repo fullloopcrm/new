@@ -8,7 +8,7 @@ import CTABlock from '@/app/site/connecticut-maid/_components/CTABlock'
 
 const url = 'https://www.theconnecticutmaid.com/updated-connecticut-maid-service-industry-pricing'
 const title = 'Connecticut Maid Service Pricing From $59/hr | Transparent Rates | The Connecticut Maid'
-const description = 'Transparent hourly cleaning rates across Connecticut, Connecticut, Connecticut, the Connecticut, Connecticut, Long Island, Connecticut & NJ. $59/hr your supplies (10% off weekly, 5% biweekly/monthly), $69/hr we bring everything (20% off weekly, 10% biweekly/monthly), $89/hr same-day. No hidden fees. 5.0★ Rated. (203) 491-5600'
+const description = 'Transparent hourly cleaning rates across Connecticut & NJ. $59/hr your supplies (10% off weekly, 5% biweekly/monthly), $69/hr we bring everything (20% off weekly, 10% biweekly/monthly), $89/hr same-day. No hidden fees. 5.0★ Rated. (203) 491-5600'
 
 export const metadata: Metadata = {
   title: { absolute: title },
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   alternates: { canonical: url },
   openGraph: { title, description, url, type: 'website', siteName: 'The Connecticut Maid', locale: 'en_US' },
   twitter: { card: 'summary_large_image', title, description },
-  other: { 'geo.region': 'US-CT', 'geo.placename': 'Connecticut', 'geo.position': '41.6032;-73.0877', 'ICBM': '40.7589, -73.9851' },
+  other: { 'geo.region': 'US-CT', 'geo.placename': 'Connecticut', 'geo.position': '41.6032;-73.0877', 'ICBM': '41.6032, -73.0877' },
 }
 
 const pricingFaqs = [

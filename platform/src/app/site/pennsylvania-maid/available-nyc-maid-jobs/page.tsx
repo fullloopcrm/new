@@ -24,7 +24,7 @@ const careerFAQs = [
   { question: 'What kind of cleaning jobs will I do?', questionEs: '¿Qué tipo de trabajos haré?', answer: 'Regular apartment cleanings, deep cleans, move-in/move-out cleanings, post-renovation cleanup, Airbnb turnovers, and office cleaning. You\'ll get a variety of work.', answerEs: 'Limpieza regular de apartamentos, limpieza profunda, mudanzas, post-renovación, Airbnb y oficinas.' },
   { question: 'How many hours can I work per week?', questionEs: '¿Cuántas horas puedo trabajar?', answer: 'That\'s up to you. Full-time cleaners take 18–20 jobs per week (average 2.5 hours each) and earn $1,350–$1,500+. Part-time cleaners pick up 5–10 jobs per week. You set your own availability.', answerEs: 'Depende de ti. Tiempo completo: 18–20 trabajos/semana = $1,350–$1,500+. Medio tiempo: 5–10 trabajos/semana.' },
   { question: 'Is the schedule flexible?', questionEs: '¿Es flexible el horario?', answer: 'Yes. You set your own availability. We match you with jobs that fit your schedule. No forced hours or mandatory shifts.', answerEs: 'Sí. Tú defines tu disponibilidad. Te conectamos con trabajos que se ajusten a tu horario.' },
-  { question: 'Do I need a car?', questionEs: '¿Necesito carro?', answer: 'For Manhattan, Brooklyn, Queens, and the Bronx, no — public transit works fine. For Staten Island, Long Island, Westchester, and New Jersey, a car is strongly preferred since jobs are spread across different neighborhoods.', answerEs: 'Para Manhattan, Brooklyn, Queens y el Bronx, no — el transporte público funciona bien. Para Staten Island, Long Island, Westchester y NJ, se prefiere carro.' },
+  { question: 'Do I need a car?', questionEs: '¿Necesito carro?', answer: 'For Center City and University City, no — public transit works fine. For Manayunk and Chestnut Hill, a car is strongly preferred.', answerEs: 'Para Center City y University City, no. Para Manayunk y Chestnut Hill, se prefiere carro.' },
   { question: 'Do I need to pass a background check?', questionEs: '¿Necesito verificación de antecedentes?', answer: 'Yes. All cleaners must pass a background check before being assigned to any client. This protects both you and our clients.', answerEs: 'Sí. Todos los limpiadores deben pasar una verificación de antecedentes.' },
   { question: 'How do I apply?', questionEs: '¿Cómo aplico?', answer: 'Apply online at thepennsylvaniamaid.com/apply or text (215) 398-4500. We review applications within 24–48 hours and get you working fast.', answerEs: 'Aplica en thepennsylvaniamaid.com/apply o envía un texto al (215) 398-4500. Revisamos en 24–48 horas.' },
 ]
@@ -55,8 +55,8 @@ export const metadata: Metadata = {
   other: {
     'geo.region': 'US-NY',
     'geo.placename': 'Philadelphia',
-    'geo.position': '40.7589;-73.9851',
-    'ICBM': '40.7589, -73.9851',
+    'geo.position': '39.9526;-75.1652',
+    'ICBM': '39.9526, -75.1652',
   },
 }
 

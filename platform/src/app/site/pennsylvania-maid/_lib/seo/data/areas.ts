@@ -8,7 +8,6 @@ export interface Area {
   lng: number
 }
 
-// NYC-borough area data was removed 2026-08-19 — this tenant is an independent
-// business with its own service area, not an extension of NYC Maid's coverage.
-// Real area/neighborhood data for this tenant has not been built yet.
-export const AREAS: Area[] = []
+export const AREAS: Area[] = [
+  { slug: 'philadelphia', urlSlug: 'philadelphia-maid-service', name: 'Philadelphia', state: 'PA', description: 'Professional house cleaning across Philadelphia — Center City, Old City, Fishtown, Manayunk, Chestnut Hill, University City, and South Philadelphia.', lat: 39.9526, lng: -75.1652 },
+]

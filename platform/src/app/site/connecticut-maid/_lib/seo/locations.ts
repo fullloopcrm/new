@@ -1,4 +1,5 @@
 import { AREAS, type Area } from './data/areas'
+import { FAIRFIELD_COUNTY_NEIGHBORHOODS } from './data/fairfield-county'
 
 export interface Neighborhood {
   slug: string
@@ -14,10 +15,9 @@ export interface Neighborhood {
   nearby: string[]
 }
 
-// NYC-borough neighborhood data was removed 2026-08-19 — this tenant is an
-// independent business, not an extension of NYC Maid's coverage. Real
-// neighborhood data for this tenant has not been built yet.
-export const ALL_NEIGHBORHOODS: Neighborhood[] = []
+export const ALL_NEIGHBORHOODS: Neighborhood[] = [
+  ...FAIRFIELD_COUNTY_NEIGHBORHOODS,
+]
 
 export function getArea(slug: string): Area | undefined {
   return AREAS.find(a => a.slug === slug)
