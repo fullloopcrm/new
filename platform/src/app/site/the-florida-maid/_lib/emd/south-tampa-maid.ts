@@ -6,7 +6,7 @@ export const southTampaMaidConfig: EmdMicrositeConfig = {
   city: 'South Tampa',
   regionLabel: 'South Tampa, Tampa, FL',
   metaTitle: 'South Tampa Maid — House Cleaning Service',
-  metaDescription: 'South Tampa Maid — house cleaning near Bayshore Boulevard & MacDill Air Force Base starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'South Tampa Maid — house cleaning near Bayshore Boulevard & MacDill Air Force Base starting at $49 per hour. Licensed, insured, background-checked. Call/text (813) 565-0215 — 24/7 booking.',
   geo: { lat: '27.9172', lng: '-82.4890' },
   introParagraphs: [
     'South Tampa Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning for South Tampa and the surrounding Tampa area, in Hillsborough County. If you live near Bayshore Boulevard or MacDill Air Force Base, you know what it takes to keep a home clean in this part of the Tampa Bay region — real Gulf Coast humidity, real wear, and a housing stock with real character. We built South Tampa Maid to answer exactly that: a local cleaning service that understands South Tampa living and shows up on time, every time.',
@@ -46,7 +46,7 @@ export const southTampaMaidConfig: EmdMicrositeConfig = {
     'One thing we never do: charge a mandatory travel fee. Your hourly rate is the same across all of South Tampa and greater Tampa.',
   ],
   firstVisitSteps: [
-    'Book by texting or calling (954) 710-3636, or use our online self-booking form for $20 off.',
+    'Book by texting or calling (813) 565-0215, or use our online self-booking form for $20 off.',
     'We confirm your appointment window by text, usually within 15 minutes.',
     'Your cleaner arrives within the scheduled window and gets to work using the checklist for your selected service tier.',
     'We do a final walkthrough before wrapping up. If anything doesn\'t meet your expectations, tell us within 24 hours and we\'ll send someone back at no extra charge.',
@@ -65,7 +65,7 @@ export const southTampaMaidConfig: EmdMicrositeConfig = {
   ],
   faqs: [
     { question: 'How much does house cleaning cost in South Tampa?', answer: 'South Tampa Maid pricing starts at $49/hour when you provide your own supplies, or $59/hour when we bring everything. Same-day service is $89/hour.' },
-    { question: 'How do I book a cleaning in South Tampa?', answer: 'Text or call (954) 710-3636, or use our online self-booking form for $20 off your first cleaning.' },
+    { question: 'How do I book a cleaning in South Tampa?', answer: 'Text or call (813) 565-0215, or use our online self-booking form for $20 off your first cleaning.' },
     { question: 'Do you offer move-in/move-out cleaning in South Tampa?', answer: 'Yes — perfect for a MacDill family\'s PCS move or a Bayshore condo closing.' },
     { question: 'What areas near South Tampa do you serve?', answer: 'South Tampa, Hyde Park, Palma Ceia, Sunset Park, Ballast Point, Davis Islands, and surrounding Tampa neighborhoods.' },
     { question: 'Is there a travel fee?', answer: 'No travel fees anywhere in South Tampa or greater Tampa.' },
@@ -92,7 +92,7 @@ export const southTampaMaidConfig: EmdMicrositeConfig = {
     { question: 'Can you clean if I have pets?', answer: 'Absolutely, just let us know so we can plan accordingly.' },
     { question: 'Can you clean a smaller home or apartment?', answer: 'Yes, our 2-hour minimum is usually perfect for a smaller unit.' },
     { question: 'Do you clean for parties or events?', answer: 'Yes, pre-event and post-event cleaning available.' },
-    { question: 'How do I contact South Tampa Maid?', answer: 'Text or call (954) 710-3636, or email hi@thefloridamaid.com.' },
+    { question: 'How do I contact South Tampa Maid?', answer: 'Text or call (813) 565-0215, or email hi@thefloridamaid.com.' },
     { question: 'Do your cleaners speak Spanish?', answer: 'Yes, many of our cleaners are bilingual.' },
     { question: 'Can I get a quote before booking?', answer: 'Yes, text us your home size and needs for a straightforward estimate.' },
     { question: 'Do you manage cleanings for landlords with multiple rentals?', answer: 'Yes, we regularly work with landlords managing several properties around South Tampa and Tampa.' },

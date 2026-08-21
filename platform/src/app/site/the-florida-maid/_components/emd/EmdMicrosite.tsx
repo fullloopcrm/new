@@ -15,6 +15,25 @@ const FEEDBACK_URL = 'https://www.thefloridamaid.com/feedback'
 const PHONE_DISPLAY = '(954) 710-3636'
 const PHONE_SMS = 'sms:9547103636'
 
+// Tampa-area EMD microsites show a local (813) number instead of the shared (954) default.
+const TAMPA_DOMAINS = new Set([
+  'beachparkmaid.com',
+  'carrollwoodmaid.com',
+  'channelsidemaid.com',
+  'davislandsmaid.com',
+  'hydeparkmaid.com',
+  'newtampamaid.com',
+  'palmaceiamaid.com',
+  'parklandestatesmaid.com',
+  'seminoleheightsmaid.com',
+  'southtampamaid.com',
+  'sunsetparkmaid.com',
+  'thetampamaid.com',
+  'westchasemaid.com',
+])
+const TAMPA_PHONE_DISPLAY = '(813) 565-0215'
+const TAMPA_PHONE_SMS = 'sms:8135650215'
+
 /** Every standalone mention of the brand name in body copy gets the parent-company tag appended, per brand spec — the hero H1/tagline are the one exception, styled separately below. */
 function tagBrand(text: string, brandName: string): string {
   const escaped = brandName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -23,6 +42,9 @@ function tagBrand(text: string, brandName: string): string {
 }
 
 export default function EmdMicrosite({ config }: { config: EmdMicrositeConfig }) {
+  const isTampa = TAMPA_DOMAINS.has(config.domain)
+  const phoneDisplay = isTampa ? TAMPA_PHONE_DISPLAY : PHONE_DISPLAY
+  const phoneSms = isTampa ? TAMPA_PHONE_SMS : PHONE_SMS
   const taggedIntro = config.introParagraphs.map(p => tagBrand(p, config.brandName))
   const taggedOurStory = config.ourStory.map(p => tagBrand(p, config.brandName))
   const taggedDifferentiation = config.differentiation.map(p => tagBrand(p, config.brandName))
@@ -84,8 +106,8 @@ export default function EmdMicrosite({ config }: { config: EmdMicrositeConfig })
             <a href={BOOK_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 bg-[#A8F0DC] text-[#CC6222] px-8 py-4 rounded-lg font-bold text-base tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
               Self Booking $20 Off
             </a>
-            <a href={PHONE_SMS} className="inline-flex items-center gap-2 bg-white/10 border border-white/30 text-white px-8 py-4 rounded-lg font-bold text-base tracking-widest uppercase hover:bg-white/20 transition-colors">
-              Text {PHONE_DISPLAY}
+            <a href={phoneSms} className="inline-flex items-center gap-2 bg-white/10 border border-white/30 text-white px-8 py-4 rounded-lg font-bold text-base tracking-widest uppercase hover:bg-white/20 transition-colors">
+              Text {phoneDisplay}
             </a>
             <a href={FEEDBACK_URL} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 bg-red-600 text-yellow-300 px-8 py-4 rounded-lg font-bold text-base tracking-widest uppercase hover:bg-red-700 transition-colors">
               Feedback | Suggestions?
@@ -425,8 +447,8 @@ export default function EmdMicrosite({ config }: { config: EmdMicrositeConfig })
             <a href={BOOK_URL} target="_blank" rel="noopener noreferrer" className="bg-[#1E2A4A] text-white px-8 py-3.5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-[#2a3a5e] transition-colors">
               Self Booking $20 Off
             </a>
-            <a href={PHONE_SMS} className="border-2 border-[#1E2A4A] text-[#1E2A4A] px-8 py-3.5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A] hover:text-white transition-colors">
-              Text {PHONE_DISPLAY}
+            <a href={phoneSms} className="border-2 border-[#1E2A4A] text-[#1E2A4A] px-8 py-3.5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A] hover:text-white transition-colors">
+              Text {phoneDisplay}
             </a>
           </div>
         </div>

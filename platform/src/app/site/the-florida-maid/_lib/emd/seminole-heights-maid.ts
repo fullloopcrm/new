@@ -6,7 +6,7 @@ export const seminoleHeightsMaidConfig: EmdMicrositeConfig = {
   city: 'Seminole Heights',
   regionLabel: 'Seminole Heights, Tampa, FL',
   metaTitle: 'Seminole Heights Maid — House Cleaning Service',
-  metaDescription: 'Seminole Heights Maid — house cleaning near Florida Avenue & the Hillsborough River starting at $49 per hour. Licensed, insured, background-checked. Call/text (954) 710-3636 — 24/7 booking.',
+  metaDescription: 'Seminole Heights Maid — house cleaning near Florida Avenue & the Hillsborough River starting at $49 per hour. Licensed, insured, background-checked. Call/text (813) 565-0215 — 24/7 booking.',
   geo: { lat: '27.9990', lng: '-82.4560' },
   introParagraphs: [
     'Seminole Heights Maid (A Florida Maid Services Company) is the trusted name in professional house cleaning for Seminole Heights and the surrounding Tampa area, in Hillsborough County. If you live near Florida Avenue or the Hillsborough River, you know what it takes to keep a home clean in this part of the Tampa Bay region — real Gulf Coast humidity, real wear, and a housing stock with real character. We built Seminole Heights Maid to answer exactly that: a local cleaning service that understands Seminole Heights living and shows up on time, every time.',
@@ -46,7 +46,7 @@ export const seminoleHeightsMaidConfig: EmdMicrositeConfig = {
     'One thing we never do: charge a mandatory travel fee. Your hourly rate is the same across all of Seminole Heights and greater Tampa.',
   ],
   firstVisitSteps: [
-    'Book by texting or calling (954) 710-3636, or use our online self-booking form for $20 off.',
+    'Book by texting or calling (813) 565-0215, or use our online self-booking form for $20 off.',
     'We confirm your appointment window by text, usually within 15 minutes.',
     'Your cleaner arrives within the scheduled window and gets to work using the checklist for your selected service tier.',
     'We do a final walkthrough before wrapping up. If anything doesn\'t meet your expectations, tell us within 24 hours and we\'ll send someone back at no extra charge.',
@@ -65,7 +65,7 @@ export const seminoleHeightsMaidConfig: EmdMicrositeConfig = {
   ],
   faqs: [
     { question: 'How much does house cleaning cost in Seminole Heights?', answer: 'Seminole Heights Maid pricing starts at $49/hour when you provide your own supplies, or $59/hour when we bring everything. Same-day service is $89/hour.' },
-    { question: 'How do I book a cleaning in Seminole Heights?', answer: 'Text or call (954) 710-3636, or use our online self-booking form for $20 off your first cleaning.' },
+    { question: 'How do I book a cleaning in Seminole Heights?', answer: 'Text or call (813) 565-0215, or use our online self-booking form for $20 off your first cleaning.' },
     { question: 'Do you offer move-in/move-out cleaning in Seminole Heights?', answer: 'Yes — perfect for a bungalow renovation wrap-up or a rental turnover near Florida Avenue.' },
     { question: 'What areas near Seminole Heights do you serve?', answer: 'Seminole Heights, Old Seminole Heights, Riverside Heights, Tampa Heights, Sulphur Springs, Wellswood, and surrounding Tampa neighborhoods.' },
     { question: 'Is there a travel fee?', answer: 'No travel fees anywhere in Seminole Heights or greater Tampa.' },
@@ -92,7 +92,7 @@ export const seminoleHeightsMaidConfig: EmdMicrositeConfig = {
     { question: 'Can you clean if I have pets?', answer: 'Absolutely, just let us know so we can plan accordingly.' },
     { question: 'Can you clean a smaller home or apartment?', answer: 'Yes, our 2-hour minimum is usually perfect for a smaller unit.' },
     { question: 'Do you clean for parties or events?', answer: 'Yes, pre-event and post-event cleaning available.' },
-    { question: 'How do I contact Seminole Heights Maid?', answer: 'Text or call (954) 710-3636, or email hi@thefloridamaid.com.' },
+    { question: 'How do I contact Seminole Heights Maid?', answer: 'Text or call (813) 565-0215, or email hi@thefloridamaid.com.' },
     { question: 'Do your cleaners speak Spanish?', answer: 'Yes, many of our cleaners are bilingual.' },
     { question: 'Can I get a quote before booking?', answer: 'Yes, text us your home size and needs for a straightforward estimate.' },
     { question: 'Do you manage cleanings for landlords with multiple rentals?', answer: 'Yes, we regularly work with landlords managing several properties around Seminole Heights and Tampa.' },
