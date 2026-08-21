@@ -1,6 +1,5 @@
 import { headers } from "next/headers";
 import { mainSitemapXml } from "@/lib/seo/main-sitemap";
-import { industries, metros, comboPath, locationPath } from "@/lib/marketing/combos";
 import { STATES as JUNK_STATES } from "@/app/site/we-pay-you-junk/_data/cities";
 import { SERVICES as JUNK_SERVICES } from "@/app/site/we-pay-you-junk/_data/services";
 import { CUSTOMER_TYPES as JUNK_CUSTOMER_TYPES } from "@/app/site/we-pay-you-junk/_data/customer-types";
@@ -39,29 +38,15 @@ function junkSitemapXml(): string {
   return `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls.join("")}</urlset>`;
 }
 
-// DEV REBUILD (2026-08-19): the 20,800 industry x city / location combo pages
-// that acd1f11d1 noindexed and dropped from the sitemap are back in — this
-// worktree exists to give a full page inventory to redesign against. Do not
-// carry this back into production without the noindex decision being
-// deliberately revisited (see fullloop_seo_manager_review).
-const BASE = "https://homeservicecrm.ai";
-function comboAndLocationUrls(): string {
-  const comboUrls = industries.flatMap((industry) =>
-    metros.map(
-      (metro) =>
-        `<url><loc>${BASE}${comboPath(industry, metro)}</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>`
-    )
-  );
-  const locationUrls = metros.map(
-    (m) => `<url><loc>${BASE}${locationPath(m)}</loc><changefreq>monthly</changefreq><priority>0.7</priority></url>`
-  );
-  return [...comboUrls, ...locationUrls].join("");
-}
-
 // 2026-08-18: kept live (not deleted) in case other code/tests/external
 // links expect /sitemap.xml to exist — but this is no longer the URL
 // submitted to GSC. See src/app/sitemap-current.xml/route.ts and
 // src/lib/seo/main-sitemap.ts.
+//
+// 2026-08-21: this used to append comboAndLocationUrls() a second time on
+// top of mainSitemapXml(), which already includes the combo + location
+// pages (see main-sitemap.ts) — doubled the true page count (21,112 ->
+// 42,068 as submitted to GSC). Removed the duplicate append.
 export async function GET() {
   const h = await headers();
   const host = (h.get("host") || "").split(":")[0].toLowerCase();
@@ -70,7 +55,5 @@ export async function GET() {
     return new Response(junkSitemapXml(), { headers: XML_HEADERS });
   }
 
-  const main = mainSitemapXml();
-  const withCombos = main.replace("</urlset>", `${comboAndLocationUrls()}</urlset>`);
-  return new Response(withCombos, { headers: XML_HEADERS });
+  return new Response(mainSitemapXml(), { headers: XML_HEADERS });
 }
