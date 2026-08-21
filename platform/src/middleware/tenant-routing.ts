@@ -217,7 +217,7 @@ export function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: st
   // rewritten under /site — they run at their own path with tenant headers
   // injected so getTenantFromHeaders() can resolve them.
   const APP_ROOT_PREFIXES = [
-    '/api/', '/portal', '/team', '/reviews/submit', '/unsubscribe',
+    '/api', '/portal', '/team', '/reviews/submit', '/unsubscribe',
     '/stripe-onboard', '/dashboard', '/admin', '/fullloop', '/reset-pin',
     // Public token-doc links (quote/invoice/sign/photos) — regression fix:
     // these were dropped from this list, which silently rewrote them under
@@ -225,7 +225,12 @@ export function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: st
     // link sent to real clients. See src/middleware.public-doc-links.test.ts.
     '/quote', '/invoice', '/sign', '/photos',
   ]
-  if (APP_ROOT_PREFIXES.some(p => pathname === p || pathname.startsWith(p + '/') || pathname.startsWith(p))) {
+  // Exact match or "prefix + /" only — a bare startsWith(p) previously matched
+  // any path that happens to share the prefix's characters with no separator
+  // (e.g. "/quote-request".startsWith('/quote')), silently routing tenant
+  // pages like the-nyc-exterminator's /quote-request to the app root instead
+  // of /site/the-nyc-exterminator/quote-request, which doesn't exist there — 404.
+  if (APP_ROOT_PREFIXES.some(p => pathname === p || pathname.startsWith(p + '/'))) {
     const requestHeaders = new Headers(req.headers)
     requestHeaders.delete('x-tenant-sig')
     requestHeaders.set('x-tenant-id', tenantId)

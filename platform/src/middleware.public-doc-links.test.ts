@@ -106,4 +106,34 @@ describe('public token-doc links on a tenant domain', () => {
 
     expect(rewriteTarget(res)).toContain('/site/template/services')
   })
+
+  // Regression: APP_ROOT_PREFIXES used to match with a bare pathname.startsWith(p),
+  // which matches any path sharing the prefix's characters with no separator
+  // (e.g. "/quote-request".startsWith('/quote')). That silently routed tenant
+  // pages like the-nyc-exterminator's real /quote-request page to the app root
+  // instead of /site/<slug>/quote-request — 404 in production because no such
+  // page exists at the root. Fixed to require an exact match or a '/' boundary.
+  it('a tenant page whose path shares a prefix\'s characters (e.g. /quote-request vs /quote) still routes under /site, not the app root', async () => {
+    bySlug = async (slug) => (slug === 'acme' ? acme : null)
+    const { default: middleware } = await import('./middleware')
+
+    const req = new NextRequest('https://acme.fullloopcrm.com/quote-request', {
+      headers: { host: 'acme.fullloopcrm.com' },
+    })
+    const res = await middleware(req)
+
+    expect(rewriteTarget(res)).toContain('/site/template/quote-request')
+  })
+
+  it('/api routes still pass through untouched now that the allowlist entry lost its trailing slash', async () => {
+    bySlug = async (slug) => (slug === 'acme' ? acme : null)
+    const { default: middleware } = await import('./middleware')
+
+    const req = new NextRequest('https://acme.fullloopcrm.com/api/dashboard', {
+      headers: { host: 'acme.fullloopcrm.com' },
+    })
+    const res = await middleware(req)
+
+    expect(rewriteTarget(res)).toBeNull()
+  })
 })
