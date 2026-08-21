@@ -44,15 +44,15 @@ export function tenantDocCategories(agentName: string): DocCategory[] {
         },
         {
           q: `How does check-in/check-out work?`,
-          a: `Your team checks in from their phone when they arrive (GPS-verified) and checks out when the job's done. That gives you confirmed start and end times for every visit, plus your team's hours for payroll.`,
+          a: `Your team checks in from their phone when they arrive and checks out when the job's done, giving you confirmed start and end times for every visit plus hours for payroll. On tenants with GPS enforcement turned on, check-in is blocked if their phone reports them too far from the job address (with a small buffer for normal GPS drift) — ask Full Loop Support if you're not sure whether that's on for your tenant.`,
         },
         {
           q: `What is the "Heads Up" (30-minute) button, and when should it be tapped?`,
           a: `Tap it when your team member is confirmed to be about 30 minutes from FINISHING the job — not on the way there. This is the core of getting paid: that single tap sends the client one text with their balance due, your payment link, and a quick "how'd we do, 1-5" rating ask, all at once. Tap it too early or late and the client gets asked to pay at the wrong moment, so timing it to the real 30-minutes-left mark matters.`,
         },
         {
-          q: `How are job hours rounded for payroll?`,
-          a: `To the nearest half hour, with a 10-minute grace period. A 3-hour job that runs 3:08 still bills as 3 hours; at 3:12 it rounds up to 3.5.`,
+          q: `How are job hours rounded for payroll — and is it the same as what the client is billed?`,
+          a: `No — they use deliberately different grace windows. What the client is billed rounds to the nearest half hour with a 10-minute grace (a job running 3:08 still bills as 3 hours; 3:11 rounds up to 3.5). What your team member is paid uses a wider 15-minute grace before rounding up. So a job that runs long enough to bill the client more doesn't always bump the cleaner's pay in that same instant — the two are tracked independently, on purpose.`,
         },
         {
           q: `What are before/after walkthrough videos?`,
@@ -60,7 +60,7 @@ export function tenantDocCategories(agentName: string): DocCategory[] {
         },
         {
           q: `How do recurring jobs work?`,
-          a: `Set up a weekly, bi-weekly, or monthly schedule for a repeat client under Sales → Schedule (or Production → Schedule). The system generates the next 4 weeks of bookings automatically so your calendar stays full.`,
+          a: `Set up a weekly, bi-weekly, or monthly schedule for a repeat client under Sales → Schedule (or Production → Schedule). The system generates real bookings on your calendar out through the end of the current year automatically, so your calendar stays full without you rebooking each visit by hand.`,
         },
         {
           q: `Where do I find Crews and Projects?`,
@@ -99,8 +99,8 @@ export function tenantDocCategories(agentName: string): DocCategory[] {
       label: 'Clients',
       items: [
         {
-          q: `What is the New/Active/At-Risk/Churned tagging?`,
-          a: `Clients are automatically categorized based on how recently and often they've booked, so you can spot at a glance who's a regular and who needs a win-back message.`,
+          q: `What is the Health score and Stage tagging?`,
+          a: `Every client gets a 0-100 Health score — an average of how often they book, how much they spend, whether they pay on time, and their review sentiment — plus a Stage: Lead → First-Time → Active → VIP → At-Risk → Lapsed → DNS. VIP means your highest-value clients; At-Risk means their health is dropping or they haven't booked in a while, and ${agentName} drafts a win-back message automatically; DNS ("Do Not Service") is flagged with a reason you should check before ever booking them again.`,
         },
         {
           q: `Do I know where each client came from?`,
@@ -109,6 +109,10 @@ export function tenantDocCategories(agentName: string): DocCategory[] {
         {
           q: `What can clients see in their own portal?`,
           a: `Upcoming and past bookings, before/after walkthrough videos, and their account info. They verify with an SMS code — no password to remember.`,
+        },
+        {
+          q: `What is the Duplicates tab?`,
+          a: `An exact phone+email match merges automatically. Anything that only matches on one field (or trips a name-mismatch safety check) queues here instead, so you pick which record stays primary before they're combined. Don't let this sit — duplicate clients cause double billing and scheduling mix-ups.`,
         },
       ],
     },
@@ -132,6 +136,10 @@ export function tenantDocCategories(agentName: string): DocCategory[] {
           q: `How do I send a quote?`,
           a: `Build it on the Quotes tab with line items and an optional deposit — it sends by email and text together, and moves to Sales once the client signs.`,
         },
+        {
+          q: `Where do Vendors, Inventory, and Equipment live?`,
+          a: `All three are tabs inside Catalog (Sales → Catalog, or Production → Catalog for the same page). Vendors is your supplier directory — link an inventory item to a vendor with a cost, and mark one "preferred." Inventory tracks physical stock (materials/supplies) with quantity on hand and a reorder threshold that flags Low Stock. Equipment tracks depreciable assets you check out and return (dumpsters, generators) — acquisition cost, useful life, and book value are tracked automatically, and depreciation posts to Finance on its own each month.`,
+        },
       ],
     },
     {
@@ -145,6 +153,14 @@ export function tenantDocCategories(agentName: string): DocCategory[] {
         {
           q: `How do referrers/partners get paid?`,
           a: `Through Stripe Connect once they're set up — commission on qualifying bookings is calculated and transferred automatically. If a payout account isn't eligible yet, you'll see that flagged rather than a payment silently failing.`,
+        },
+        {
+          q: `What are Sales Partner tiers?`,
+          a: `Standard (10% commission), Tier 2 (12%), and Tier 3 (15%). Add a partner and they're emailed a Commission Sales Partner Agreement to e-sign — their portal activates automatically the moment they sign.`,
+        },
+        {
+          q: `Where do I see who's actually sending me the most business?`,
+          a: `Referrals has a Leaderboard tab ranking your top referrers, plus a Payout Queue tab so you can pay out pending commissions in one click without hunting through individual client records.`,
         },
       ],
     },
@@ -247,12 +263,38 @@ export function tenantDocCategories(agentName: string): DocCategory[] {
           a: `Business info & hours, Services & pricing, Integrations (Telnyx for SMS, Resend for email, Stripe for payments, Google for reviews), and Branding (colors, logo, tagline). Team-facing guidance to your crew is now posted through Announcements as a running feed instead of a single Settings text box, so your whole history of instructions is visible, not just the latest one.`,
         },
         {
-          q: `Can I set up my own automated messages or triggers?`,
-          a: `Not directly — automations run off a shared, platform-maintained registry, so a brand-new trigger type needs to be built by the Full Loop team. If you want one that doesn't exist yet, ask in Full Loop Support (Loop Connect) and it gets added for everyone.`,
+          q: `Where do I see every automated message my business sends, and turn them on/off?`,
+          a: `Settings → Communications. It lists every automated message — booking confirmations, reminders, payment nudges, review requests, team job assignments, your own new-lead/new-booking alerts — grouped by who it goes to (client, team, or you). Each one shows exactly which channel(s) it can use, lets you toggle email/SMS/app on or off, set timing where relevant, and rewrite the actual wording. A few (like your login verification code and a new hire's welcome PIN) are locked on because they're required for the account to work.`,
+        },
+        {
+          q: `Can I create a brand-new automated trigger that doesn't exist yet?`,
+          a: `Not directly — the list in Communications is a shared, platform-maintained registry, so a net-new trigger type needs to be built by the Full Loop team. Click "Request an automation" right on that page (or ask in Full Loop Support) and it gets added for everyone once built.`,
         },
         {
           q: `What is the gear icon on every page?`,
           a: `It opens that specific page's settings drawer — the same gear, same drawer pattern everywhere, so settings for whatever you're looking at are always one click away.`,
+        },
+      ],
+    },
+    {
+      id: 'operations',
+      label: 'Task Board, E-commerce & Setup',
+      items: [
+        {
+          q: `What's the Task Board for?`,
+          a: `A general-purpose task/project board for anything that isn't a client booking — internal to-dos, projects, whatever your team needs to track outside the job pipeline.`,
+        },
+        {
+          q: `What can I sell through E-commerce?`,
+          a: `Physical or digital items, using the same Catalog you already price your services from (an item marked "product" instead of "service") — Items, Orders, and Suppliers each get their own tab.`,
+        },
+        {
+          q: `What is Legal Overlook?`,
+          a: `A passive, read-only feed of compliance tips matched to your own license and insurance info on file (e.g. flags an expiring license). It's informational only, not legal advice — always confirm anything that matters with your own attorney.`,
+        },
+        {
+          q: `What is Go Live?`,
+          a: `A setup checklist that has to be completed before your business goes live on the platform — going live is what actually turns on client reminders and review follow-ups for real, so it's gated until the required steps are done.`,
         },
       ],
     },
