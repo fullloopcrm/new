@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { etDayBoundaryUTC } from '@/lib/recurring'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 // GET — authenticated visit feed for dashboard
 export async function GET(request: NextRequest) {
@@ -177,6 +178,12 @@ export async function GET(request: NextRequest) {
 // POST — public tracking pixel endpoint (called by t.js)
 export async function POST(request: Request) {
   try {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const rl = await rateLimitDb(`leads_visits:${ip}`, 240, 60 * 1000)
+    if (!rl.allowed) {
+      return new NextResponse(null, { status: 204, headers: { 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' } })
+    }
+
     const contentType = request.headers.get('content-type') || ''
     let body: Record<string, unknown>
 
