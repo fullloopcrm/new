@@ -40,7 +40,7 @@ export const POST = withMobileCors(async function POST(request: Request) {
   // Get booking with check-in time + the fields needed to compute the bill.
   const { data: booking } = await db
     .from('bookings')
-    .select('id, check_in_time, check_out_time, hourly_rate, pay_rate, team_size, max_hours, price, discount_percent, one_time_credit_cents, service_type_id, recurring_type, team_member_id, referrer_id, sales_partner_id, client_id, clients(name, address, sales_partner_id), client_properties(address, latitude, longitude), team_members!bookings_team_member_id_fkey(name, pay_rate, stripe_account_id, global_payouts_recipient_id)')
+    .select('id, check_in_time, check_out_time, hourly_rate, pay_rate, team_size, max_hours, price, actual_hours, discount_percent, one_time_credit_cents, service_type_id, recurring_type, team_member_id, referrer_id, sales_partner_id, client_id, clients(name, address, sales_partner_id), client_properties(address, latitude, longitude), team_members!bookings_team_member_id_fkey(name, pay_rate, stripe_account_id, global_payouts_recipient_id)')
     .eq('id', booking_id)
     .single()
 
@@ -107,6 +107,12 @@ export const POST = withMobileCors(async function POST(request: Request) {
       recurringType: booking.recurring_type as string | null,
       maxHours: booking.max_hours as number | null,
       teamSize: booking.team_size as number | null,
+      // booking.actual_hours is null until checkout itself sets it (below) --
+      // the only way it's already non-null here is an admin manually edited
+      // it on the booking page before this checkout ran. That edit is the
+      // authoritative call (2026-08-21, Jeff): once it's set, it wins over
+      // the real elapsed check-in/check-out time.
+      manualActualHours: booking.actual_hours as number | null,
     })
     // actual_hours (stored below) stays the true elapsed/capped time for
     // reporting — the team minimum only feeds the price/pay math, same split
@@ -344,6 +350,9 @@ export const POST = withMobileCors(async function POST(request: Request) {
       recurringType: booking.recurring_type as string | null,
       maxHours: booking.max_hours as number | null,
       teamSize: booking.team_size as number | null,
+      // The lead's already-resolved hours (real elapsed, or an admin's
+      // manual override) -- extras must match, not re-derive independently.
+      manualActualHours: actualHours,
       clientAddress: (booking.clients as unknown as { address?: string | null } | null)?.address ?? null,
       clientName,
     }).catch((err) => console.error('checkout extra-crew payout failed:', err))

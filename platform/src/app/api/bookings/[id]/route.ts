@@ -187,7 +187,7 @@ export async function PUT(
     // Get old booking for change detection
     const { data: oldBooking } = (await db
       .from('bookings')
-      .select('status, team_member_id, start_time, check_in_time, hourly_rate, pay_rate, discount_percent, one_time_credit_cents, recurring_type, max_hours, team_size')
+      .select('status, team_member_id, start_time, check_in_time, hourly_rate, pay_rate, discount_percent, one_time_credit_cents, recurring_type, max_hours, team_size, actual_hours')
       .eq('id', id)
       .single()) as {
       data: {
@@ -202,6 +202,7 @@ export async function PUT(
         recurring_type: string | null
         max_hours: number | null
         team_size: number | null
+        actual_hours: number | null
       } | null
     }
 
@@ -240,6 +241,12 @@ export async function PUT(
         recurringType: oldBooking.recurring_type,
         maxHours: oldBooking.max_hours,
         teamSize: (fields.team_size as number | null | undefined) ?? oldBooking.team_size,
+        // From the row as it existed BEFORE this request, never from the
+        // request body (fields.actual_hours is one of the three
+        // client-submitted values this block deliberately ignores, per the
+        // comment above) -- a prior admin edit that already landed on the
+        // row is trusted; an untrusted value arriving in THIS request is not.
+        manualActualHours: oldBooking.actual_hours,
       })
       fields.actual_hours = pricing.actualHours
       fields.price = pricing.priceCents

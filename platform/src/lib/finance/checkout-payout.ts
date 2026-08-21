@@ -209,6 +209,12 @@ export interface PayExtraCrewAtCheckoutOpts {
   discountPercent: number | null
   oneTimeCreditCents: number | null
   recurringType: string | null
+  /** The lead's already-resolved effective hours (real elapsed time, or an
+   *  admin's manual override if one was set) — pass this through so extra
+   *  crew are paid for the SAME hours the lead was, whichever source those
+   *  came from. Without it, an admin's manual-hours correction would apply
+   *  to the lead but silently not to the rest of the crew. */
+  manualActualHours?: number | null
   maxHours: number | null
   teamSize: number | null
   clientAddress: string | null
@@ -257,6 +263,7 @@ export async function payExtraCrewAtCheckout(opts: PayExtraCrewAtCheckoutOpts): 
       recurringType: opts.recurringType,
       maxHours: opts.maxHours,
       teamSize: opts.teamSize,
+      manualActualHours: opts.manualActualHours,
     })
 
     await payCleanerAtCheckout({

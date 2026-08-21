@@ -40,12 +40,22 @@ export interface CheckoutPricingInput {
   recurringType: string | null | undefined
   maxHours: number | null | undefined
   teamSize: number | null | undefined
+  /** An admin's manually-edited hours on the booking page, if one exists
+   *  (2026-08-21, Jeff: the booking page is the source of truth once edited
+   *  — checkout must recompute FROM that value, not overwrite it with real
+   *  elapsed check-in/check-out time). When set (> 0), this replaces the
+   *  elapsed-time-derived client/cleaner hours entirely; team-minimum floor,
+   *  maxHours cap, discount, and credit still apply on top of it exactly as
+   *  they would on a real elapsed value. */
+  manualActualHours?: number | null
 }
 
 export interface CheckoutPricingResult {
   /** True elapsed time, client-grace-rounded and max_hours-capped — NOT
    *  team-minimum-floored. This is what gets stored as the booking's
-   *  actual_hours record of how long the job really took. */
+   *  actual_hours record of how long the job really took. When
+   *  manualActualHours was provided, this is that value (still max_hours-
+   *  capped) instead of a real elapsed-time computation. */
   actualHours: number
   priceCents: number
   cleanerPayCents: number
@@ -56,10 +66,11 @@ function toDate(iso: string): Date {
 }
 
 export function computeCheckoutPricing(input: CheckoutPricingInput): CheckoutPricingResult {
+  const hasManualOverride = typeof input.manualActualHours === 'number' && input.manualActualHours > 0
   const rawMinutes = Math.max(0, (toDate(input.checkOutIso).getTime() - toDate(input.checkInIso).getTime()) / 60000)
 
-  const clientHours = clientBilledHours(rawMinutes)
-  const cleanerHours = cleanerPaidHours(rawMinutes)
+  const clientHours = hasManualOverride ? (input.manualActualHours as number) : clientBilledHours(rawMinutes)
+  const cleanerHours = hasManualOverride ? (input.manualActualHours as number) : cleanerPaidHours(rawMinutes)
   const cap = typeof input.maxHours === 'number' && input.maxHours > 0 ? input.maxHours : null
   const billableClientHours = cap != null ? Math.min(clientHours, cap) : clientHours
   const billableCleanerHours = cap != null ? Math.min(cleanerHours, cap) : cleanerHours

@@ -127,3 +127,52 @@ describe('computeCheckoutPricing — rate fallbacks', () => {
     expect(r.cleanerPayCents).toBe(1 * 25 * 100)
   })
 })
+
+describe('computeCheckoutPricing — manualActualHours override (2026-08-21, Jeff)', () => {
+  it('an admin-edited hours value wins over real elapsed check-in/check-out time', () => {
+    // 41 real minutes elapsed (would normally bill 1.0h client / 0.5h
+    // cleaner, per the dual-grace test above) -- but an admin already edited
+    // the booking to 3 hours before this checkout ran. The edit wins.
+    const r = computeCheckoutPricing({ ...base, checkInIso: iso(41), checkOutIso: iso(0), manualActualHours: 3 })
+    expect(r.actualHours).toBe(3)
+    expect(r.priceCents).toBe(3 * 69 * 100)
+    expect(r.cleanerPayCents).toBe(3 * 25 * 100)
+  })
+
+  it('a lower admin-edited hours value also wins (not just longer overrides)', () => {
+    const r = computeCheckoutPricing({ ...base, checkInIso: iso(300), checkOutIso: iso(0), manualActualHours: 1 })
+    expect(r.actualHours).toBe(1)
+    expect(r.priceCents).toBe(1 * 69 * 100)
+  })
+
+  it('team-minimum floor and max_hours cap still apply on top of the override', () => {
+    const floored = computeCheckoutPricing({ ...base, checkInIso: iso(41), checkOutIso: iso(0), teamSize: 2, manualActualHours: 1 })
+    // 1h manually set, but 2-cleaner team minimum floors price/pay to 4h -- actualHours itself is not floored (matches the non-override team-minimum test above).
+    expect(floored.actualHours).toBe(1)
+    expect(floored.priceCents).toBe(4 * 69 * 2 * 100)
+
+    const capped = computeCheckoutPricing({ ...base, checkInIso: iso(41), checkOutIso: iso(0), maxHours: 2, manualActualHours: 5 })
+    expect(capped.actualHours).toBe(2)
+    expect(capped.priceCents).toBe(2 * 69 * 100)
+  })
+
+  it('discount and credit still apply on top of the override', () => {
+    const r = computeCheckoutPricing({ ...base, checkInIso: iso(41), checkOutIso: iso(0), manualActualHours: 2, discountPercent: 10, oneTimeCreditCents: 300 })
+    // 2h × $69 = $138 = 13800¢ -> -10% (floors to nearest $5) -> 12420 -> 12000 -> -$3 credit -> 11700.
+    expect(r.priceCents).toBe(11700)
+  })
+
+  it('zero or negative manualActualHours is treated as no override (falls back to real elapsed time)', () => {
+    const zero = computeCheckoutPricing({ ...base, checkInIso: iso(41), checkOutIso: iso(0), manualActualHours: 0 })
+    expect(zero.actualHours).toBe(1) // real elapsed (41 min -> 1.0h client grace), not 0
+    const negative = computeCheckoutPricing({ ...base, checkInIso: iso(41), checkOutIso: iso(0), manualActualHours: -2 })
+    expect(negative.actualHours).toBe(1)
+  })
+
+  it('undefined/null manualActualHours behaves exactly as before this feature existed', () => {
+    const r = computeCheckoutPricing({ ...base, checkInIso: iso(41), checkOutIso: iso(0) })
+    expect(r.actualHours).toBe(1)
+    expect(r.priceCents).toBe(6900)
+    expect(r.cleanerPayCents).toBe(1250)
+  })
+})
