@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-// EMD (exact-match-domain) microsites — one-page marketing sites that fund
-// into the-florida-maid tenant for record-keeping (tenant_domains) but
-// render a dedicated static page with no tenant/CRM machinery: no booking,
-// no auth, every CTA links out to thefloridamaid.com. Rewritten directly
-// (bypassing rewriteToSite) so these stay statically generatable and never
-// force the shared /site/the-florida-maid tree — and by extension
-// thefloridamaid.com's own homepage — into dynamic per-request rendering.
+// EMD (exact-match-domain) microsites — long-form marketing sites that fund
+// into their parent tenant for record-keeping (tenant_domains) but render a
+// dedicated static page with no tenant/CRM machinery: no booking, no auth,
+// every CTA links out to the parent brand's own domain (thefloridamaid.com
+// or thenycexterminator.com, depending on the route below). Rewritten
+// directly (bypassing rewriteToSite) so these stay statically generatable
+// and never force the shared parent /site/<tenant> tree — and by extension
+// the parent's own homepage — into dynamic per-request rendering.
 export const EMD_MICROSITE_ROUTES: Record<string, string> = {
   'miamibeachmaid.com': '/site/emd-microsites/miami-beach-maid',
   'westpalmbeachmaid.com': '/site/emd-microsites/west-palm-beach-maid',
@@ -59,6 +60,26 @@ export const EMD_MICROSITE_ROUTES: Record<string, string> = {
   'gulfbreezemaid.com': '/site/emd-microsites/gulf-breeze-maid',
   'perdidokeymaid.com': '/site/emd-microsites/perdido-key-maid',
   'warringtonmaid.com': '/site/emd-microsites/warrington-maid',
+
+  // NYC Exterminator neighborhood microsites (2026-08-21) — same EMD pattern,
+  // funding into the-nyc-exterminator tenant for record-keeping, rendered
+  // from src/app/site/emd-microsites-exterminator/ (a sibling tree, NOT
+  // nested under emd-microsites/, so these don't inherit that directory's
+  // Florida Maid-branded layout.tsx).
+  'upperwestsideexterminator.com': '/site/emd-microsites-exterminator/upper-west-side-exterminator',
+  'sohoexterminator.com': '/site/emd-microsites-exterminator/soho-exterminator',
+  'chelseaexterminator.com': '/site/emd-microsites-exterminator/chelsea-exterminator',
+  'dumboexterminator.com': '/site/emd-microsites-exterminator/dumbo-exterminator',
+  'greenwichvillageexterminator.com': '/site/emd-microsites-exterminator/greenwich-village-exterminator',
+  'harlemexterminator.com': '/site/emd-microsites-exterminator/harlem-exterminator',
+  'longislandcityexterminator.com': '/site/emd-microsites-exterminator/long-island-city-exterminator',
+  'midtownexterminator.com': '/site/emd-microsites-exterminator/midtown-exterminator',
+  'parkslopeexterminator.com': '/site/emd-microsites-exterminator/park-slope-exterminator',
+  'stuytownexterminator.com': '/site/emd-microsites-exterminator/stuy-town-exterminator',
+  'sunnysideexterminator.com': '/site/emd-microsites-exterminator/sunnyside-exterminator',
+  'tribecaexterminator.com': '/site/emd-microsites-exterminator/tribeca-exterminator',
+  'uppereastsideexterminator.com': '/site/emd-microsites-exterminator/upper-east-side-exterminator',
+  'williamsburgexterminator.com': '/site/emd-microsites-exterminator/williamsburg-exterminator',
 }
 
 /**

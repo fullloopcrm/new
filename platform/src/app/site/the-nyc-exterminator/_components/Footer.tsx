@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PHONE, SITE_NAME, EMAIL, ADDRESS } from "@/app/site/the-nyc-exterminator/_lib/seo";
 import { getCategories, getRegions } from "@/app/site/the-nyc-exterminator/_lib/data";
+import { NEIGHBORHOOD_MICROSITE_CONFIGS } from "@/app/site/the-nyc-exterminator/_lib/emd/registry";
 
 export default function Footer() {
   const categories = getCategories().slice(0, 8);
@@ -93,7 +94,24 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="mt-10 border-t border-white/[0.06] pt-8 text-center text-sm text-zinc-600">
+        <div className="mt-10 border-t border-white/[0.06] pt-8">
+          <h3 className="text-xs font-semibold uppercase tracking-widest text-zinc-400 text-center">
+            Neighborhood Exterminator &amp; Pest Control Sites
+          </h3>
+          <div className="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-2">
+            {NEIGHBORHOOD_MICROSITE_CONFIGS.map((site) => (
+              <a
+                key={site.domain}
+                href={`https://www.${site.domain}`}
+                className="text-sm text-zinc-500 transition-colors hover:text-white"
+              >
+                {site.brandName}
+              </a>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-8 border-t border-white/[0.06] pt-8 text-center text-sm text-zinc-600">
           <p>
             &copy; {new Date().getFullYear()} {SITE_NAME}. All rights reserved.
             <Link href="/legal" className="hover:underline">Legal</Link>
