@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 // POST /api/company/track — pageview beacon for Full Loop's OWN marketing
 // site only (see (marketing)/VisitTracker.tsx). Public, unauthenticated,
@@ -7,6 +8,12 @@ import { supabaseAdmin } from '@/lib/supabase'
 // platform_website_visits (no tenant_id; this site isn't a tenant's site).
 export async function POST(request: Request) {
   try {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const rl = await rateLimitDb(`company_track:${ip}`, 240, 60 * 1000)
+    if (!rl.allowed) {
+      return new NextResponse(null, { status: 204, headers: { 'Access-Control-Allow-Origin': '*' } })
+    }
+
     const contentType = request.headers.get('content-type') || ''
     let body: Record<string, unknown>
 

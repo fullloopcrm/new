@@ -3,6 +3,7 @@ import { tenantDb } from '@/lib/tenant-db'
 import { requireComhubAccess } from '@/lib/comhub-access'
 import { decryptSecret } from '@/lib/secret-crypto'
 import { resolveContactLinkage } from '@/lib/comhub-contact-resolve'
+import { isCrossSiteRequest } from '@/lib/csrf-guard'
 
 // Some client/team-member pin values got written through encryptSecret() by
 // a stray call elsewhere and now sit in the DB as a 'v1:' envelope instead
@@ -21,12 +22,16 @@ const safeDecryptPin = (pin: string | null | undefined): string | null => {
 // GET /api/admin/comhub/contacts/[id]/context
 // Enriched info for the right-side panel: contact + linked client + team_member +
 // recent bookings + counters.
-export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const access = await requireComhubAccess()
   if (access instanceof NextResponse) return access
   const tenantId = access.tenantId
   const db = tenantDb(tenantId)
   const { id } = await ctx.params
+  // This GET auto-backfills the contact's name below (two write sites) —
+  // skip those writes on a forged cross-site navigation, same guard as
+  // notifications/route.ts. The read still serves normally either way.
+  const crossSite = isCrossSiteRequest(req.headers)
 
   const { data: contact, error: cErr } = await db
     .from('comhub_contacts')
@@ -152,7 +157,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
     // Backfill the contact's name from the application so the thread-list
     // sidebar (which reads comhub_contacts.name directly) shows it too, not
     // just this detail panel.
-    if (applicant?.name && !contact.name) {
+    if (applicant?.name && !contact.name && !crossSite) {
       await db.from('comhub_contacts').update({ name: applicant.name, updated_at: new Date().toISOString() }).eq('id', id)
       contact.name = applicant.name
     }
@@ -177,7 +182,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
     : (clientName && !isPlaceholderName(clientName))
       ? clientName
       : (applicant?.name as string | undefined) || null
-  if (bestName && (!contact.name || isPlaceholderName(contact.name as string))) {
+  if (bestName && (!contact.name || isPlaceholderName(contact.name as string)) && !crossSite) {
     await db.from('comhub_contacts').update({ name: bestName, updated_at: new Date().toISOString() }).eq('id', id)
     contact.name = bestName
   }
