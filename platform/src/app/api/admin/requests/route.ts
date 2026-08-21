@@ -5,6 +5,11 @@ import { LEAD_STAGES, normalizeStage, isLeadStage } from '@/lib/lead-stages'
 import { computeFit } from '@/lib/lead-fit'
 import { upsertSalesContact } from '@/lib/sales-contacts'
 
+// Stages where the lead has been engaged but hasn't closed either way —
+// "contacted" through "proposed". Excludes 'new' (never contacted) and the
+// terminal 'sold'/'lost' stages.
+const CONTACTED_NOT_SOLD_STAGES = ['contacted', 'qualified', 'proposed'] as const
+
 export async function GET(request: NextRequest) {
   const authError = await requireAdmin()
   if (authError) return authError
@@ -27,15 +32,21 @@ export async function GET(request: NextRequest) {
   }
 
   const normalized = (data || []).map((r) => ({ ...r, status: normalizeStage(r.status) }))
+  const isContactedNotSold = (r: { status: string }) => CONTACTED_NOT_SOLD_STAGES.includes(r.status as (typeof CONTACTED_NOT_SOLD_STAGES)[number])
 
-  // Counts by canonical stage (computed over the full set, before filtering).
+  // Counts by canonical stage (computed over the full set, before filtering),
+  // plus one synthetic bucket: "contacted, not sold" spans every stage past
+  // the initial contact that hasn't closed (won or lost) yet.
   const counts: Record<string, number> = { total: normalized.length }
   for (const stage of LEAD_STAGES) {
     counts[stage] = normalized.filter((r) => r.status === stage).length
   }
+  counts.contacted_not_sold = normalized.filter(isContactedNotSold).length
 
   let requests = normalized
-  if (status && status !== 'all') {
+  if (status === 'contacted_not_sold') {
+    requests = requests.filter(isContactedNotSold)
+  } else if (status && status !== 'all') {
     requests = requests.filter((r) => r.status === status)
   }
   if (search) {
@@ -78,6 +89,16 @@ export async function PATCH(request: NextRequest) {
       updateData.status = status
       updateData.reviewed_at = status === 'new' ? null : new Date().toISOString()
       updateData.reviewed_by = status === 'new' ? null : 'admin'
+      // A stage move into an engaged stage is a real contact touch — reset
+      // the "last contacted" clock (and the 7/14/30-day notified flags, so a
+      // lead re-engaged today doesn't get an immediate stale-followup nudge
+      // for a threshold it already crossed before this touch).
+      if (CONTACTED_NOT_SOLD_STAGES.includes(status as (typeof CONTACTED_NOT_SOLD_STAGES)[number])) {
+        updateData.last_contacted_at = new Date().toISOString()
+        updateData.notified_7d_at = null
+        updateData.notified_14d_at = null
+        updateData.notified_30d_at = null
+      }
     }
 
     if (admin_notes !== undefined) {

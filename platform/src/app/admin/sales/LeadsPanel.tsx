@@ -27,6 +27,7 @@ interface Lead {
   admin_notes: string | null
   created_at: string
   reviewed_at: string | null
+  last_contacted_at: string | null
   converted_tenant_id: string | null
   qualifying_answers?: Record<string, string> | null
   fit_score: number | null
@@ -58,6 +59,19 @@ interface Note {
 
 type Counts = Record<string, number>
 
+function daysSinceContact(iso: string): number {
+  return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000)
+}
+
+function daysAgo(iso: string | null): string {
+  if (!iso) return '—'
+  const days = daysSinceContact(iso)
+  if (days <= 0) return 'today'
+  if (days === 1) return '1 day ago'
+  if (days < 30) return `${days} days ago`
+  return `${Math.floor(days / 30)}mo ago`
+}
+
 const STAGE_BADGE: Record<LeadStage, string> = {
   new: 'bg-blue-50 text-blue-700 border-blue-200',
   contacted: 'bg-amber-50 text-amber-700 border-amber-200',
@@ -71,7 +85,7 @@ export function LeadsPanel() {
   const [leads, setLeads] = useState<Lead[]>([])
   const [counts, setCounts] = useState<Counts>({ total: 0 })
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState('all')
+  const [filter, setFilter] = useState<'all' | LeadStage | 'contacted_not_sold'>('all')
   const [search, setSearch] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [newNote, setNewNote] = useState('')
@@ -354,7 +368,9 @@ export function LeadsPanel() {
     }
   }
 
-  const filterButtons = ['all', ...LEAD_STAGES]
+  const filterButtons = ['all', ...LEAD_STAGES, 'contacted_not_sold'] as const
+  const filterLabel = (f: (typeof filterButtons)[number]): string =>
+    f === 'all' ? 'All' : f === 'contacted_not_sold' ? 'Contacted, Not Sold' : STAGE_LABELS[f as LeadStage]
 
   return (
     <div>
@@ -508,7 +524,7 @@ export function LeadsPanel() {
         )
       })()}
       {/* Pipeline stat cards (click to filter) */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 mb-5">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 mb-5">
         <StatCard label="Total" value={counts.total || 0} active={filter === 'all'} onClick={() => setFilter('all')} color="border-l-slate-400" />
         {LEAD_STAGES.map(stage => (
           <StatCard
@@ -520,6 +536,13 @@ export function LeadsPanel() {
             color={stage === 'lost' ? 'border-l-slate-300' : 'border-l-teal-500'}
           />
         ))}
+        <StatCard
+          label="Contacted, Not Sold"
+          value={counts.contacted_not_sold || 0}
+          active={filter === 'contacted_not_sold'}
+          onClick={() => setFilter('contacted_not_sold')}
+          color="border-l-amber-500"
+        />
       </div>
 
       <div className="flex flex-wrap items-center gap-2 mb-4">
@@ -541,7 +564,7 @@ export function LeadsPanel() {
             onClick={() => setFilter(f)}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium ${filter === f ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
           >
-            {f === 'all' ? 'All' : STAGE_LABELS[f as LeadStage]}
+            {filterLabel(f)}
           </button>
         ))}
       </div>
@@ -568,6 +591,11 @@ export function LeadsPanel() {
                   <p className="text-xs text-slate-500 truncate mt-0.5">
                     {l.contact_name} &middot; {l.service_category?.replace(/_/g, ' ')} &middot; {l.city}, {l.state}
                   </p>
+                  {l.last_contacted_at && (
+                    <p className={`text-[10px] mt-0.5 ${daysSinceContact(l.last_contacted_at) >= 30 ? 'text-red-600 font-medium' : daysSinceContact(l.last_contacted_at) >= 14 ? 'text-amber-600' : 'text-slate-400'}`}>
+                      Last contacted {daysAgo(l.last_contacted_at)}
+                    </p>
+                  )}
                   <div className="flex items-center justify-between gap-2 mt-0.5">
                     <p className="text-[10px] text-slate-400">{new Date(l.created_at).toLocaleDateString('en-US', { timeZone: 'America/New_York' })}</p>
                     {l.fit_bucket && (() => {
@@ -787,6 +815,9 @@ export function LeadsPanel() {
                 <Field label="How found us">{selected.heard_from || '—'}</Field>
                 <Field label="Received">{new Date(selected.created_at).toLocaleString()}</Field>
                 <Field label="Last activity">{selected.reviewed_at ? new Date(selected.reviewed_at).toLocaleString() : '—'}</Field>
+                <Field label="Last contacted">
+                  {selected.last_contacted_at ? `${new Date(selected.last_contacted_at).toLocaleString()} (${daysAgo(selected.last_contacted_at)})` : '—'}
+                </Field>
               </dl>
 
               {selected.pitch && (
