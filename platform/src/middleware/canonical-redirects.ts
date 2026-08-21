@@ -76,6 +76,8 @@ const CONSOLIDATED_BRAND_HOSTS = new Set<string>([
   'www.homeservicebusinesscrm.com',
   'gethomeservicecrm.com',
   'www.gethomeservicecrm.com',
+  'homeservicesbusinesscrm.com',
+  'www.homeservicesbusinesscrm.com',
 ])
 export function getBrandConsolidationRedirect(hostname: string, req: NextRequest): NextResponse | null {
   const rawHost = hostname.split(':')[0].toLowerCase()
