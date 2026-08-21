@@ -41,9 +41,12 @@ export interface SeedBooking {
   actual_hours?: number | null
   hourly_rate?: number | null   // CLIENT rate (drives expectedCents)
   price?: number | null
+  discount_percent?: number | null
+  one_time_credit_cents?: number | null
   pay_rate?: number | null      // booking-level cleaner-rate fallback
   team_member_pay?: number | null
   check_in_time?: string | null // ISO string; only consulted when actual_hours + price are both unset
+  check_out_time?: string | null // ISO string; when set, price is trusted over an actual_hours recompute
   tm?: SeedTeamMember | null     // omit → no team member (payout branch skipped)
   tenantId?: string             // override TENANT — needed for isNycMaid(tenantId) gating tests
   clientAddress?: string | null // job-location address, read by the NYC Maid pay-rate floor
@@ -62,7 +65,10 @@ export function seedBooking(h: SeedHandle, id: string, b: SeedBooking = {}): voi
     hourly_rate: b.hourly_rate ?? null,
     pay_rate: b.pay_rate ?? null,
     price: b.price ?? null,
+    discount_percent: b.discount_percent ?? null,
+    one_time_credit_cents: b.one_time_credit_cents ?? null,
     check_in_time: b.check_in_time ?? null,
+    check_out_time: b.check_out_time ?? null,
     start_time: null,
     clients: { name: 'Pat', phone: null, address: b.clientAddress ?? null },
     team_members: b.tm

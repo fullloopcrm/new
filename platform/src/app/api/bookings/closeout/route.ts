@@ -10,13 +10,23 @@ export async function GET() {
 
     // Jobs needing close-out: completed/in_progress but not fully closed
     // "Fully closed" = payment_status is paid AND team_member_paid is true
-    const { data: needsCloseout } = await db
+    const { data: needsCloseoutRaw } = await db
       .from('bookings')
       .select('id, service_type, start_time, end_time, status, price, hourly_rate, pay_rate, actual_hours, team_member_pay, payment_status, payment_method, team_member_paid, check_in_time, check_out_time, clients(name, phone, address), team_members!bookings_team_member_id_fkey(name)')
       .in('status', ['completed', 'in_progress', 'paid'])
       .or('payment_status.neq.paid,team_member_paid.is.null,team_member_paid.eq.false')
       .order('start_time', { ascending: false })
       .limit(50)
+
+    // Client-owes-money bookings surface first (unpaid/pending/partial) —
+    // real, uncollected revenue is the urgent case. A booking where the
+    // client already paid in full and only the team-member payout is
+    // outstanding is lower stakes (no money at risk of never being
+    // collected) and sorts after. Ties keep the query's start_time-desc order.
+    const closeoutUrgency = (paymentStatus: string | null) => (paymentStatus === 'paid' ? 1 : 0)
+    const needsCloseout = [...(needsCloseoutRaw || [])].sort(
+      (a, b) => closeoutUrgency(a.payment_status) - closeoutUrgency(b.payment_status),
+    )
 
     // Recently closed (last 7 days) — fully paid + team paid
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()

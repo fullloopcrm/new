@@ -72,3 +72,22 @@ describe('bookings/closeout — tenant isolation', () => {
     expect(ids).not.toContain('bk-b-closed')
   })
 })
+
+describe('bookings/closeout — sort order', () => {
+  it('surfaces client-owes-money bookings before paid-but-team-unpaid ones', async () => {
+    // team-unpaid-only booking seeded FIRST (would sort first by start_time
+    // alone) — the assertion only holds if payment_status urgency actually
+    // reorders it behind the still-unpaid one.
+    h = createTenantDbHarness({
+      bookings: [
+        { id: 'bk-team-unpaid-only', tenant_id: A, status: 'completed', payment_status: 'paid', team_member_paid: false, start_time: '2026-08-20T00:00:00Z' },
+        { id: 'bk-client-owes', tenant_id: A, status: 'completed', payment_status: 'partial', team_member_paid: false, start_time: '2026-08-10T00:00:00Z' },
+      ],
+    })
+    holder.from = h.from
+    const res = await GET()
+    const body = await res.json()
+    const ids = (body.needsCloseout as Array<{ id: string }>).map((b) => b.id)
+    expect(ids.indexOf('bk-client-owes')).toBeLessThan(ids.indexOf('bk-team-unpaid-only'))
+  })
+})

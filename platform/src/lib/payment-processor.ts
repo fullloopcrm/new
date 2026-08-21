@@ -96,6 +96,7 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
       discount_percent,
       one_time_credit_cents,
       check_in_time,
+      check_out_time,
       start_time,
       clients:clients(name, phone, address),
       team_members:team_members!bookings_team_member_id_fkey(name, phone, sms_consent, stripe_account_id, hourly_rate, pay_rate, preferred_language)
@@ -139,22 +140,37 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
   // admin manually recording a Zelle/Venmo/cash payment while a job is still
   // in progress, before either of those authoritative sources exists yet.
   let expectedIsLiveEstimate = false
-  // Bill ACTUAL hours worked first (matches standalone nycmaid). Only fall back
-  // to the booked estimate (price) when actual isn't known yet, then to
-  // check-in-elapsed. Previously `price` won first → long jobs billed the
-  // estimate (under-billed overruns). parseTimestamp: check_in_time is naive.
+  // Once a booking has been checked out, `price` is authoritative and wins —
+  // matches bookings/[id]/route.ts (which recomputes+locks price via
+  // computeCheckoutPricing the instant check_out_time is set, precisely so
+  // nothing downstream has to re-derive it) and the Stripe webhook /
+  // admin record-payment paths (both already trust booking.price first).
+  // Before checkout, actual_hours still wins over price so a long-running job
+  // isn't under-billed against a stale original estimate (the case this
+  // branch existed for — see money-math-edge-cases.test.ts "overruns are not
+  // under-billed").
   //
-  // The admin-set discount_percent + one_time_credit_cents apply on the two
-  // recompute-from-raw-rate branches below, same as every other collection
-  // point (team-portal/checkout, Stripe webhook, 15min-alert) -- without this,
-  // an admin discount/credit set on the booking got silently dropped the
-  // moment actual_hours was recorded or a check-in-elapsed estimate was used,
-  // even though it's still sitting on the row (nycmaid 6ec48424 parity). The
-  // `price` branch is left untouched -- it already reflects whatever discount
-  // was baked in at creation (including the separate automatic recurring-type
-  // discount, see recurring-discount.ts), and re-applying discount_percent on
-  // top of it here would double-discount.
-  if (booking.actual_hours) {
+  // This inline actual_hours recompute is deliberately a simplified stand-in
+  // for the full pricing engine — it drops team_size entirely and can drift
+  // from the true price on discount timing (recurring-discount.ts applies
+  // separately from discount_percent). That's fine pre-checkout (it's just a
+  // guard against under-billing, not a final bill), but comparing a
+  // POST-checkout payment against it instead of the real locked price
+  // produced two live failure modes: (a) a team_size>1 booking's recompute
+  // comes in under the real price, waving a genuinely still-owed balance
+  // through as "paid" with the shortfall wired to the cleaner as a phantom
+  // "tip"; (b) a discount applied after the price was locked makes the
+  // recompute come in OVER the real price, so a booking that's genuinely
+  // paid in full stays stuck "partial" forever with nothing to re-check it
+  // (confirmed live on NYC Maid bookings 36aac9da, 71f7fd84 — both had
+  // payments summing to the exact locked price, both stuck partial).
+  // parseTimestamp: check_in_time is naive.
+  if (booking.check_out_time && booking.price && booking.price > 0) {
+    expectedCents = booking.price as number
+  } else if (booking.actual_hours) {
+    // discount_percent + one_time_credit_cents applied here so an admin
+    // discount/credit set on the booking isn't silently dropped (nycmaid
+    // 6ec48424 parity).
     const rawCents = Math.round((booking.actual_hours as number) * clientRate * 100)
     expectedCents = applyCredit(applyDiscount(rawCents, booking.discount_percent as number | null), booking.one_time_credit_cents as number | null)
   } else if (booking.price && booking.price > 0) {
@@ -281,6 +297,11 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
         // $35 NJ / Long Island / Westchester floor by JOB location — NYC Maid tenant ONLY
         // (parity with team-portal/checkout + stripe webhook payout paths).
         if (isNycMaid(tenantId)) rate = effectiveCleanerRate(rate, clientJoin?.address ?? null)
+        // No team_size multiplier here, deliberately — checkout-pricing.ts's
+        // cleanerPayCents pays each cleaner for their OWN hours at their own
+        // rate; team_size only scales what the CLIENT is charged (baseCents).
+        // Multiplying this fallback by team_size would overpay every cleaner
+        // on a multi-cleaner job by a factor of the crew size.
         if (booking.actual_hours) {
           payAmountCents = Math.round((booking.actual_hours as number) * rate * 100)
         } else if (booking.check_in_time) {

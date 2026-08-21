@@ -6,10 +6,12 @@
  * math-dense untested function in the money path. This test pins the two pieces
  * of math where an off-by-one silently over/under-pays:
  *
- *   1. expectedCents resolution — actual_hours × hourly_rate wins over the booked
- *      `price`; falls back to price only when actual isn't known. (The check-in
- *      elapsed branch is time-dependent — Date.now() — so it is deliberately not
- *      asserted here; these cases never set check_in_time.)
+ *   1. expectedCents resolution — the booked `price` wins whenever it's set
+ *      (matches webhooks/stripe/route.ts and admin/record-payment, both of
+ *      which already trusted price); falls back to an actual_hours recompute
+ *      only when no price is locked in yet. (The check-in elapsed branch is
+ *      time-dependent — Date.now() — so it is deliberately not asserted here;
+ *      these cases never set check_in_time.)
  *   2. the 95% partial-vs-paid threshold (STRICT `<`) and
  *      tip = max(0, totalReceived − expected), computed over PRIOR payments too.
  *
@@ -52,15 +54,48 @@ beforeEach(() => {
 })
 
 describe('processPayment — expectedCents resolution', () => {
-  it('bills actual_hours × hourly_rate, NOT the booked price, when actual is known', async () => {
-    // actual 2h × $100 = $200 expected. Booked price is a red-herring $50.
-    // A $60 payment is only 30% of $200 → partial. If price ($50) had won,
-    // $60 would be an overpayment (paid + $10 tip). Asserting 'partial' proves
-    // actual_hours takes precedence.
-    seedBooking(h, 'bk1', { actual_hours: 2, hourly_rate: 100, price: 5000 })
+  it('bills the booked price, NOT an actual_hours recompute, once the booking is checked out', async () => {
+    // Booked price $50 is the real, locked, already-quoted amount (set by
+    // team-portal/checkout's computeCheckoutPricing at check-out time, which
+    // already folds in team_size/discount/credit). actual_hours (2h × $100 =
+    // $200) is a red-herring live recompute using an incomplete formula (no
+    // team_size, discount can drift from what was baked into price — see
+    // recurring-discount.ts). A $60 payment against the real $50 price is an
+    // overpayment → paid + $10 tip. This is the fix for the production bug
+    // where NYC Maid bookings 36aac9da/71f7fd84 had payments summing to the
+    // exact locked price but stayed stuck 'partial' forever because the old
+    // code compared against a drifted actual_hours recompute instead.
+    seedBooking(h, 'bk1', { actual_hours: 2, hourly_rate: 100, price: 5000, check_out_time: '2026-08-01T12:00:00Z' })
     const r = await pay('bk1', 6000)
+    expect(r?.expectedCents).toBe(5000)
+    expect(r?.status).toBe('paid')
+    expect(r?.tipCents).toBe(1000)
+  })
+
+  it('falls back to an actual_hours recompute when no price is locked yet', async () => {
+    // No real booking should ever reach processPayment with actual_hours set
+    // and no price — every writer of actual_hours (team-portal/checkout,
+    // finance/backfill) sets price in the same write — but keep the fallback
+    // covered: actual 2h × $100 = $200 expected, no price to fall back to.
+    seedBooking(h, 'bk1b', { actual_hours: 2, hourly_rate: 100, price: null })
+    const r = await pay('bk1b', 6000)
     expect(r?.expectedCents).toBe(20000)
     expect(r?.status).toBe('partial')
+  })
+
+  it('does not stay stuck partial when a discount recomputed after the price was locked would drift the actual_hours fallback above what was actually paid', async () => {
+    // Reproduces the exact live bug: 3.5h × $69 = $241.50 raw, but the price
+    // that was actually locked and quoted (and fully paid) was $190 (a 20%
+    // weekly-recurring discount applied at booking time). If expectedCents
+    // were still resolved from actual_hours × rate × discount instead of the
+    // locked price, rounding/timing drift in when discount_percent lands on
+    // the row can put the recompute a few dollars above what the client
+    // actually owed, permanently misclassifying a fully-paid booking as
+    // partial. Trusting price directly closes that window.
+    seedBooking(h, 'bk1c', { actual_hours: 3.5, hourly_rate: 69, discount_percent: 20, price: 19000, check_out_time: '2026-08-20T20:16:03Z' })
+    const r = await pay('bk1c', 19000)
+    expect(r?.expectedCents).toBe(19000)
+    expect(r?.status).toBe('paid')
   })
 
   it('falls back to booked price when actual_hours is unknown', async () => {
@@ -70,14 +105,14 @@ describe('processPayment — expectedCents resolution', () => {
     expect(r?.status).toBe('paid')
   })
 
-  it('defaults hourly_rate to 69 when the booking has none', async () => {
+  it('defaults hourly_rate to 69 when the booking has none and no price is locked', async () => {
     // 1h × default $69 = $6900 expected.
     seedBooking(h, 'bk3', { actual_hours: 1, hourly_rate: null, price: null })
     const r = await pay('bk3', 6900)
     expect(r?.expectedCents).toBe(6900)
   })
 
-  it('rounds actual_hours × rate × 100 half-up to the cent', async () => {
+  it('rounds actual_hours × rate × 100 half-up to the cent when no price is locked', async () => {
     // 1.333h × $69 = $91.977 → 9197.7¢ → Math.round → 9198¢.
     seedBooking(h, 'bk4', { actual_hours: 1.333, hourly_rate: 69, price: null })
     const r = await pay('bk4', 9198)
