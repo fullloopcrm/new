@@ -75,6 +75,7 @@ export default function BookNewForm({
     const emailCheck = validateEmail(form.email)
     if (!emailCheck.valid) errors.email = emailCheck.error || 'Please enter a valid email.'
     if (!form.address.trim()) errors.address = 'Please enter your address.'
+    else if (!form.city || !form.state) errors.address = 'Please select your address from the dropdown suggestions.'
     if (!form.date) errors.date = 'Please choose a date.'
     if (!form.lead_source) errors.lead_source = 'Please tell us how you found us.'
     return errors
