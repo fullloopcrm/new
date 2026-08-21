@@ -101,6 +101,14 @@ export const EMD_MICROSITE_ROUTES: Record<string, string> = {
   'tribecaexterminator.com': '/site/emd-microsites-exterminator/tribeca-exterminator',
   'uppereastsideexterminator.com': '/site/emd-microsites-exterminator/upper-east-side-exterminator',
   'williamsburgexterminator.com': '/site/emd-microsites-exterminator/williamsburg-exterminator',
+
+  // Wash and Fold NYC neighborhood microsites
+  'washandfoldbrooklyn.com': '/site/emd-microsites-washandfold/washandfoldbrooklyn',
+  'washandfoldqueens.com': '/site/emd-microsites-washandfold/washandfoldqueens',
+  'washandfolduppereastside.com': '/site/emd-microsites-washandfold/washandfolduppereastside',
+  // Registered as "washandfoldupperweastside.com" (note: "weast") — see the
+  // comment in wash-and-fold-nyc/_lib/emd/washandfoldupperweastside.ts.
+  'washandfoldupperweastside.com': '/site/emd-microsites-washandfold/washandfoldupperweastside',
 }
 
 /**
