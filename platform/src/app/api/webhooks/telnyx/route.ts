@@ -13,6 +13,7 @@ import { askSelena as askYinez } from '@/lib/selena/agent'
 import { getSettings } from '@/lib/settings'
 import { verifyTelnyx } from '@/lib/webhook-verify'
 import { isNycMaid, NYCMAID_TENANT_ID } from '@/lib/nycmaid/tenant'
+import { FLORIDA_MAID_TENANT_ID } from '@/lib/sms-consent'
 import { handleNycMaidReview } from '@/lib/nycmaid/review-engine'
 import { handleReviewRating } from '@/lib/review-engine'
 import { handleFeedbackReply } from '@/lib/feedback-reply'
@@ -37,10 +38,18 @@ export const maxDuration = 60
 // sent to the old number keep resolving instead of silently dropping.
 // Outbound replies are unaffected — sendSMS() always sends from the
 // tenant's registered telnyx_phone (the mainline), never these aliases.
+// The Florida Maid's 813 and 954 numbers (+18135650215, +19547103636) got the
+// same "Forward Only" Telnyx connection + call forwarding as NYC Maid's
+// legacy numbers above (voice forwards to the toll-free mainline
+// +18885503126, 2026-08-20), and share the same messaging profile/webhook as
+// the mainline — so without an alias here, texts sent to either would hit
+// this webhook but silently drop for the same reason documented above.
 const TENANT_PHONE_ALIASES: Record<string, string> = {
   '+12122028400': NYCMAID_TENANT_ID,
   '+12122029030': NYCMAID_TENANT_ID,
   '+18883164019': NYCMAID_TENANT_ID,
+  '+18135650215': FLORIDA_MAID_TENANT_ID,
+  '+19547103636': FLORIDA_MAID_TENANT_ID,
 }
 
 const MMS_ALLOWED_TYPES = new Set([
