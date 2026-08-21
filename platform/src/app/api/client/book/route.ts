@@ -33,6 +33,7 @@ import { sanitizeInput } from '@/lib/sanitize'
 import { randomInt, randomBytes } from 'crypto'
 import { audit } from '@/lib/audit'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
+import { getServiceArea, isWithinServiceArea } from '@/lib/service-area'
 import { isWeekendDate, WEEKEND_CLIENT_SUPPLIES_RATE, WEEKEND_SUPPLIES_PROVIDED_RATE, WEEKEND_EMERGENCY_RATE } from '@/lib/nycmaid/weekend-pricing'
 import { SELF_BOOKING_DISCOUNT_DOLLARS } from '@/lib/nycmaid/self-book-discount'
 import { smsAdmins as nmSmsAdmins } from '@/lib/nycmaid/admin-contacts'
@@ -252,6 +253,21 @@ export async function POST(request: Request) {
     }
     if (typeof body.unit === 'string') {
       body.unit = sanitizeInput(body.unit)
+    }
+
+    // Reject before any client/property record is created — see isWithinServiceArea
+    // (the-nyc-exterminator / Southampton same-day pest job booked ~100mi
+    // outside NYC, 2026-08-21: no server-side geo gate existed at all). Only
+    // enforced for a tenant with a checkable service area configured (see
+    // that function's fail-open rules); city/state come from the address
+    // autocomplete's onSelect resolution, not the free-text address string.
+    if (body.address) {
+      const area = getServiceArea(tenant.selena_config)
+      if (!isWithinServiceArea(area, body.city as string | undefined, body.state as string | undefined)) {
+        return NextResponse.json({
+          error: "Sorry, that address is outside our service area. We currently serve the five boroughs of NYC.",
+        }, { status: 400 })
+      }
     }
 
     if (!body.client_id && !body.email && !body.phone) {

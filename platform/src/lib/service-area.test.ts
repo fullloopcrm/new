@@ -3,8 +3,10 @@ import {
   getServiceArea,
   parseServiceArea,
   isStateScoped,
+  isWithinServiceArea,
   NEUTRAL_SERVICE_AREA,
   NYC_DEFAULT_ZONES,
+  NYC_FIVE_BOROUGHS,
 } from './service-area'
 
 describe('service-area resolver', () => {
@@ -74,6 +76,49 @@ describe('service-area resolver', () => {
       expect(isStateScoped('local')).toBe(false)
       expect(isStateScoped('regional')).toBe(true)
       expect(isStateScoped('national')).toBe(true)
+    })
+  })
+
+  describe('isWithinServiceArea — the-nyc-exterminator / Southampton incident, 2026-08-21', () => {
+    const fiveBoroughs = { scope: 'local' as const, states: ['NY'], zones: NYC_FIVE_BOROUGHS }
+
+    it('rejects an out-of-NYC address when zones are exactly the 5 boroughs', () => {
+      expect(isWithinServiceArea(fiveBoroughs, 'Southampton', 'NY')).toBe(false)
+      expect(isWithinServiceArea(fiveBoroughs, 'East Hampton', 'NY')).toBe(false)
+    })
+
+    it('accepts a real borough address when zones are exactly the 5 boroughs', () => {
+      expect(isWithinServiceArea(fiveBoroughs, 'Queens', 'NY')).toBe(true)
+      expect(isWithinServiceArea(fiveBoroughs, 'Brooklyn', 'NY')).toBe(true)
+    })
+
+    it('rejects when city/state are missing (no confirmed address selection)', () => {
+      expect(isWithinServiceArea(fiveBoroughs, undefined, undefined)).toBe(false)
+    })
+
+    it('fails open for an unconfigured local tenant (no zones)', () => {
+      expect(isWithinServiceArea(NEUTRAL_SERVICE_AREA, 'Anywhere', 'TX')).toBe(true)
+    })
+
+    it('fails open for a local tenant whose zones include non-borough areas (e.g. nycmaid)', () => {
+      const nycmaidStyle = { scope: 'local' as const, states: ['NY'], zones: NYC_DEFAULT_ZONES }
+      expect(isWithinServiceArea(nycmaidStyle, 'Southampton', 'NY')).toBe(true)
+    })
+
+    it('checks state membership for a regional tenant', () => {
+      const regional = { scope: 'regional' as const, states: ['NY', 'NJ', 'CT'], zones: [] }
+      expect(isWithinServiceArea(regional, 'Anywhere', 'NY')).toBe(true)
+      expect(isWithinServiceArea(regional, 'Anywhere', 'PA')).toBe(false)
+    })
+
+    it('fails open for an unconfigured regional/national tenant (no states)', () => {
+      const unconfigured = { scope: 'national' as const, states: [], zones: [] }
+      expect(isWithinServiceArea(unconfigured, 'Anywhere', 'TX')).toBe(true)
+    })
+
+    it('accepts any state for a national tenant with ALL', () => {
+      const national = { scope: 'national' as const, states: ['ALL'], zones: [] }
+      expect(isWithinServiceArea(national, 'Anywhere', 'TX')).toBe(true)
     })
   })
 })

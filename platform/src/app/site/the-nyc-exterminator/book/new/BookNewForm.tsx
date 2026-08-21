@@ -40,6 +40,8 @@ export default function BookNewForm({
     phone: '',
     address: '',
     unit: '',
+    city: '',
+    state: '',
     service_type: defaultService?.name || '',
     date: '',
     time: '10:00 AM',
@@ -100,6 +102,8 @@ export default function BookNewForm({
           phone: form.phone.trim(),
           address: form.address.trim(),
           unit: form.unit.trim(),
+          city: form.city,
+          state: form.state,
           service_type: form.service_type,
           date: form.date,
           time: form.time,
@@ -249,7 +253,16 @@ export default function BookNewForm({
 
             <div>
               <label className={labelCls}>Address</label>
-              <AddressAutocomplete value={form.address} onChange={(v) => { update('address', v); setFieldErrors((prev) => ({ ...prev, address: undefined })) }} placeholder="Start typing your street..." className={`${inputCls} ${fieldErrors.address ? 'border-red-500 ring-1 ring-red-500' : ''}`} />
+              <AddressAutocomplete
+                value={form.address}
+                onChange={(v) => {
+                  setForm((prev) => ({ ...prev, address: v, city: '', state: '' }))
+                  setFieldErrors((prev) => ({ ...prev, address: undefined }))
+                }}
+                onSelect={(addr) => setForm((prev) => ({ ...prev, city: addr.city, state: addr.state }))}
+                placeholder="Start typing your street..."
+                className={`${inputCls} ${fieldErrors.address ? 'border-red-500 ring-1 ring-red-500' : ''}`}
+              />
               {fieldErrors.address && <p className="text-red-400 text-xs mt-1">{fieldErrors.address}</p>}
               <input type="text" placeholder="Apt / Unit (optional)" value={form.unit} onChange={(e) => update('unit', e.target.value)} className={`${inputCls} mt-2`} />
             </div>

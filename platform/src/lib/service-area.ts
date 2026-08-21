@@ -226,3 +226,34 @@ export function withServiceArea(selenaConfig: unknown, area: ServiceArea): Recor
   const base = (selenaConfig && typeof selenaConfig === 'object') ? (selenaConfig as Record<string, unknown>) : {}
   return { ...base, service_area: area }
 }
+
+/**
+ * Whether a submitted booking address is allowed under a tenant's configured
+ * service area. Fails OPEN (returns true) whenever the tenant hasn't actually
+ * configured enforcement, or when the configured zones aren't ones we can
+ * verify yet (see below) — this only ever tightens booking for a tenant that
+ * explicitly set a checkable area, never silently blocks an unconfigured or
+ * partially-configured one.
+ *
+ * Only local-scope zones drawn entirely from the 5 NYC boroughs are checked
+ * against the address today (isNycAddress) — that's the one case with a
+ * reliable city-name check (Radar puts the borough name straight in `city`
+ * for a NYC address). A zone list that also includes non-borough zones
+ * (Long Island, NJ Hudson, custom neighborhoods) can't be verified this way
+ * yet, so it's left unenforced rather than risk falsely rejecting a real
+ * customer — see The NYC Exterminator / Southampton incident, 2026-08-21.
+ */
+export function isWithinServiceArea(
+  area: ServiceArea,
+  city: string | null | undefined,
+  state: string | null | undefined,
+): boolean {
+  if (area.scope !== 'local') {
+    if (!area.states.length) return true
+    return area.states.includes('ALL') || area.states.includes((state || '').toUpperCase())
+  }
+  if (!area.zones.length) return true
+  const allBoroughZones = area.zones.every((z) => NYC_FIVE_BOROUGHS.some((b) => b.id === z.id))
+  if (!allBoroughZones) return true
+  return isNycAddress(city, state)
+}
