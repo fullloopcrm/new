@@ -81,9 +81,14 @@ export function useTenantSettings() {
 
   const updateSelenaConfig = useCallback(
     (patch: Record<string, unknown>) => {
+      // Optimistic local merge for display only. The network body sends just
+      // `patch` — the server merges it onto the CURRENT db row. Sending the
+      // locally-merged `next` object here used to let a stale tab (opened
+      // before some other change landed) silently resurrect old field values
+      // on save, with no field of `patch` actually changing on the wire.
       const next = { ...(tenant?.selena_config || {}), ...patch }
       setTenant((prev) => (prev ? { ...prev, selena_config: next } : prev))
-      return save({ selena_config: next })
+      return save({ selena_config: patch })
     },
     [save, tenant]
   )

@@ -38,6 +38,22 @@ export async function PUT(request: Request) {
       delete body[f]
     }
 
+    // selena_config is jsonb shared by many independent settings panels, each
+    // holding its own possibly-stale client snapshot. Merge the incoming
+    // patch onto the row's CURRENT selena_config (read right before write)
+    // instead of trusting the client's copy — otherwise a stale tab's save
+    // silently overwrites fields another panel/tab changed in the meantime.
+    // (Root cause of the 2026-08-20 nycmaid manual_away flip: a stale-tab
+    // save reset it to a snapshot from days earlier.)
+    if (body.selena_config !== undefined && body.selena_config !== null) {
+      const { data: currentRow } = await supabaseAdmin
+        .from('tenants')
+        .select('selena_config')
+        .eq('id', tenantId)
+        .single()
+      body.selena_config = { ...(currentRow?.selena_config || {}), ...body.selena_config }
+    }
+
     // Track sensitive field changes for security audit log
     const sensitiveFields = ['resend_api_key', 'telnyx_api_key', 'telnyx_phone', 'stripe_api_key', 'stripe_account_id', 'imap_pass', 'anthropic_api_key', 'deepgram_api_key', 'indexnow_key']
     const changedSensitive = sensitiveFields.filter((f) => body[f] !== undefined)
