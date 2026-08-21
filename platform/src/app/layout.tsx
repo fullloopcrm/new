@@ -43,6 +43,9 @@ export const metadata: Metadata = {
   alternates: {
     canonical: 'https://homeservicecrm.ai',
   },
+  verification: {
+    google: 'DXJr9OtH0xhwabA9GwpoEoplKsJ1q7LXmuFgH2VXHMk',
+  },
 }
 
 export default function RootLayout({
