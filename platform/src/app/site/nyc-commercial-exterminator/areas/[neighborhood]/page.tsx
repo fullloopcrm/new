@@ -13,7 +13,6 @@ import {
 import {
   getNeighborhoodHubMeta,
   getFAQPageSchema,
-  getBreadcrumbSchema,
   PHONE,
   SITE_URL,
   SITE_NAME,
@@ -88,10 +87,7 @@ export default async function NeighborhoodHubPage({ params }: PageProps) {
   ];
 
   const faqSchema = getFAQPageSchema(faqItems);
-  const breadcrumbSchema = getBreadcrumbSchema([
-    { name: "Service Areas", url: "/areas" },
-    { name: neighborhood.name, url: `/areas/${neighborhood.slug}` },
-  ]);
+  // Breadcrumb schema is injected once, by the <Breadcrumbs> component below.
   // LocalBusiness schema emitted globally in layout.tsx — removed page-level
   // duplicate to avoid Google's duplicate-type warnings.
 
@@ -133,7 +129,6 @@ export default async function NeighborhoodHubPage({ params }: PageProps) {
   return (
     <div className="text-white">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jobPostingSchema) }} />
 
       {/* ── HERO ── */}

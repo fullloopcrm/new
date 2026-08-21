@@ -15,7 +15,6 @@ import {
   getMoneyPageMeta,
   getLocalBusinessSchema,
   getFAQPageSchema,
-  getBreadcrumbSchema,
   PHONE,
 } from "@/app/site/nyc-commercial-exterminator/_lib/seo";
 import Breadcrumbs from "@/app/site/nyc-commercial-exterminator/_components/Breadcrumbs";
@@ -82,17 +81,16 @@ export default async function MoneyPage({ params }: PageProps) {
 
   const localBusinessSchema = getLocalBusinessSchema(service, neighborhood);
   const faqSchema = getFAQPageSchema(service.faqs);
-  const breadcrumbSchema = getBreadcrumbSchema([
-    { name: "Services", url: "/services" },
-    { name: service.name, url: `/${service.slug}` },
-    { name: neighborhood.name, url: `/${service.slug}/${neighborhood.slug}` },
-  ]);
+  // Breadcrumb schema is injected once, by the <Breadcrumbs> component below
+  // (which also prepends "Home") — this page used to build and inject its
+  // own second, Home-less BreadcrumbList on top of that, so every one of
+  // these ~10,800 service/neighborhood pages shipped two BreadcrumbList
+  // blocks.
 
   return (
     <div className="text-white">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
 
       {/* ── HERO ── */}
       <section className="bg-[#0A0A0A] pb-20 pt-8">

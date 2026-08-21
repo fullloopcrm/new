@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import Breadcrumbs from "@/app/site/nyc-commercial-exterminator/_components/Breadcrumbs";
 import CTAGroup from "@/app/site/nyc-commercial-exterminator/_components/CTAGroup";
-import { PHONE, EMAIL, ADDRESS, SITE_URL, getBreadcrumbSchema, getLocalBusinessSchemaGlobal } from "@/app/site/nyc-commercial-exterminator/_lib/seo";
+import { PHONE, EMAIL, ADDRESS, SITE_URL } from "@/app/site/nyc-commercial-exterminator/_lib/seo";
 import { getAllServices, getAllNeighborhoods } from "@/app/site/nyc-commercial-exterminator/_lib/data";
 
 export const metadata: Metadata = {
@@ -23,8 +23,8 @@ export const metadata: Metadata = {
 };
 
 export default function ContactPage() {
-  const breadcrumbSchema = getBreadcrumbSchema([{ name: "Contact", url: "/contact" }]);
-  const localBusinessSchema = getLocalBusinessSchemaGlobal();
+  // Breadcrumb schema is injected once, by the <Breadcrumbs> component below.
+  // PestControlService schema is injected once, globally, by layout.tsx.
   const services = getAllServices();
   const neighborhoods = getAllNeighborhoods();
   const phonePlain = PHONE.replace(/-/g, "");
@@ -86,8 +86,6 @@ export default function ContactPage() {
 
   return (
     <div className="text-white">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessSchema) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(contactFaqSchema) }} />
 
       {/* ───────── HERO ───────── */}

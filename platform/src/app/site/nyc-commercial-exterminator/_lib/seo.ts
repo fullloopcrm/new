@@ -47,6 +47,13 @@ export function getNeighborhoodHubMeta(neighborhood: Neighborhood) {
   };
 }
 
+// Was "@type": "PestControlService" with its own name/telephone/provider —
+// a full second local-business entity on every one of the ~10,800
+// service/neighborhood pages, on top of the single site-wide
+// PestControlService the layout already emits (getLocalBusinessSchemaGlobal,
+// @id `${SITE_URL}#business`). That told Google there were thousands of
+// distinct businesses instead of one business offering many services in
+// many areas. Now a Service tied back to that one business via @id.
 export function getLocalBusinessSchema(
   service: Service,
   neighborhood: Neighborhood
@@ -54,16 +61,11 @@ export function getLocalBusinessSchema(
   const location = neighborhood.name === neighborhood.region ? neighborhood.name : `${neighborhood.name}, ${neighborhood.region}`;
   return {
     "@context": "https://schema.org",
-    "@type": "PestControlService",
-    name: `${SITE_NAME} — ${service.name}`,
+    "@type": "Service",
+    name: `${service.name} in ${location}`,
     description: `Commercial ${service.name.toLowerCase()} for businesses in ${location}.`,
     url: `${SITE_URL}/${service.slug}/${neighborhood.slug}`,
-    telephone: PHONE,
-    provider: {
-      "@type": "Organization",
-      name: SITE_NAME,
-      url: SITE_URL,
-    },
+    provider: { "@id": `${SITE_URL}#business` },
     areaServed: {
       "@type": "Place",
       name: location,
@@ -79,11 +81,7 @@ export function getServiceSchema(service: Service) {
     name: `Commercial ${service.name} NYC`,
     description: service.description,
     url: `${SITE_URL}/${service.slug}`,
-    provider: {
-      "@type": "Organization",
-      name: SITE_NAME,
-      url: SITE_URL,
-    },
+    provider: { "@id": `${SITE_URL}#business` },
     areaServed: {
       "@type": "City",
       name: "New York",

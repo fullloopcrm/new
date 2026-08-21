@@ -9,7 +9,7 @@ import {
 } from "@/app/site/nyc-commercial-exterminator/_lib/data";
 import Breadcrumbs from "@/app/site/nyc-commercial-exterminator/_components/Breadcrumbs";
 import CTAGroup from "@/app/site/nyc-commercial-exterminator/_components/CTAGroup";
-import { SITE_URL, PHONE, getBreadcrumbSchema } from "@/app/site/nyc-commercial-exterminator/_lib/seo";
+import { SITE_URL, PHONE } from "@/app/site/nyc-commercial-exterminator/_lib/seo";
 
 export const metadata: Metadata = {
   title: "30+ NYC Pest Control & Exterminator Services | Browse All Treatments",
@@ -54,12 +54,10 @@ export default function ServicesPage() {
   const totalNeighborhoods = getAllNeighborhoods().length;
   const categories = getCategories();
 
-  const breadcrumbSchema = getBreadcrumbSchema([{ name: "Services", url: "/services" }]);
+  // Breadcrumb schema is injected once, by the <Breadcrumbs> component below.
 
   return (
     <div className="text-white">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
-
       {/* ── HERO ── */}
       <section className="bg-[#0A0A0A] pb-20 pt-8">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">

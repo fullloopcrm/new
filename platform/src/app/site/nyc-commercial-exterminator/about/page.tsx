@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { getAllServices, getAllNeighborhoods, getRegions } from "@/app/site/nyc-commercial-exterminator/_lib/data";
 import Breadcrumbs from "@/app/site/nyc-commercial-exterminator/_components/Breadcrumbs";
 import CTAGroup from "@/app/site/nyc-commercial-exterminator/_components/CTAGroup";
-import { PHONE, SITE_URL, EMAIL, ADDRESS, getBreadcrumbSchema, getLocalBusinessSchemaGlobal } from "@/app/site/nyc-commercial-exterminator/_lib/seo";
+import { PHONE, SITE_URL, EMAIL, ADDRESS } from "@/app/site/nyc-commercial-exterminator/_lib/seo";
 
 export const metadata: Metadata = {
   title: "About NYC Commercial Exterminator | Commercial Pest Control Company NYC",
@@ -28,14 +28,11 @@ export default function AboutPage() {
   const regions = getRegions();
   const phonePlain = PHONE.replace(/-/g, "");
 
-  const breadcrumbSchema = getBreadcrumbSchema([{ name: "About", url: "/about" }]);
-  const localBusinessSchema = getLocalBusinessSchemaGlobal();
+  // Breadcrumb schema is injected once, by the <Breadcrumbs> component below.
+  // PestControlService schema is injected once, globally, by layout.tsx.
 
   return (
     <div>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessSchema) }} />
-
       {/* ── Hero Section ── */}
       <section className="bg-[#0A0A0A] pb-20 pt-8 text-white">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">

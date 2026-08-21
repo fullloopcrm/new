@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Breadcrumbs from "@/app/site/nyc-commercial-exterminator/_components/Breadcrumbs";
 import ContactForm from "@/app/site/nyc-commercial-exterminator/_components/ContactForm";
-import { PHONE, SITE_URL, SITE_NAME, getBreadcrumbSchema, getFAQPageSchema, getLocalBusinessSchemaGlobal } from "@/app/site/nyc-commercial-exterminator/_lib/seo";
+import { PHONE, SITE_URL, SITE_NAME, getFAQPageSchema } from "@/app/site/nyc-commercial-exterminator/_lib/seo";
 
 export const metadata: Metadata = {
   title: "Schedule Service | $249/hr Fully Inclusive | The Only NYC Pest Control That Bills Hourly",
@@ -59,25 +59,15 @@ const faqs = [
 ];
 
 export default function ScheduleServicePage() {
-  const breadcrumbSchema = getBreadcrumbSchema([
-    { name: "Schedule Service", url: "/schedule-service" },
-  ]);
+  // Breadcrumb schema is injected once, by the <Breadcrumbs> component below.
+  // PestControlService schema is injected once, globally, by layout.tsx.
   const faqSchema = getFAQPageSchema(faqs);
-  const localBusinessSchema = getLocalBusinessSchemaGlobal();
 
   return (
     <div className="text-white">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
-      />
-      <script
-        type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
-      />
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessSchema) }}
       />
 
       {/* ── HERO + FORM ── */}

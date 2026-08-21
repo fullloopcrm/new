@@ -8,7 +8,7 @@ import {
 } from "@/app/site/nyc-commercial-exterminator/_lib/data";
 import Breadcrumbs from "@/app/site/nyc-commercial-exterminator/_components/Breadcrumbs";
 import CTAGroup from "@/app/site/nyc-commercial-exterminator/_components/CTAGroup";
-import { SITE_URL, getFAQPageSchema, getBreadcrumbSchema } from "@/app/site/nyc-commercial-exterminator/_lib/seo";
+import { SITE_URL, getFAQPageSchema } from "@/app/site/nyc-commercial-exterminator/_lib/seo";
 
 export const metadata: Metadata = {
   title: "Pest Control in 280+ NYC Neighborhoods | All 5 Boroughs, NJ, LI & Westchester",
@@ -79,12 +79,11 @@ export default function AreasPage() {
   ];
 
   const faqSchema = getFAQPageSchema(faqItems);
-  const breadcrumbSchema = getBreadcrumbSchema([{ name: "Service Areas", url: "/areas" }]);
+  // Breadcrumb schema is injected once, by the <Breadcrumbs> component below.
 
   return (
     <div className="text-white">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
 
       {/* ── HERO ── */}
       <section className="bg-[#0A0A0A] pb-20 pt-8">
