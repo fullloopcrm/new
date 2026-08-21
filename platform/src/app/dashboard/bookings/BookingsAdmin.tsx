@@ -532,7 +532,24 @@ function BookingsPage() {
     return b.status === 'completed' && summary.laborOutstandingCents === 0 && summary.customerOutstandingCents === 0
   }
 
-  const closeOutJobs = [...flagClaimsAttention, ...flagClaimsClosedRecent.filter(b => !isBookingReallyClosed(b))]
+  // flagClaimsAttention's raw payment_status/team_member_paid columns can be
+  // stale in the OTHER direction too: written once when a payment/payout was
+  // processed, never re-derived afterward, so a booking that's actually
+  // fully settled (per the same verified closeOutSummaries math driving its
+  // own "Paid in full" badge above) can sit here forever showing "partial"
+  // on the stored column alone. isBookingReallyClosed isn't reused here — its
+  // `start_time < todayStart` grandfather shortcut (2026-08-10, missing
+  // pre-cutoff payout rows) would auto-hide genuinely still-unpaid old
+  // bookings with zero verification, which is the opposite of what this
+  // bucket exists to catch. This only removes a job once the real numbers
+  // say there's nothing left to collect.
+  const isVerifiedFullyPaid = (b: Booking) => {
+    const summary = closeOutSummaries[b.id]
+    if (!summary) return false
+    return b.status === 'completed' && summary.laborOutstandingCents === 0 && summary.customerOutstandingCents === 0
+  }
+
+  const closeOutJobs = [...flagClaimsAttention.filter(b => !isVerifiedFullyPaid(b)), ...flagClaimsClosedRecent.filter(b => !isBookingReallyClosed(b))]
     .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
 
   const recentlyClosedJobs = flagClaimsClosedRecent.filter(isBookingReallyClosed)
