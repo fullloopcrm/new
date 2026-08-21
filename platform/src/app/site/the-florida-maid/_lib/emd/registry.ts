@@ -49,6 +49,24 @@ import { paceMaidConfig } from './pace-maid'
 import { gulfBreezeMaidConfig } from './gulf-breeze-maid'
 import { perdidoKeyMaidConfig } from './perdido-key-maid'
 import { warringtonMaidConfig } from './warrington-maid'
+import { tampaMaidConfig } from './tampa-maid'
+import { southTampaMaidConfig } from './south-tampa-maid'
+import { newTampaMaidConfig } from './new-tampa-maid'
+import { seminoleHeightsMaidConfig } from './seminole-heights-maid'
+import { clearwaterBeachMaidConfig } from './clearwater-beach-maid'
+import { davisIslandsMaidConfig } from './davis-islands-maid'
+import { sandKeyMaidConfig } from './sand-key-maid'
+import { carrollwoodMaidConfig } from './carrollwood-maid'
+import { oldNortheastMaidConfig } from './old-northeast-maid'
+import { snellIsleMaidConfig } from './snell-isle-maid'
+import { beachParkMaidConfig } from './beach-park-maid'
+import { channelsideMaidConfig } from './channelside-maid'
+import { palmaCeiaMaidConfig } from './palma-ceia-maid'
+import { parklandEstatesMaidConfig } from './parkland-estates-maid'
+import { sunsetParkMaidConfig } from './sunset-park-maid'
+import { hydeParkMaidConfig } from './hyde-park-maid'
+import { westchaseMaidConfig } from './westchase-maid'
+import { downtownStPeteMaidConfig } from './downtown-st-pete-maid'
 
 const CONFIGS: EmdMicrositeConfig[] = [
   miamiBeachMaidConfig,
@@ -101,6 +119,24 @@ const CONFIGS: EmdMicrositeConfig[] = [
   gulfBreezeMaidConfig,
   perdidoKeyMaidConfig,
   warringtonMaidConfig,
+  tampaMaidConfig,
+  southTampaMaidConfig,
+  newTampaMaidConfig,
+  seminoleHeightsMaidConfig,
+  clearwaterBeachMaidConfig,
+  davisIslandsMaidConfig,
+  sandKeyMaidConfig,
+  carrollwoodMaidConfig,
+  oldNortheastMaidConfig,
+  snellIsleMaidConfig,
+  beachParkMaidConfig,
+  channelsideMaidConfig,
+  palmaCeiaMaidConfig,
+  parklandEstatesMaidConfig,
+  sunsetParkMaidConfig,
+  hydeParkMaidConfig,
+  westchaseMaidConfig,
+  downtownStPeteMaidConfig,
 ]
 
 const BY_DOMAIN = new Map<string, EmdMicrositeConfig>(

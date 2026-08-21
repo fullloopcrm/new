@@ -59,6 +59,27 @@ export const EMD_MICROSITE_ROUTES: Record<string, string> = {
   'gulfbreezemaid.com': '/site/emd-microsites/gulf-breeze-maid',
   'perdidokeymaid.com': '/site/emd-microsites/perdido-key-maid',
   'warringtonmaid.com': '/site/emd-microsites/warrington-maid',
+
+  // Tampa Bay-area EMD microsites (2026-08-21) — same pattern, funding into
+  // the-florida-maid tenant for record-keeping.
+  'thetampamaid.com': '/site/emd-microsites/tampa-maid',
+  'southtampamaid.com': '/site/emd-microsites/south-tampa-maid',
+  'newtampamaid.com': '/site/emd-microsites/new-tampa-maid',
+  'seminoleheightsmaid.com': '/site/emd-microsites/seminole-heights-maid',
+  'clearwaterbeachmaid.com': '/site/emd-microsites/clearwater-beach-maid',
+  'davislandsmaid.com': '/site/emd-microsites/davis-islands-maid',
+  'sandkeymaid.com': '/site/emd-microsites/sand-key-maid',
+  'carrollwoodmaid.com': '/site/emd-microsites/carrollwood-maid',
+  'oldnortheastmaid.com': '/site/emd-microsites/old-northeast-maid',
+  'snellislemaid.com': '/site/emd-microsites/snell-isle-maid',
+  'beachparkmaid.com': '/site/emd-microsites/beach-park-maid',
+  'channelsidemaid.com': '/site/emd-microsites/channelside-maid',
+  'palmaceiamaid.com': '/site/emd-microsites/palma-ceia-maid',
+  'parklandestatesmaid.com': '/site/emd-microsites/parkland-estates-maid',
+  'sunsetparkmaid.com': '/site/emd-microsites/sunset-park-maid',
+  'hydeparkmaid.com': '/site/emd-microsites/hyde-park-maid',
+  'westchasemaid.com': '/site/emd-microsites/westchase-maid',
+  'downtownstpetemaid.com': '/site/emd-microsites/downtown-st-pete-maid',
 }
 
 /**
