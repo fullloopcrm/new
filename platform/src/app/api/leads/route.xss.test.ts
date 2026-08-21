@@ -15,11 +15,28 @@ const { sendEmail } = vi.hoisted(() => ({ sendEmail: vi.fn(async (..._args: { ht
 vi.mock('@/lib/email', () => ({ sendEmail }))
 vi.mock('@/lib/supabase', () => ({
   supabaseAdmin: {
-    from: () => ({
-      insert: () => ({
-        select: () => ({ single: async () => ({ data: { id: 'lead-1' }, error: null }) }),
-      }),
-    }),
+    // Table-keyed: 'leads' (the original insert-select-single this test
+    // exercises) vs 'rate_limit_events' (rate-limit-db.ts, added when
+    // POST /api/leads got rate limiting — see security-hardening
+    // 2026-08-21). rate_limit_events supports the count-select the limiter
+    // runs first, then the insert that records the attempt.
+    from: (table: string) => {
+      if (table === 'rate_limit_events') {
+        return {
+          select: () => ({
+            eq: () => ({
+              gte: async () => ({ count: 0, error: null }),
+            }),
+          }),
+          insert: async () => ({ error: null }),
+        }
+      }
+      return {
+        insert: () => ({
+          select: () => ({ single: async () => ({ data: { id: 'lead-1' }, error: null }) }),
+        }),
+      }
+    },
   },
 }))
 
