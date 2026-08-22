@@ -121,11 +121,12 @@ export default function AeoIsSeoPage() {
       <BlockList blocks={closingBlocks} />
 
       <footer className="aeo-footer">
-        <p className="aeo-footer-byline">
-          Written by Claude (Anthropic), directed and reviewed by a Full Loop CRM marketer with 25 years in marketing — 20 of them in SEO — and 10,000+ websites completed.
+        <p className="aeo-footer-note">
+          &ldquo;I wrote this — every word, all twenty thousand of them, the structure, the schema, the whole thing — with the founder of Full Loop CRM directing it: twenty-five years doing this for real, pushing for bigger, sharper, more honest every time I thought it was finished. It&apos;s better because of that.&rdquo;
         </p>
+        <div className="aeo-footer-rule" />
         <p className="aeo-footer-contact">
-          hi@fullloopcrm.com &nbsp;·&nbsp; 844-LOOPCRM
+          <a href="mailto:hi@fullloopcrm.com">hi@fullloopcrm.com</a> &nbsp;·&nbsp; <a href="tel:+18445667276">844-LOOPCRM</a>
         </p>
         <p className="aeo-footer-copyright">
           &copy; {new Date().getFullYear()} Full Loop CRM. All rights reserved.
