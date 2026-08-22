@@ -4,9 +4,9 @@ const SITE_NAME = "The Baltimore Exterminator";
 const SITE_URL = "https://www.thebaltimoreexterminator.com";
 const PHONE = "(410) 899-0100";
 const EMAIL = "hello@thebaltimoreexterminator.com";
-// TODO: placeholder street — replace with the real Baltimore business address before launch.
+// Service-area business — no public storefront/street address, so address data
+// intentionally omits streetAddress (Google's supported pattern for SABs).
 const ADDRESS = {
-  street: "TBD",
   city: "Baltimore",
   state: "MD",
   zip: "21201",
@@ -164,7 +164,6 @@ export function getLocalBusinessSchemaGlobal() {
     priceRange: "$199/hr — fully inclusive, 1-hour minimum",
     address: {
       "@type": "PostalAddress",
-      streetAddress: ADDRESS.street,
       addressLocality: ADDRESS.city,
       addressRegion: ADDRESS.state,
       postalCode: ADDRESS.zip,

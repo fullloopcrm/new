@@ -38,7 +38,7 @@ export default function Footer() {
                 {EMAIL}
               </a>
               <p className="text-zinc-600">
-                {ADDRESS.street}, {ADDRESS.city}, {ADDRESS.state} {ADDRESS.zip}
+                Serving {ADDRESS.city}, {ADDRESS.state} {ADDRESS.zip} &amp; the greater metro area
               </p>
             </div>
           </div>

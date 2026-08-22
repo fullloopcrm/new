@@ -319,17 +319,16 @@ export default function ContactPage() {
           {/* Address & Hours */}
           <div className="mt-16 grid gap-8 md:grid-cols-2">
             <div className="rounded-xl border border-zinc-700 bg-[#1A1A1A] p-8">
-              <h3 className="text-xl font-semibold text-green-400">Our Office Address</h3>
+              <h3 className="text-xl font-semibold text-green-400">Our Service Area</h3>
               <p className="mt-4 text-zinc-300">
-                {ADDRESS.street}<br />
-                {ADDRESS.city}, {ADDRESS.state} {ADDRESS.zip}
+                {ADDRESS.city}, {ADDRESS.state} {ADDRESS.zip}<br />
+                &amp; the greater Baltimore metro area
               </p>
               <p className="mt-4 text-sm text-zinc-500">
-                While we serve all of the entire Baltimore metro area, our
-                main office is centrally located in Midtown Baltimore. Walk-ins are
-                welcome during business hours, though we recommend texting or booking
-                ahead so we can have an exterminator ready to discuss your pest
-                control needs.
+                We&apos;re a mobile pest control team covering the entire Baltimore
+                metro area — we don&apos;t operate a walk-in storefront, so we
+                recommend texting or booking online ahead of time so we can have
+                an exterminator ready to discuss your pest control needs.
               </p>
             </div>
             <div className="rounded-xl border border-zinc-700 bg-[#1A1A1A] p-8">

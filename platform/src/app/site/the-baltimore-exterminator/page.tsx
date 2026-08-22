@@ -205,7 +205,7 @@ export default function HomePage() {
           <div className="mt-8 grid gap-8 lg:grid-cols-2">
             <div className="space-y-5 text-zinc-300 leading-7">
               <p>
-                The Baltimore Exterminator is a full-service pest control company serving the entire Baltimore metropolitan area. From our headquarters at {ADDRESS.street} in Midtown Baltimore, our team of licensed exterminators provides comprehensive pest control services to residential and commercial properties across the entire Baltimore metro area, Baltimore County, Howard County, and Anne Arundel County. We specialize in eliminating every pest that thrives in the urban environment — from <Link href="/cockroach-extermination" className="text-green-400 hover:text-green-300">cockroaches</Link> and <Link href="/bed-bug-treatment" className="text-green-400 hover:text-green-300">bed bugs</Link> to <Link href="/rat-extermination" className="text-green-400 hover:text-green-300">rats</Link>, <Link href="/mouse-extermination" className="text-green-400 hover:text-green-300">mice</Link>, <Link href="/termite-treatment" className="text-green-400 hover:text-green-300">termites</Link>, and <Link href="/general-pest-control" className="text-green-400 hover:text-green-300">general household pests</Link>.
+                The Baltimore Exterminator is a full-service pest control company serving the entire Baltimore metropolitan area. Our team of licensed exterminators provides comprehensive pest control services to residential and commercial properties across the entire Baltimore metro area, Baltimore County, Howard County, and Anne Arundel County. We specialize in eliminating every pest that thrives in the urban environment — from <Link href="/cockroach-extermination" className="text-green-400 hover:text-green-300">cockroaches</Link> and <Link href="/bed-bug-treatment" className="text-green-400 hover:text-green-300">bed bugs</Link> to <Link href="/rat-extermination" className="text-green-400 hover:text-green-300">rats</Link>, <Link href="/mouse-extermination" className="text-green-400 hover:text-green-300">mice</Link>, <Link href="/termite-treatment" className="text-green-400 hover:text-green-300">termites</Link>, and <Link href="/general-pest-control" className="text-green-400 hover:text-green-300">general household pests</Link>.
               </p>
               <p>
                 What sets our pest control company apart is our commitment to thorough, lasting results. Every job begins with a comprehensive inspection conducted by a state-licensed exterminator who identifies not just the pest, but the source of the infestation and the conditions allowing it to persist. We then develop a customized treatment plan using EPA-approved products and industry-leading techniques — from targeted gel bait applications for <Link href="/cockroach-extermination" className="text-green-400 hover:text-green-300">cockroach control</Link> to whole-room heat treatment for <Link href="/bed-bug-treatment" className="text-green-400 hover:text-green-300">bed bug elimination</Link> to exclusion work for <Link href="/rodent-proofing" className="text-green-400 hover:text-green-300">rodent-proofing</Link>.
@@ -1005,10 +1005,10 @@ export default function HomePage() {
               </a>
             </div>
             <div className="rounded-xl border border-white/[0.06] bg-[#141414] p-5">
-              <h3 className="text-sm font-semibold uppercase text-zinc-500">Office</h3>
+              <h3 className="text-sm font-semibold uppercase text-zinc-500">Service Area</h3>
               <p className="mt-2 text-sm text-zinc-300">
-                {ADDRESS.street}<br />
-                {ADDRESS.city}, {ADDRESS.state} {ADDRESS.zip}
+                {ADDRESS.city}, {ADDRESS.state} {ADDRESS.zip}<br />
+                &amp; the greater Baltimore metro area
               </p>
             </div>
           </div>
