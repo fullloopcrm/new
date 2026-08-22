@@ -2,7 +2,7 @@ import type { Service, Neighborhood } from "./data";
 
 const SITE_NAME = "The Baltimore Exterminator";
 const SITE_URL = "https://www.thebaltimoreexterminator.com";
-const PHONE = "(410) 899-0100";
+const PHONE = "(410) 844-6060";
 const EMAIL = "hello@thebaltimoreexterminator.com";
 // Service-area business — no public storefront/street address, so address data
 // intentionally omits streetAddress (Google's supported pattern for SABs).

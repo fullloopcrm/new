@@ -82,7 +82,7 @@ export default async function ServiceHubPage({ params }: PageProps) {
     address: {
       "@type": "PostalAddress",
       addressLocality: "Baltimore",
-      addressRegion: "NY",
+      addressRegion: "MD",
       addressCountry: "US",
     },
     areaServed: regions.map((r) => ({ "@type": "Place", name: r })),

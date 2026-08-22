@@ -105,7 +105,7 @@ export default async function NeighborhoodCareersPage({ params }: PageProps) {
       address: {
         "@type": "PostalAddress",
         addressLocality: neighborhood.name,
-        addressRegion: neighborhood.region === "Howard County" ? "NJ" : "NY",
+        addressRegion: "MD",
         addressCountry: "US",
       },
     },
