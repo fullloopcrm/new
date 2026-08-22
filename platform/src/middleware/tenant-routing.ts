@@ -138,6 +138,7 @@ export function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: st
     'the-nyc-marketing-company',
     'the-nyc-seo',
     'consortium-nyc',
+    'aeo-is-seo',
   ])
   if (pathname === '/sitemap.xml') {
     const url = req.nextUrl.clone()

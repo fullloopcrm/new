@@ -1,0 +1,261 @@
+.aeo-page {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 4rem 1.5rem 6rem;
+  line-height: 1.7;
+  font-size: 1.0625rem;
+  position: relative;
+}
+
+.aeo-title {
+  font-family: var(--font-serif), Georgia, serif;
+  font-weight: 700;
+  font-style: normal;
+  font-size: clamp(2.25rem, 5vw, 3.25rem);
+  line-height: 1.1;
+  margin: 0 0 0.75rem;
+  letter-spacing: -0.01em;
+}
+
+.aeo-dek {
+  font-family: var(--font-sans), sans-serif;
+  font-size: 1.0625rem;
+  line-height: 1.55;
+  color: #333333;
+  margin: 0 0 2.5rem;
+  max-width: 56ch;
+}
+
+.aeo-meta {
+  font-family: var(--font-sans), sans-serif;
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #555555;
+  margin: 0 0 3rem;
+  border-top: 1px solid #111111;
+  border-bottom: 1px solid #111111;
+  padding: 0.75rem 0;
+}
+
+.aeo-h2 {
+  font-family: var(--font-serif), Georgia, serif;
+  font-weight: 700;
+  font-size: clamp(1.5rem, 3vw, 1.875rem);
+  line-height: 1.25;
+  margin: 3.5rem 0 1.25rem;
+  letter-spacing: -0.005em;
+}
+
+.aeo-h3 {
+  font-family: var(--font-sans), sans-serif;
+  font-weight: 700;
+  font-size: 1.0625rem;
+  line-height: 1.4;
+  margin: 2.5rem 0 1rem;
+}
+
+.aeo-p {
+  margin: 0 0 1.25rem;
+}
+
+.aeo-quote {
+  margin: 1.75rem 0;
+  padding-left: 1.25rem;
+  border-left: 2px solid #111111;
+  font-style: italic;
+  color: #222222;
+}
+
+.aeo-page a {
+  color: #111111;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+.aeo-page a:hover {
+  text-decoration-thickness: 2px;
+}
+
+.aeo-glossary-intro,
+.aeo-resources-intro {
+  margin: 0 0 2rem;
+  color: #333333;
+}
+
+.aeo-faq-list {
+  margin: 0 0 3rem;
+}
+
+.aeo-faq-item {
+  padding: 1.125rem 0;
+  border-top: 1px solid #dddddd;
+}
+
+.aeo-faq-item:first-child {
+  border-top: 1px solid #111111;
+}
+
+.aeo-faq-q {
+  font-family: var(--font-sans), sans-serif;
+  font-weight: 700;
+  margin: 0 0 0.375rem;
+}
+
+.aeo-faq-a {
+  margin: 0;
+  color: #222222;
+}
+
+.aeo-glossary-list,
+.aeo-resource-list {
+  list-style: none;
+  margin: 0 0 2.5rem;
+  padding: 0;
+}
+
+.aeo-glossary-item,
+.aeo-resource-item {
+  padding: 1rem 0;
+  border-top: 1px solid #dddddd;
+}
+
+.aeo-glossary-item:first-child,
+.aeo-resource-item:first-child {
+  border-top: none;
+}
+
+.aeo-term,
+.aeo-resource-name {
+  font-family: var(--font-sans), sans-serif;
+  font-weight: 700;
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.aeo-definition,
+.aeo-resource-desc {
+  margin: 0;
+  color: #222222;
+}
+
+.aeo-resource-category {
+  font-family: var(--font-sans), sans-serif;
+  font-weight: 700;
+  font-size: 1.0625rem;
+  margin: 2.75rem 0 0.5rem;
+}
+
+.aeo-resource-category-intro {
+  font-family: var(--font-sans), sans-serif;
+  font-size: 0.9375rem;
+  color: #444444;
+  margin: 0 0 1rem;
+}
+
+.aeo-footer {
+  margin-top: 5rem;
+  font-family: var(--font-sans), sans-serif;
+  font-size: 0.8125rem;
+  color: #555555;
+}
+
+.aeo-footer-note {
+  margin: 0 0 1.5rem;
+  padding-bottom: 1.5rem;
+  font-family: var(--font-serif), Georgia, serif;
+  font-style: italic;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: #222222;
+}
+
+.aeo-footer-rule {
+  border-top: 1px solid #111111;
+  margin: 0 0 1.5rem;
+}
+
+.aeo-footer-contact {
+  margin: 0 0 0.375rem;
+  color: #222222;
+}
+
+.aeo-footer-contact a {
+  color: #222222;
+}
+
+.aeo-footer-copyright {
+  margin: 0;
+  color: #555555;
+}
+
+@media (max-width: 480px) {
+  .aeo-page {
+    padding: 3rem 1.25rem 4rem;
+  }
+}
+
+/* Marginalia — tips/insights/forecasts alongside the reading column.
+   Wide screens: floated into the true page margin, alternating sides.
+   Narrow screens: no room in the margin, so they fall inline as stacked
+   callouts, keeping the left/right alternation as an accent instead. */
+.aeo-note {
+  display: block;
+  box-sizing: border-box;
+}
+
+.aeo-note-label {
+  display: block;
+  font-family: var(--font-sans), sans-serif;
+  font-weight: 700;
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 0.375rem;
+}
+
+.aeo-note-text {
+  font-family: var(--font-sans), sans-serif;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: #222222;
+  margin: 0;
+}
+
+@media (max-width: 1339px) {
+  .aeo-note {
+    width: 100%;
+    margin: 2rem 0;
+    padding: 0.875rem 1.25rem;
+  }
+  .aeo-note-left {
+    border-left: 3px solid #111111;
+  }
+  .aeo-note-right {
+    border-left: 3px solid #999999;
+    margin-left: 1.5rem;
+  }
+}
+
+@media (min-width: 1340px) {
+  .aeo-note {
+    width: 230px;
+    margin-top: 0.15em;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    border: 1px solid #111111;
+  }
+  .aeo-note-left {
+    float: left;
+    clear: left;
+    margin-left: -270px;
+    margin-right: 0;
+  }
+  .aeo-note-right {
+    float: right;
+    clear: right;
+    margin-right: -270px;
+    margin-left: 0;
+  }
+}
