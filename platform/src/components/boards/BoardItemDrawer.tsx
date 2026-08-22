@@ -16,6 +16,8 @@ interface BoardItemDrawerProps {
   onClose: () => void
   onItemChange: (item: BoardItem) => void
   onDelete: () => void
+  /** Persists a column value change and applies the board's Completed-group auto-move — shared with the table/Kanban views so marking Stage complete moves the item no matter where it was changed. */
+  onValueChange: (item: BoardItem, column: BoardColumn, value: unknown) => Promise<{ ok: true } | { ok: false; error: string }>
   /**
    * Tenant dashboard boards get the full rich-text composer: mentions
    * (/api/boards/team-mentions is tenant-session-scoped) and file
@@ -28,7 +30,7 @@ interface BoardItemDrawerProps {
 
 type Tab = 'updates' | 'files' | 'activity'
 
-export default function BoardItemDrawer({ apiBase, boardId, item, columns, teamMembers, onClose, onItemChange, onDelete, richUpdates = true }: BoardItemDrawerProps) {
+export default function BoardItemDrawer({ apiBase, boardId, item, columns, teamMembers, onClose, onItemChange, onDelete, onValueChange, richUpdates = true }: BoardItemDrawerProps) {
   const [name, setName] = useState(item.name)
   const [notes, setNotes] = useState<BoardItemNote[] | null>(null)
   const [draftNote, setDraftNote] = useState('')
@@ -63,13 +65,10 @@ export default function BoardItemDrawer({ apiBase, boardId, item, columns, teamM
     if (r.ok) { onItemChange(r.data.item); loadNotes() } else setErr(r.error)
   }
 
-  async function setValue(columnId: string, value: unknown) {
-    const r = await boardsFetch<{ item: BoardItem }>(`${apiBase}/${boardId}/items/${item.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ values: { [columnId]: value } }),
-    })
-    if (r.ok) { onItemChange(r.data.item); loadNotes() } else setErr(r.error)
+  async function setValue(column: BoardColumn, value: unknown) {
+    const r = await onValueChange(item, column, value)
+    if (!r.ok) setErr(r.error)
+    loadNotes()
   }
 
   async function setAssignee(value: unknown) {
@@ -105,8 +104,8 @@ export default function BoardItemDrawer({ apiBase, boardId, item, columns, teamM
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/30 z-40" onClick={onClose} />
-      <div className="fixed right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl z-50 flex flex-col">
+      <div className="fixed inset-0 bg-black/30 z-[60]" onClick={onClose} />
+      <div className="fixed right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl z-[70] flex flex-col">
         <div className="p-4 border-b border-slate-200 flex items-start justify-between gap-2">
           <input
             value={name}
@@ -145,7 +144,7 @@ export default function BoardItemDrawer({ apiBase, boardId, item, columns, teamM
               <BoardCell
                 column={col}
                 value={col.type === 'person' && teamMembers ? item.assigned_to : item.values?.[col.id]}
-                onChange={(v) => (col.type === 'person' && teamMembers ? setAssignee(v) : setValue(col.id, v))}
+                onChange={(v) => (col.type === 'person' && teamMembers ? setAssignee(v) : setValue(col, v))}
                 teamMembers={teamMembers}
               />
             </div>

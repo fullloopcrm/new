@@ -38,9 +38,9 @@ const COLUMN_TYPE_OPTIONS: { value: BoardColumnType; label: string }[] = [
   { value: 'checkbox', label: 'Checkbox' },
 ]
 
-// The group items funnel into once their checkbox is checked — see
-// handleCheckboxChange. Matched case-insensitively so a board's own
-// "Completed"/"completed" group is reused instead of creating a duplicate.
+// The group items funnel into once marked complete — see applyValueChange.
+// Matched case-insensitively so a board's own "Completed"/"completed" group
+// is reused instead of creating a duplicate.
 const COMPLETED_GROUP_NAME = 'Completed'
 function isCompletedGroup(group: { name: string }): boolean {
   return group.name.trim().toLowerCase() === COMPLETED_GROUP_NAME.toLowerCase()
@@ -102,7 +102,7 @@ export default function BoardBody({ apiBase, boardId, richUpdates = true }: Boar
   }, [boardId])
 
   // Every board gets a "Completed" group (auto-created once, last position)
-  // so the checkbox-driven auto-move in handleCheckboxChange always has
+  // so the completion-driven auto-move in applyValueChange always has
   // somewhere to send a finished item.
   useEffect(() => {
     if (!data || ensuredCompletedGroup.current) return
@@ -315,22 +315,53 @@ export default function BoardBody({ apiBase, boardId, richUpdates = true }: Boar
     if (results.some((r) => !r.ok)) { setErr('Failed to move item'); load() }
   }
 
-  // Checking ANY checkbox column on an item sends it to the Completed group
-  // (remembering the group it came from in values.__prev_group_id);
-  // unchecking every checkbox column sends it back. Computed and persisted
-  // as one PATCH so the value flip and the move land atomically.
-  async function handleCheckboxChange(item: BoardItem, column: BoardColumn, checked: boolean) {
-    if (!data) return
-    const nextValues: Record<string, unknown> = { ...item.values, [column.id]: checked }
-    const checkboxCols = data.columns.filter((c) => c.type === 'checkbox')
-    const anyChecked = checkboxCols.some((c) => nextValues[c.id] === true)
+  // A checkbox column reads "complete" when checked; a status column (every
+  // board's standard "Stage" column ships Started/Working/Complete) reads
+  // "complete" when its value is the Complete option. Both are completion
+  // signals for the auto-move below.
+  function isCompletionValue(column: BoardColumn, value: unknown): boolean {
+    if (column.type === 'checkbox') return value === true
+    if (column.type === 'status') return typeof value === 'string' && value.trim().toLowerCase() === 'complete'
+    return false
+  }
+
+  // Setting ANY checkbox or status column to a "complete" value sends the
+  // item to the Completed group (remembering the group it came from in
+  // values.__prev_group_id); losing every completion signal sends it back.
+  // Computed and persisted as one PATCH so the value flip and the move land
+  // atomically. Shared by the table-view cell, the Kanban lane drop, and the
+  // item drawer's own column editor so the move fires no matter where the
+  // value was changed.
+  async function applyValueChange(item: BoardItem, column: BoardColumn, value: unknown): Promise<{ ok: true } | { ok: false; error: string }> {
+    if (!data) return { ok: true }
+    const nextValues: Record<string, unknown> = { ...item.values, [column.id]: value }
+
+    // Only a checkbox/status edit can flip completion state. A text/number/
+    // date edit must never re-evaluate it — otherwise editing something as
+    // unrelated as the Notes field on an item someone manually dragged into
+    // Completed (Stage still "Started") would silently bounce it back out.
+    if (column.type !== 'checkbox' && column.type !== 'status') {
+      setData((prev) => (prev
+        ? { ...prev, items: prev.items.map((i) => (i.id === item.id ? { ...i, values: nextValues } : i)) }
+        : prev))
+      const r = await boardsFetch(`${apiBase}/${boardId}/items/${item.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ values: nextValues }),
+      })
+      if (!r.ok) { setErr(r.error); load(); return { ok: false, error: r.error } }
+      return { ok: true }
+    }
+
+    const completionCols = data.columns.filter((c) => c.type === 'checkbox' || c.type === 'status')
+    const anyComplete = completionCols.some((c) => isCompletionValue(c, nextValues[c.id]))
     const completedGroup = data.groups.find(isCompletedGroup)
 
     let targetGroupId = item.group_id
-    if (completedGroup && item.group_id !== completedGroup.id && anyChecked) {
+    if (completedGroup && item.group_id !== completedGroup.id && anyComplete) {
       nextValues.__prev_group_id = item.group_id
       targetGroupId = completedGroup.id
-    } else if (completedGroup && item.group_id === completedGroup.id && !anyChecked) {
+    } else if (completedGroup && item.group_id === completedGroup.id && !anyComplete) {
       const prevGroupId = typeof item.values.__prev_group_id === 'string' ? item.values.__prev_group_id : null
       targetGroupId = (prevGroupId && data.groups.some((g) => g.id === prevGroupId))
         ? prevGroupId
@@ -353,7 +384,8 @@ export default function BoardBody({ apiBase, boardId, richUpdates = true }: Boar
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(patchBody),
     })
-    if (!r.ok) { setErr(r.error); load() }
+    if (!r.ok) { setErr(r.error); load(); return { ok: false, error: r.error } }
+    return { ok: true }
   }
 
   if (!data) return <div className="p-8 text-slate-400 text-sm">{err || 'Loading…'}</div>
@@ -366,7 +398,9 @@ export default function BoardBody({ apiBase, boardId, richUpdates = true }: Boar
 
   async function onKanbanDrop(itemId: string, toStatus: string | null) {
     if (!kanbanColumn) return
-    await updateItem(itemId, { values: { [kanbanColumn.id]: toStatus } })
+    const item = items.find((i) => i.id === itemId)
+    if (!item) return
+    await applyValueChange(item, kanbanColumn, toStatus)
   }
 
   return (
@@ -656,8 +690,7 @@ export default function BoardBody({ apiBase, boardId, richUpdates = true }: Boar
                               value={col.type === 'person' && teamMembers ? item.assigned_to : item.values?.[col.id]}
                               onChange={(v) => {
                                 if (col.type === 'person' && teamMembers) return updateItem(item.id, { assigned_to: v })
-                                if (col.type === 'checkbox') return handleCheckboxChange(item, col, v === true)
-                                return updateItem(item.id, { values: { [col.id]: v } })
+                                return applyValueChange(item, col, v)
                               }}
                               teamMembers={teamMembers}
                             />
@@ -750,6 +783,7 @@ export default function BoardBody({ apiBase, boardId, richUpdates = true }: Boar
           columns={columns}
           teamMembers={teamMembers}
           richUpdates={richUpdates}
+          onValueChange={applyValueChange}
           onClose={() => setOpenItemId(null)}
           onItemChange={(updated) => {
             setData((prev) => (prev ? { ...prev, items: prev.items.map((i) => (i.id === updated.id ? updated : i)) } : prev))
