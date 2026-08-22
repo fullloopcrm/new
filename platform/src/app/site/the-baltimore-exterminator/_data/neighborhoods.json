@@ -1,0 +1,266 @@
+[
+  {
+    "slug": "baltimore",
+    "name": "Baltimore",
+    "region": "Baltimore City",
+    "type": "city"
+  },
+  {
+    "slug": "downtown",
+    "name": "Downtown Baltimore",
+    "region": "Baltimore City",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "inner-harbor",
+    "name": "Inner Harbor",
+    "region": "Baltimore City",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "fells-point",
+    "name": "Fells Point",
+    "region": "Baltimore City",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "canton",
+    "name": "Canton",
+    "region": "Baltimore City",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "federal-hill",
+    "name": "Federal Hill",
+    "region": "Baltimore City",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "locust-point",
+    "name": "Locust Point",
+    "region": "Baltimore City",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "otterbein",
+    "name": "Otterbein",
+    "region": "Baltimore City",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "mount-vernon",
+    "name": "Mount Vernon",
+    "region": "Baltimore City",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "charles-village",
+    "name": "Charles Village",
+    "region": "Baltimore City",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "hampden",
+    "name": "Hampden",
+    "region": "Baltimore City",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "remington",
+    "name": "Remington",
+    "region": "Baltimore City",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "roland-park",
+    "name": "Roland Park",
+    "region": "Baltimore City",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "guilford",
+    "name": "Guilford",
+    "region": "Baltimore City",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "homeland",
+    "name": "Homeland",
+    "region": "Baltimore City",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "bolton-hill",
+    "name": "Bolton Hill",
+    "region": "Baltimore City",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "reservoir-hill",
+    "name": "Reservoir Hill",
+    "region": "Baltimore City",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "little-italy",
+    "name": "Little Italy",
+    "region": "Baltimore City",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "highlandtown",
+    "name": "Highlandtown",
+    "region": "Baltimore City",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "patterson-park",
+    "name": "Patterson Park",
+    "region": "Baltimore City",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "butchers-hill",
+    "name": "Butcher's Hill",
+    "region": "Baltimore City",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "waverly",
+    "name": "Waverly",
+    "region": "Baltimore City",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "woodberry",
+    "name": "Woodberry",
+    "region": "Baltimore City",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "medfield",
+    "name": "Medfield",
+    "region": "Baltimore City",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "lauraville",
+    "name": "Lauraville",
+    "region": "Baltimore City",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "hamilton",
+    "name": "Hamilton",
+    "region": "Baltimore City",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "belair-edison",
+    "name": "Belair-Edison",
+    "region": "Baltimore City",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "cherry-hill",
+    "name": "Cherry Hill",
+    "region": "Baltimore City",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "brooklyn-baltimore",
+    "name": "Brooklyn",
+    "region": "Baltimore City",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "curtis-bay",
+    "name": "Curtis Bay",
+    "region": "Baltimore City",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "towson",
+    "name": "Towson",
+    "region": "Baltimore County & Suburbs",
+    "type": "city"
+  },
+  {
+    "slug": "catonsville",
+    "name": "Catonsville",
+    "region": "Baltimore County & Suburbs",
+    "type": "city"
+  },
+  {
+    "slug": "dundalk",
+    "name": "Dundalk",
+    "region": "Baltimore County & Suburbs",
+    "type": "city"
+  },
+  {
+    "slug": "essex",
+    "name": "Essex",
+    "region": "Baltimore County & Suburbs",
+    "type": "city"
+  },
+  {
+    "slug": "middle-river",
+    "name": "Middle River",
+    "region": "Baltimore County & Suburbs",
+    "type": "city"
+  },
+  {
+    "slug": "pikesville",
+    "name": "Pikesville",
+    "region": "Baltimore County & Suburbs",
+    "type": "city"
+  },
+  {
+    "slug": "owings-mills",
+    "name": "Owings Mills",
+    "region": "Baltimore County & Suburbs",
+    "type": "city"
+  },
+  {
+    "slug": "reisterstown",
+    "name": "Reisterstown",
+    "region": "Baltimore County & Suburbs",
+    "type": "city"
+  },
+  {
+    "slug": "cockeysville",
+    "name": "Cockeysville",
+    "region": "Baltimore County & Suburbs",
+    "type": "city"
+  },
+  {
+    "slug": "parkville",
+    "name": "Parkville",
+    "region": "Baltimore County & Suburbs",
+    "type": "city"
+  },
+  {
+    "slug": "glen-burnie",
+    "name": "Glen Burnie",
+    "region": "Baltimore County & Suburbs",
+    "type": "city"
+  },
+  {
+    "slug": "ellicott-city",
+    "name": "Ellicott City",
+    "region": "Baltimore County & Suburbs",
+    "type": "city"
+  },
+  {
+    "slug": "columbia-md",
+    "name": "Columbia",
+    "region": "Baltimore County & Suburbs",
+    "type": "city"
+  },
+  {
+    "slug": "annapolis",
+    "name": "Annapolis",
+    "region": "Baltimore County & Suburbs",
+    "type": "city"
+  }
+]
