@@ -104,6 +104,10 @@ export type ApprovedApplication = {
   has_car?: boolean | null
   labor_only?: boolean | null
   max_travel_minutes?: number | null
+  // Only present for PA/FL applicants, who disclose at application time
+  // (no statewide ban-the-box restriction there) instead of post-offer —
+  // see 20260821223000_team_applications_criminal_history_response.sql.
+  criminal_history_response?: string | null
 }
 
 /**
@@ -171,6 +175,19 @@ export async function provisionApprovedApplicant(
       has_car: app.has_car ?? null,
       labor_only: app.labor_only ?? null,
       max_travel_minutes: app.max_travel_minutes ?? null,
+    }
+    // PA/FL applicants already disclosed at application time -- carry that
+    // straight onto the member row so the portal doesn't ask a second time
+    // (see team/layout.tsx's disclosed_at gate), and hold a "yes" answer
+    // out of the portal the same way the post-offer path does (see
+    // api/team-portal/disclosure/route.ts) rather than letting the earlier
+    // disclosure timing grant a pass the post-offer flow wouldn't.
+    if (app.criminal_history_response) {
+      base.criminal_history_response = app.criminal_history_response
+      base.criminal_history_disclosed_at = new Date().toISOString()
+      if (app.criminal_history_response.startsWith('yes')) {
+        base.status = 'pending_review'
+      }
     }
     // pay_rate only -- hourly_rate is the CLIENT-facing billing rate (set
     // per-booking, e.g. $69-99/hr), a different number entirely from what a

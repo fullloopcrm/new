@@ -29,6 +29,14 @@ export default function ApplyPage() {
     labor_only: false,
     max_travel_minutes: '',
     sms_consent: false,
+    // Pennsylvania has no statewide ban-the-box law for private employers,
+    // so this can be asked directly on the application (unlike the
+    // NY/NJ/CT tenants, which ask post-offer in the team portal instead —
+    // see src/app/team/disclosure/page.tsx). Framed as job-relevant
+    // disclosure, not a blanket bar, to stay clear of Title VII
+    // disparate-impact exposure that applies regardless of state law.
+    criminal_history: '' as 'yes' | 'no' | '',
+    criminal_history_explanation: '',
   })
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
@@ -87,6 +95,10 @@ export default function ApplyPage() {
       setError(`${phoneReasonText(phoneCheck.reason)} / Número de teléfono no válido — verifique e intente de nuevo.`)
       return
     }
+    if (!form.criminal_history) {
+      setError('Please answer the criminal history question. / Por favor responda la pregunta sobre antecedentes penales.')
+      return
+    }
     setLoading(true)
     setError('')
 
@@ -101,10 +113,14 @@ export default function ApplyPage() {
         return
       }
 
+      const criminal_history_response = form.criminal_history === 'yes' && form.criminal_history_explanation.trim()
+        ? `yes: ${form.criminal_history_explanation.trim()}`
+        : form.criminal_history
+
       const res = await fetch('/api/cleaner-applications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, photo_url, ...getSpamGuardFields() })
+        body: JSON.stringify({ ...form, criminal_history_response, photo_url, ...getSpamGuardFields() })
       })
 
       if (res.ok) {
@@ -432,6 +448,40 @@ export default function ApplyPage() {
               rows={3}
               placeholder="Tell us about yourself... / Cuéntenos sobre usted..."
             />
+          </div>
+
+          <div className="p-4 border border-amber-200 rounded-lg bg-amber-50">
+            <label className="block text-sm font-medium text-[#1E2A4A] mb-1">
+              Because this position involves working inside clients&apos; homes, have you ever been convicted of a felony? / Debido a que este puesto implica trabajar dentro de los hogares de los clientes, ¿alguna vez ha sido condenado por un delito grave? *
+            </label>
+            <p className="text-xs text-gray-500 mb-3">
+              A conviction will not automatically disqualify you — we consider the nature and date of the offense and its relevance to in-home work before making any decision. / Una condena no lo descalificará automáticamente — consideramos la naturaleza y fecha del delito y su relevancia para el trabajo en el hogar antes de tomar cualquier decisión.
+            </p>
+            <div className="flex gap-3 mb-2">
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, criminal_history: 'no' })}
+                className={`flex-1 border rounded-lg py-2.5 text-sm font-medium ${form.criminal_history === 'no' ? 'border-[#1E2A4A] bg-white text-[#1E2A4A]' : 'border-gray-300 bg-white text-gray-500'}`}
+              >
+                No
+              </button>
+              <button
+                type="button"
+                onClick={() => setForm({ ...form, criminal_history: 'yes' })}
+                className={`flex-1 border rounded-lg py-2.5 text-sm font-medium ${form.criminal_history === 'yes' ? 'border-[#1E2A4A] bg-white text-[#1E2A4A]' : 'border-gray-300 bg-white text-gray-500'}`}
+              >
+                Yes / Sí
+              </button>
+            </div>
+            {form.criminal_history === 'yes' && (
+              <textarea
+                value={form.criminal_history_explanation}
+                onChange={(e) => setForm({ ...form, criminal_history_explanation: e.target.value })}
+                rows={3}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg text-[#1E2A4A] text-base mt-1"
+                placeholder="Please explain (optional) / Por favor explique (opcional)"
+              />
+            )}
           </div>
 
           {error && (

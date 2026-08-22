@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { AuthContext, type Lang, type AuthState } from './team-auth'
 
 const AUTH_KEY = 'team_auth'
@@ -21,6 +21,7 @@ export default function TeamLayout({ children }: { children: React.ReactNode }) 
   const [unreadCount, setUnreadCount] = useState(0)
   const [connectUnread, setConnectUnread] = useState(0)
   const pathname = usePathname()
+  const router = useRouter()
 
   useEffect(() => {
     try {
@@ -64,6 +65,22 @@ export default function TeamLayout({ children }: { children: React.ReactNode }) 
     const interval = setInterval(fetchConnectUnread, 15000)
     return () => clearInterval(interval)
   }, [auth])
+
+  // Fair Chance / "ban-the-box" gate: newly-provisioned hires (post-offer,
+  // portal access already means an offer went out) must complete the
+  // one-time criminal history disclosure before using the rest of the
+  // portal. Existing members are backfilled disclosed at migration time
+  // (see supabase/migrations/20260821213000_*.sql), so this never blocks
+  // already-active staff — only fires for members who've never disclosed.
+  useEffect(() => {
+    if (!auth || pathname === '/team/disclosure') return
+    fetch('/api/team-portal/disclosure', { headers: { Authorization: `Bearer ${auth.token}` } })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data && data.disclosed === false) router.replace('/team/disclosure')
+      })
+      .catch(() => {})
+  }, [auth, pathname, router])
 
   const setAuth = useCallback((a: AuthState) => {
     setAuthState(a)

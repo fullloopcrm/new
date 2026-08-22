@@ -76,6 +76,11 @@ export async function POST(request: Request) {
     const {
       name, email, phone, address, unit, experience, availability, referral_source, references, notes, photo_url,
       preferred_language, service_zones, has_car, labor_only, max_travel_minutes, sms_consent,
+      // Only sent by tenants with no statewide ban-the-box restriction for
+      // private employers (PA, FL) — see 20260821223000_*.sql. NY/NJ/CT
+      // tenants never send this; it stays null and disclosure happens
+      // post-offer instead (team_members.criminal_history_response).
+      criminal_history_response,
     } = body
     let { tenant_slug } = body as { tenant_slug?: string }
 
@@ -137,6 +142,7 @@ export async function POST(request: Request) {
         labor_only: typeof labor_only === 'boolean' ? labor_only : null,
         max_travel_minutes: max_travel_minutes ? Number(max_travel_minutes) : null,
         sms_consent: typeof sms_consent === 'boolean' ? sms_consent : null,
+        criminal_history_response: typeof criminal_history_response === 'string' ? criminal_history_response.slice(0, 2000) : null,
         status: 'pending',
       })
       .select()
