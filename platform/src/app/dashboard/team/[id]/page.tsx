@@ -45,6 +45,8 @@ type TeamMember = {
   created_at: string
   stripe_account_id: string | null
   stripe_ready_at: string | null
+  criminal_history_response: string | null
+  criminal_history_disclosed_at: string | null
 }
 
 // The team member's original application, matched by phone, so the profile
@@ -539,8 +541,15 @@ export default function TeamMemberDetailPage() {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <h2 className="text-2xl font-bold text-slate-900">{member.name}</h2>
-          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${member.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
-            {member.status === 'active' ? 'Active' : member.status === 'inactive' ? 'Inactive' : member.status}
+          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+            member.status === 'active' ? 'bg-green-100 text-green-700'
+              : member.status === 'pending_review' ? 'bg-amber-100 text-amber-700'
+                : 'bg-slate-100 text-slate-500'
+          }`}>
+            {member.status === 'active' ? 'Active'
+              : member.status === 'inactive' ? 'Inactive'
+                : member.status === 'pending_review' ? 'Pending Review'
+                  : member.status}
           </span>
         </div>
         <div className="flex gap-2">
@@ -578,6 +587,18 @@ export default function TeamMemberDetailPage() {
           </button>
         </div>
       </div>
+
+      {member.criminal_history_response && (
+        <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4">
+          <p className="text-sm font-medium text-amber-800 mb-1">Criminal history disclosure</p>
+          <p className="text-sm text-amber-900 whitespace-pre-wrap">{member.criminal_history_response}</p>
+          {member.status === 'pending_review' && (
+            <p className="text-xs text-amber-700 mt-2">
+              Portal access is on hold. Review against the nature of the offense, time passed, and job relevance, then click Activate above to clear them — or Deactivate to end their employment.
+            </p>
+          )}
+        </div>
+      )}
 
       {showDeleteModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">

@@ -74,6 +74,7 @@ type Application = {
   max_travel_minutes: number | null
   preferred_language: string | null
   sms_consent: boolean | null
+  criminal_history_response: string | null
   status: 'pending' | 'approved' | 'rejected'
   created_at: string
   reviewed_at: string | null
@@ -126,6 +127,11 @@ function AppDetailBody({ app }: { app: Application }) {
         </div>
       )}
       {app.notes && <div className="tm-app-notes">&ldquo;{app.notes}&rdquo;</div>}
+      {app.criminal_history_response && (
+        <div className="tm-app-meta" style={{ color: '#b45309', fontWeight: 600 }}>
+          Criminal history disclosure: {app.criminal_history_response}
+        </div>
+      )}
       <div className="tm-app-date">
         applied{' '}
         {new Date(app.created_at).toLocaleDateString('en-US', {
