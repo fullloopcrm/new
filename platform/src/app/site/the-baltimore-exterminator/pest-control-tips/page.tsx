@@ -316,7 +316,7 @@ export default function PestControlTipsPage() {
               {
                 num: "09",
                 rule: "Report Problems in Writing",
-                detail: "Text or email your landlord, not a phone call. You need a dated paper trail if you ever need to file an code enforcement complaint or go to Housing Court.",
+                detail: "Text or email your landlord, not a phone call. You need a dated paper trail if you ever need to file a code enforcement complaint or petition the District Court.",
               },
               {
                 num: "10",
@@ -365,37 +365,37 @@ export default function PestControlTipsPage() {
                 pest: "Cockroaches (small, tan)",
                 diy: "Deep-clean behind stove and fridge. Fix leaks. Seal pipe gaps under sinks. Store food in hard containers.",
                 pro: "Seeing them during the day? Multiple sightings? You need professional gel bait treatment.",
-                link: "/pest-control-tips/how-to-identify-cockroaches-in-nyc-apartment",
+                link: "/pest-control-tips/how-to-identify-cockroaches-in-baltimore-apartment",
               },
               {
                 pest: "Mice",
                 diy: "Seal every gap with copper mesh + caulk. Set snap traps with peanut butter along walls. Remove food sources.",
                 pro: "Catching mice for 2+ weeks despite sealing? Major entry point you can't find, or building-level issue.",
-                link: "/pest-control-tips/how-to-mouse-proof-your-nyc-apartment",
+                link: "/pest-control-tips/how-to-mouse-proof-your-baltimore-apartment",
               },
               {
                 pest: "Bed Bugs",
                 diy: "Don't DIY. Inspect to confirm (check mattress seams, box spring, headboard). Don't throw out mattress. Don't sleep in different room.",
                 pro: "Any confirmed evidence = call a pro immediately. DIY does not work for bed bugs. Period.",
-                link: "/pest-control-tips/bed-bug-signs-how-to-check-your-nyc-apartment",
+                link: "/pest-control-tips/bed-bug-signs-how-to-check-your-baltimore-apartment",
               },
               {
                 pest: "Drain Flies",
                 diy: "Clean drain with a brush. Pour boiling water daily for a week. Use enzyme drain cleaner. Keep all drains flowing.",
                 pro: "Still have them after 3 weeks of cleaning? Broken pipe or hidden moisture source needs investigation.",
-                link: "/pest-control-tips/how-to-get-rid-of-drain-flies-in-nyc-bathroom",
+                link: "/pest-control-tips/how-to-get-rid-of-drain-flies-in-baltimore-bathroom",
               },
               {
                 pest: "Ants",
                 diy: "Find entry point and seal with caulk. Clean ant trail with vinegar. Remove food sources. Bait with gel bait near trail.",
                 pro: "Carpenter ants (large, black, found near wood) need professional treatment to prevent structural damage.",
-                link: "/pest-control-tips/what-attracts-cockroaches-to-nyc-apartments",
+                link: "/pest-control-tips/what-attracts-cockroaches-to-baltimore-apartments",
               },
               {
                 pest: "Rats (outdoor)",
                 diy: "Report to 311. Talk to building management about trash containerization. Seal foundation gaps.",
                 pro: "Rats INSIDE the building? Professional exclusion and baiting needed immediately.",
-                link: "/pest-control-tips/how-to-deal-with-rats-outside-your-nyc-building",
+                link: "/pest-control-tips/how-to-deal-with-rats-outside-your-baltimore-building",
               },
             ].map((item) => (
               <div key={item.pest} className="rounded-xl border border-zinc-700 bg-zinc-800/50 p-6">

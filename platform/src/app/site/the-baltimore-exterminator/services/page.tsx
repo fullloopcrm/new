@@ -350,8 +350,8 @@ export default function ServicesPage() {
                 <p>
                   Residential pest control in Baltimore requires an approach that prioritizes
                   safety, discretion, and minimal disruption to your daily life. Whether you live
-                  in a pre-war co-op on the Upper West Side, a modern high-rise condo in Baltimore County
-                  City, a brownstone in Park Slope, or a single-family home in Baltimore, our
+                  in a historic rowhome in Fells Point, a modern high-rise condo in Downtown Baltimore,
+                  a townhouse in Roland Park, or a single-family home in Baltimore County, our
                   residential exterminator services are designed to fit your living situation. We
                   understand that your home is your sanctuary, and the presence of pests creates
                   stress that goes beyond the physical problem. That is why our pest control
@@ -360,11 +360,11 @@ export default function ServicesPage() {
                 </p>
                 <p>
                   Our residential pest control services cover every common Baltimore household pest including{" "}
-                  <Link href="/cockroach-exterminator-nyc" className="text-green-400 hover:underline">cockroaches</Link>,{" "}
-                  <Link href="/bed-bug-exterminator-nyc" className="text-green-400 hover:underline">bed bugs</Link>,{" "}
-                  <Link href="/mice-exterminator-nyc" className="text-green-400 hover:underline">mice</Link>,{" "}
-                  <Link href="/rat-exterminator-nyc" className="text-green-400 hover:underline">rats</Link>,{" "}
-                  <Link href="/ant-exterminator-nyc" className="text-green-400 hover:underline">ants</Link>,{" "}
+                  <Link href="/cockroach-extermination" className="text-green-400 hover:underline">cockroaches</Link>,{" "}
+                  <Link href="/bed-bug-treatment" className="text-green-400 hover:underline">bed bugs</Link>,{" "}
+                  <Link href="/mouse-extermination" className="text-green-400 hover:underline">mice</Link>,{" "}
+                  <Link href="/rat-extermination" className="text-green-400 hover:underline">rats</Link>,{" "}
+                  <Link href="/ant-control" className="text-green-400 hover:underline">ants</Link>,{" "}
                   and dozens more. We work with tenants, homeowners, property managers, and building
                   superintendents to coordinate treatment across units when necessary. Multi-unit
                   buildings often require coordinated pest control efforts to prevent pests from
@@ -484,14 +484,14 @@ export default function ServicesPage() {
             </p>
 
             <p>
-              Different neighborhoods face different pest control challenges. Older pre-war buildings
-              in Upper Baltimore and the South Baltimore tend to have more severe cockroach and mouse
+              Different neighborhoods face different pest control challenges. Older buildings
+              in Reservoir Hill and Charles Village tend to have more severe cockroach and mouse
               infestations due to aging infrastructure and shared wall voids. Waterfront neighborhoods
-              in Red Hook, Greenpoint, and the Rockaways experience elevated rodent pressure from
-              proximity to shipping and industrial activity. Brownstone-heavy neighborhoods like
-              Bedford-Stuyvesant, Crown Heights, and Harlem frequently deal with carpenter ant and
+              in Locust Point, Curtis Bay, and Canton experience elevated rodent pressure from
+              proximity to shipping and industrial activity. Rowhome-heavy neighborhoods like
+              Hampden, Woodberry, and Remington frequently deal with carpenter ant and
               termite activity in their century-old wooden structural elements. New construction in
-              areas like Hudson Yards, Williamsburg, and Downtown Baltimore attracts pests through
+              areas like Port Covington, Locust Point, and Downtown Baltimore attracts pests through
               construction disturbance that displaces existing colonies. Our pest control professionals
               understand these neighborhood-level patterns and tailor their exterminator approach
               accordingly.

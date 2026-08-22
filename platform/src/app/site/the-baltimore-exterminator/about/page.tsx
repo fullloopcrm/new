@@ -422,8 +422,8 @@ export default function AboutPage() {
           <div className="mt-8 max-w-4xl space-y-6 text-lg leading-8 text-zinc-300">
             <p>
               The Baltimore Exterminator provides professional pest control and extermination services across eight distinct regions
-              in the Baltimore metropolitan area. Our coverage spans the entire Baltimore metro area &mdash; Baltimore City and Baltimore County,
-              the Baltimore, and Baltimore &mdash; as well as Northern Howard County, Baltimore County, and Anne Arundel County County. In total,
+              in the Baltimore metropolitan area. Our coverage spans the entire Baltimore metro area &mdash; Baltimore City and Baltimore County
+              &mdash; as well as Anne Arundel County and Howard County. In total,
               our exterminators serve{" "}
               <Link href="/areas" className="text-green-400 hover:text-green-300">{totalNeighborhoods}+ neighborhoods</Link>,
               making us one of the most geographically comprehensive pest control providers in the region. No matter where your
@@ -431,22 +431,21 @@ export default function AboutPage() {
               often providing same-day service for emergency pest situations.
             </p>
             <p>
-              Each region in our service area presents unique pest control challenges. Baltimore&apos;s dense high-rise environment
-              creates ideal conditions for cockroach infestations and rodent activity in shared walls and utility chases. Baltimore&apos;s
-              mix of brownstones, rowhouses, and newer developments requires flexible treatment strategies that account for varying
-              construction types and pest entry points. Baltimore, the most ethnically diverse urban area in the world, demands
-              exterminators who can communicate effectively with residents from every background and adapt to the wide range of
-              building styles found across the neighborhood. The Baltimore presents significant rodent control challenges, particularly in
-              older residential buildings and near parks and waterways. Baltimore&apos;s more suburban character brings wildlife
+              Each region in our service area presents unique pest control challenges. Baltimore City&apos;s dense rowhouse and mid-rise
+              environment creates ideal conditions for cockroach infestations and rodent activity in shared walls and utility chases. The
+              mix of historic rowhouses, converted mill buildings, and newer high-rise development requires flexible treatment strategies
+              that account for varying construction types and pest entry points. Baltimore&apos;s status as a historic port city, with
+              waterfront neighborhoods and aging infrastructure, presents significant rodent control challenges, particularly in
+              older residential buildings and near parks and waterways. Baltimore County&apos;s more suburban character brings wildlife
               concerns &mdash; raccoons, squirrels, and other animals &mdash; alongside the standard urban pest issues.
             </p>
             <p>
-              Beyond the Baltimore area, our Howard County pest control team serves communities across Bergen, Hudson, Essex, Passaic,
-              and Union counties, providing the same licensed, insured, professional extermination services that Baltimore residents rely on.
-              Our Baltimore County exterminators cover Nassau and Suffolk counties, where{" "}
+              Beyond Baltimore City, our Baltimore County pest control team serves suburban communities from Towson to Catonsville,
+              Dundalk, and Owings Mills, providing the same licensed, insured, professional extermination services that Baltimore City
+              residents rely on. Our Anne Arundel County exterminators handle everything from historic Annapolis to fast-growing suburbs, where{" "}
               <Link href="/termite-treatment" className="text-green-400 hover:text-green-300">termite treatment</Link>{" "}
-              is a particularly important service for homeowners with wood-frame construction. And our Anne Arundel County team brings
-              comprehensive pest control to communities from Yonkers to White Plains and beyond, handling everything from residential
+              is a particularly important service for homeowners with wood-frame construction. And our Howard County team brings
+              comprehensive pest control to communities across Columbia and Ellicott City and beyond, handling everything from residential
               pest prevention to{" "}
               <Link href="/commercial-pest-control" className="text-green-400 hover:text-green-300">commercial pest control</Link>{" "}
               for offices, warehouses, and retail spaces.
@@ -482,8 +481,8 @@ export default function AboutPage() {
 
           <div className="mt-8 max-w-4xl space-y-6 text-lg leading-8 text-zinc-300">
             <p>
-              Baltimore is the most diverse city on the planet, and The Baltimore Exterminator is proud to serve every corner of it.
-              From the tight-knit communities of Washington Heights and Astoria to the bustling commercial corridors of Midtown and
+              Baltimore is a proudly diverse city, and The Baltimore Exterminator is proud to serve every corner of it.
+              From the tight-knit communities of Highlandtown and Patterson Park to the bustling commercial corridors of Mount Vernon and
               Downtown Baltimore, our pest control services reach residents and business owners of every background, in every type of
               property, across every neighborhood. We treat every home and every business with the same level of professionalism,
               respect, and care &mdash; whether it is a rental apartment, a luxury condo, a family-owned corner store, or a

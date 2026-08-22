@@ -96,7 +96,7 @@ export default function Footer() {
           <p>
             &copy; {new Date().getFullYear()} {SITE_NAME}. All rights reserved.
             <Link href="/legal" className="hover:underline">Legal</Link>
-            Licensed pest control serving Baltimore, NJ, Baltimore County &amp; Anne Arundel County.
+            Licensed pest control serving Baltimore City, Baltimore County &amp; Anne Arundel County.
           </p>
           <p className="mt-2 text-xs text-zinc-700">
             Branding &amp; Digital Marketing by{" "}

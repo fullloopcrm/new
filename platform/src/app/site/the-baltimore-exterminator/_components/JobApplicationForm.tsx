@@ -231,7 +231,7 @@ export default function JobApplicationForm({
         </div>
         <div>
           <label htmlFor="app-location" className={labelClass}>Your Neighborhood / City *</label>
-          <input type="text" id="app-location" name="location" required defaultValue={neighborhood || ""} className={inputClass} placeholder="e.g. Astoria, Jersey City" />
+          <input type="text" id="app-location" name="location" required defaultValue={neighborhood || ""} className={inputClass} placeholder="e.g. Canton, Towson" />
         </div>
       </div>
 

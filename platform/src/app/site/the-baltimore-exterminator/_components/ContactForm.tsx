@@ -231,8 +231,8 @@ export default function ContactForm({
           </select>
         </div>
         <div>
-          <label htmlFor="location" className={labelClass}>Neighborhood / Neighborhood *</label>
-          <input type="text" id="location" name="location" required defaultValue={neighborhood || ""} className={inputClass} placeholder="e.g. Baltimore Heights, Jersey City" />
+          <label htmlFor="location" className={labelClass}>Neighborhood *</label>
+          <input type="text" id="location" name="location" required defaultValue={neighborhood || ""} className={inputClass} placeholder="e.g. Fells Point, Towson" />
         </div>
       </div>
 

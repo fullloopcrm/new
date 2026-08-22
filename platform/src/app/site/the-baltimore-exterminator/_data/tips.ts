@@ -24,7 +24,7 @@ export const tipCategories = [
 
 export const tips: Tip[] = [
   {
-    slug: "how-to-identify-cockroaches-in-nyc-apartment",
+    slug: "how-to-identify-cockroaches-in-baltimore-apartment",
     title: "How to Identify Cockroaches in Your Baltimore Apartment",
     category: "Identification",
     metaTitle: "How to Identify Cockroaches in Baltimore Apartments | Types, Signs & What to Do",
@@ -61,7 +61,7 @@ export const tips: Tip[] = [
     whenToCallPro: "If you're seeing German cockroaches (small, tan, with stripes) during the day, you need professional help immediately — DIY solutions won't cut it for an established indoor colony. If you're seeing occasional large American cockroaches near drains, basic prevention may be enough, but if they keep appearing, the building's common areas likely need treatment."
   },
   {
-    slug: "how-to-mouse-proof-your-nyc-apartment",
+    slug: "how-to-mouse-proof-your-baltimore-apartment",
     title: "How to Mouse-Proof Your Baltimore Apartment: A Complete Guide",
     category: "Prevention",
     metaTitle: "How to Mouse-Proof Your Baltimore Apartment | Seal Entry Points & Prevent Mice",
@@ -94,7 +94,7 @@ export const tips: Tip[] = [
     whenToCallPro: "If you're catching mice on traps consistently for more than two weeks, DIY exclusion isn't enough — there's either a major entry point you're missing (possibly inside a wall void or through building infrastructure) or the population is large enough to sustain itself despite trapping. A professional rodent exclusion service will find entry points you can't access and coordinate with building management for common-area treatment."
   },
   {
-    slug: "bed-bug-signs-how-to-check-your-nyc-apartment",
+    slug: "bed-bug-signs-how-to-check-your-baltimore-apartment",
     title: "Bed Bug Signs: How to Check Your Baltimore Apartment",
     category: "Identification",
     metaTitle: "Bed Bug Signs in Baltimore Apartments | How to Check for Bed Bugs Yourself",
@@ -127,7 +127,7 @@ export const tips: Tip[] = [
     whenToCallPro: "If you find any confirmed evidence of bed bugs — live bugs, fecal spots, eggs, or shed skins — call a professional immediately. Bed bugs are not a DIY pest. Over-the-counter sprays and foggers do not work on bed bugs (this is scientifically proven) and can actually scatter them to new rooms and neighboring apartments. Professional heat treatment or targeted chemical application by a licensed exterminator is the only reliable solution."
   },
   {
-    slug: "what-attracts-cockroaches-to-nyc-apartments",
+    slug: "what-attracts-cockroaches-to-baltimore-apartments",
     title: "What Attracts Cockroaches to Baltimore Apartments (And How to Stop It)",
     category: "Prevention",
     metaTitle: "What Attracts Cockroaches to Baltimore Apartments | Prevention Tips That Work",
@@ -160,7 +160,7 @@ export const tips: Tip[] = [
     whenToCallPro: "If you've done everything on this list — sealed entry points, eliminated water sources, deep-cleaned behind appliances, and stored food properly — and you're STILL seeing cockroaches regularly, the infestation is in the walls or coming from an adjacent unit. This requires professional gel bait treatment throughout your apartment and ideally coordination with building management to treat neighboring units simultaneously."
   },
   {
-    slug: "nyc-tenant-rights-pest-control-what-your-landlord-must-do",
+    slug: "baltimore-tenant-rights-pest-control-what-your-landlord-must-do",
     title: "Baltimore Tenant Rights: What Your Landlord Must Do About Pest Control",
     category: "Tenant Rights",
     metaTitle: "Baltimore Tenant Rights for Pest Control | What Landlords Are Required to Do",
@@ -173,8 +173,8 @@ export const tips: Tip[] = [
         content: "Under Baltimore's local housing code, building owners are required to keep their properties free from pests including rodents, cockroaches, bed bugs, and other vermin. This applies to all residential rental properties in Baltimore — apartments, co-ops, and condos with rental units.\n\nThis means:\n- Your landlord must provide regular pest control service\n- Your landlord must respond to pest complaints in a timely manner\n- Your landlord must hire licensed pest control professionals (not just hand you a can of Raid)\n- Your landlord must address the conditions that contribute to pest problems (gaps in walls, broken screens, plumbing leaks)\n- Your landlord CANNOT charge you for routine pest control — it's part of your rent\n\nThe only exception: if the tenant's own behavior is directly causing the pest problem (extreme hoarding, refusing access for treatment, deliberately introducing pests). Normal living conditions — even if your apartment isn't spotless — do not transfer responsibility to the tenant."
       },
       {
-        heading: "local bed bug disclosure requirements",
-        content: "Since 2017, Baltimore landlords must disclose the bed bug infestation history for their building when providing a lease or rental agreement. Specifically:\n\n- Before signing a lease, your landlord must provide a written disclosure of the bed bug infestation history for the past year for the SPECIFIC UNIT you're renting\n- The disclosure must also cover the building as a whole\n- This applies to new leases AND lease renewals\n- Landlords who fail to provide this disclosure can face fines\n\nWhy this matters: If you move into an apartment and discover bed bugs that clearly predated your tenancy (established colonies don't appear overnight), the building's bed bug history disclosure becomes relevant. If the landlord knew about bed bug issues and failed to disclose them, they may be liable for your treatment costs, replacement of damaged belongings, and potentially other damages.\n\nAlways request the bed bug disclosure in writing. If your landlord refuses to provide it, that's a red flag."
+        heading: "Bed Bug Disclosure Requirements",
+        content: "Many jurisdictions, including Maryland, require landlords to disclose known bed bug infestation history for a unit or building when providing a lease or rental agreement. Where these requirements apply:\n\n- Before signing a lease, your landlord may be required to provide a written disclosure of known bed bug infestation history for the SPECIFIC UNIT you're renting\n- The disclosure may also need to cover the building as a whole\n- This can apply to new leases AND lease renewals\n- Landlords who fail to provide a required disclosure can face penalties\n\nWhy this matters: If you move into an apartment and discover bed bugs that clearly predated your tenancy (established colonies don't appear overnight), the building's bed bug history disclosure becomes relevant. If the landlord knew about bed bug issues and failed to disclose them, they may be liable for your treatment costs, replacement of damaged belongings, and potentially other damages.\n\nAlways request the bed bug disclosure in writing. If your landlord refuses to provide it, that's a red flag."
       },
       {
         heading: "Your Right to Know About Pesticide Applications",
@@ -182,22 +182,22 @@ export const tips: Tip[] = [
       },
       {
         heading: "What to Do When Your Landlord Won't Fix the Problem",
-        content: "You've reported cockroaches three times and nothing happens. Sound familiar? Here's your escalation path:\n\nSTEP 1: PUT IT IN WRITING. Send your landlord/management company a written complaint (email works — you want a timestamp and paper trail). Describe the pest problem, when it started, and request professional pest control service. Be specific: 'I am seeing German cockroaches nightly in the kitchen' is better than 'there are bugs.'\n\nSTEP 2: DOCUMENT EVERYTHING. Take photos and videos of pest activity, droppings, damage, and any conditions contributing to the problem (leaking pipes, holes in walls, broken cabinet backs). Note dates and times.\n\nSTEP 3: CALL 311. File a complaint with Baltimore 311 for a housing code pest violation. An code enforcement (Housing Preservation and Development) inspector will be assigned to inspect your apartment. If they confirm the pest condition, the landlord receives a violation with a deadline to correct it.\n\nSTEP 4: code enforcement VIOLATIONS. If the landlord fails to correct the violation by the deadline, code enforcement can:\n- Issue fines (which increase daily until the condition is corrected)\n- Perform the work themselves and bill the landlord (Emergency Repair Program)\n- Refer the case for litigation\n\nSTEP 5: HOUSING COURT. As a tenant, you have the right to bring an HP (Housing Part) action in Housing Court. You can do this yourself without a lawyer (though legal representation is recommended). The court can order the landlord to correct the conditions and potentially reduce your rent."
+        content: "You've reported cockroaches three times and nothing happens. Sound familiar? Here's your escalation path:\n\nSTEP 1: PUT IT IN WRITING. Send your landlord/management company a written complaint (email works — you want a timestamp and paper trail). Describe the pest problem, when it started, and request professional pest control service. Be specific: 'I am seeing German cockroaches nightly in the kitchen' is better than 'there are bugs.'\n\nSTEP 2: DOCUMENT EVERYTHING. Take photos and videos of pest activity, droppings, damage, and any conditions contributing to the problem (leaking pipes, holes in walls, broken cabinet backs). Note dates and times.\n\nSTEP 3: CONTACT BALTIMORE CITY CODE ENFORCEMENT. File a complaint with Baltimore 311 for a housing code pest violation. A code enforcement inspector will be assigned to inspect your apartment. If they confirm the pest condition, the landlord receives a violation with a deadline to correct it.\n\nSTEP 4: UNRESOLVED VIOLATIONS. If the landlord fails to correct the violation by the deadline, code enforcement can:\n- Issue fines (which increase daily until the condition is corrected)\n- Refer the case for further enforcement action\n\nSTEP 5: DISTRICT COURT. As a tenant, Maryland law gives you the right to petition the District Court for rent escrow if your landlord fails to correct serious conditions after proper notice. You can do this yourself without a lawyer (though legal representation is recommended). The court can order the landlord to correct the conditions and may allow you to pay disputed rent into escrow instead of directly to the landlord until the repairs are made."
       },
       {
         heading: "Can You Withhold Rent Over Pest Problems?",
-        content: "This is a common question and the answer is: technically no, but there are legal remedies.\n\nNYC tenants should NOT unilaterally withhold rent without a court order. While pest infestations can constitute a breach of the warranty of habitability, the legal process requires going through Housing Court. If you simply stop paying rent, your landlord can initiate eviction proceedings.\n\nThe correct approach:\n1. File a complaint with 311 / code enforcement\n2. Document the pest condition thoroughly\n3. If the landlord doesn't respond to code enforcement violations, file an HP action in Housing Court\n4. The court can order a rent abatement (reduction) for the period the condition existed\n\nSome tenants successfully negotiate directly with landlords: 'I'll hire a pest control company and deduct it from rent.' This can work, but get it in writing first. A verbal agreement won't protect you if the landlord later disputes the deduction.\n\nFree legal help: If you're a low-income tenant, Maryland Legal Aid and local tenant advocacy organizations provide free legal assistance for housing code violations."
+        content: "This is a common question and the answer is: technically no, not on your own — but Maryland law gives you a legal path to the same result.\n\nMaryland tenants should NOT unilaterally stop paying rent without going through the courts first. While pest infestations can constitute a breach of the warranty of habitability, simply stopping payment exposes you to eviction for non-payment. The legal process is called rent escrow.\n\nThe correct approach:\n1. File a complaint with 311 / code enforcement and give your landlord written notice of the condition\n2. Document the pest condition thoroughly\n3. If the landlord doesn't correct the problem within a reasonable time, petition the District Court for rent escrow\n4. The court can order rent to be paid into escrow instead of to the landlord, and may reduce what you owe for the period the condition existed\n\nSome tenants successfully negotiate directly with landlords: 'I'll hire a pest control company and deduct it from rent.' This can work, but get it in writing first. A verbal agreement won't protect you if the landlord later disputes the deduction.\n\nFree legal help: If you're a low-income tenant, Maryland Legal Aid and local tenant advocacy organizations provide free legal assistance for housing code violations."
       },
       {
-        heading: "Renters in Regulated or Public Housing: Additional Protections",
-        content: "If you're in a rent-regulated apartment:\n- Your landlord must maintain habitable conditions, including pest control, as a condition of your lease and local housing code\n- You can typically file a complaint with your local housing agency or code enforcement office if pest control is not being provided\n- A successful complaint can result in an order requiring the landlord to restore services\n\nIf you're in public housing:\n- Public housing authorities are generally required to follow Integrated Pest Management (IPM) protocols\n- You can request pest control service through your housing authority's resident portal or customer service line\n- If the housing authority doesn't respond, file a complaint with your city's 311 line or contact your local council member's office\n- Persistent, documented complaints carry real weight with housing authorities and oversight bodies"
+        heading: "Renters in Public or Subsidized Housing: Additional Protections",
+        content: "If you're in public or subsidized housing:\n- Housing authorities and subsidized property managers are generally required to follow Integrated Pest Management (IPM) protocols\n- You can request pest control service through your housing authority's resident portal or customer service line\n- If the housing authority doesn't respond, file a complaint with your city's 311 line or contact your local council member's office\n- Persistent, documented complaints carry real weight with housing authorities and oversight bodies\n\nAll renters, regardless of building type, have the right to a habitable unit under Maryland and Baltimore housing law — pest control is part of that guarantee, not an optional extra."
       }
     ],
-    proTip: "Every time you communicate with your landlord about a pest problem, do it in writing (email or text). Verbal complaints have no paper trail. Date every photo you take. This documentation becomes invaluable if you need to file an code enforcement complaint or take action in Housing Court. Screen-record video of live pest activity with your phone's timestamp visible.",
-    whenToCallPro: "If your landlord is providing pest control but the problem persists, the issue might be inadequate treatment (not all pest control companies are equal) or lack of building-wide coordination. You have the right to request that your landlord use a different pest control provider. If your landlord won't act at all, you can hire a licensed exterminator yourself, document the cost, and pursue reimbursement through Housing Court or negotiation."
+    proTip: "Every time you communicate with your landlord about a pest problem, do it in writing (email or text). Verbal complaints have no paper trail. Date every photo you take. This documentation becomes invaluable if you need to file a code enforcement complaint or petition the District Court for rent escrow. Screen-record video of live pest activity with your phone's timestamp visible.",
+    whenToCallPro: "If your landlord is providing pest control but the problem persists, the issue might be inadequate treatment (not all pest control companies are equal) or lack of building-wide coordination. You have the right to request that your landlord use a different pest control provider. If your landlord won't act at all, you can hire a licensed exterminator yourself, document the cost, and pursue reimbursement through the courts or negotiation."
   },
   {
-    slug: "how-to-prepare-for-exterminator-visit-nyc",
+    slug: "how-to-prepare-for-exterminator-visit-baltimore",
     title: "How to Prepare for an Exterminator Visit in Your Baltimore Apartment",
     category: "DIY Solutions",
     metaTitle: "How to Prepare for an Exterminator Visit | Baltimore Apartment Prep Checklist",
@@ -230,7 +230,7 @@ export const tips: Tip[] = [
     whenToCallPro: "You're already calling one — that's the right move. But if your first treatment doesn't fully resolve the problem, don't assume it failed. Most pest control treatments require 2-3 visits to fully eliminate an established infestation. If you're not seeing improvement after the second visit, that's when you should have a conversation with your exterminator about adjusting the treatment approach."
   },
   {
-    slug: "pet-safe-pest-control-tips-for-nyc-apartments",
+    slug: "pet-safe-pest-control-tips-for-baltimore-apartments",
     title: "Pet-Safe Pest Control Tips for Baltimore Apartments",
     category: "Health & Safety",
     metaTitle: "Pet-Safe Pest Control in Baltimore Apartments | Keep Dogs & Cats Safe",
@@ -259,7 +259,7 @@ export const tips: Tip[] = [
     whenToCallPro: "If you have pets and a pest problem, professional treatment is actually SAFER than DIY — professionals know which products are pet-safe, how to apply them in pet-inaccessible areas, and how to minimize exposure. DIY sprays and foggers are the most common source of pet pesticide exposure because homeowners apply them incorrectly and excessively."
   },
   {
-    slug: "seasonal-pest-prevention-calendar-nyc",
+    slug: "seasonal-pest-prevention-calendar-baltimore",
     title: "Baltimore Seasonal Pest Prevention Calendar: What to Do Each Month",
     category: "Seasonal",
     metaTitle: "Baltimore Seasonal Pest Prevention Calendar | Month-by-Month Prevention Guide",
@@ -296,7 +296,7 @@ export const tips: Tip[] = [
     whenToCallPro: "If you're seeing pest activity despite following this calendar, there's likely a structural or building-wide issue that individual apartment prevention can't solve. Multi-unit Baltimore buildings often need coordinated treatment across multiple units and common areas. A professional assessment can identify whether the problem is localized to your apartment or requires building management involvement."
   },
   {
-    slug: "how-to-get-rid-of-drain-flies-in-nyc-bathroom",
+    slug: "how-to-get-rid-of-drain-flies-in-baltimore-bathroom",
     title: "How to Get Rid of Drain Flies in Your Baltimore Bathroom",
     category: "DIY Solutions",
     metaTitle: "How to Get Rid of Drain Flies in Baltimore Bathrooms | DIY Fix That Works",
@@ -325,7 +325,7 @@ export const tips: Tip[] = [
     whenToCallPro: "If you've cleaned all drains thoroughly and drain flies persist for more than 2-3 weeks, the breeding source may be somewhere you can't access — inside a wall, under the floor, in a broken pipe, or in the building's plumbing infrastructure. In older Baltimore buildings, deteriorating cast iron drain pipes can crack inside walls, creating concealed breeding sites that only a plumber and pest control team can address together."
   },
   {
-    slug: "how-to-deal-with-rats-outside-your-nyc-building",
+    slug: "how-to-deal-with-rats-outside-your-baltimore-building",
     title: "How to Deal with Rats Outside Your Baltimore Building",
     category: "Prevention",
     metaTitle: "How to Deal with Rats Outside Your Baltimore Building | Practical Prevention Guide",
@@ -383,7 +383,7 @@ export const tips: Tip[] = [
     whenToCallPro: "When natural methods haven't resolved the problem within 2 weeks, or when the pest is one that natural methods simply cannot handle (bed bugs, established cockroach colonies, termites). A good exterminator will incorporate natural and mechanical methods INTO their professional treatment plan — IPM (Integrated Pest Management) is literally the science of combining prevention, monitoring, and targeted treatment for the most effective, least-chemical result."
   },
   {
-    slug: "restaurant-pest-control-guide-nyc-health-code",
+    slug: "restaurant-pest-control-guide-baltimore-health-code",
     title: "Baltimore Restaurant Pest Control: DOH Compliance Guide for Owners",
     category: "Commercial",
     metaTitle: "Baltimore Restaurant Pest Control Guide | DOH Compliance & Prevention Tips",
@@ -392,8 +392,8 @@ export const tips: Tip[] = [
     intro: "A single cockroach sighting during a Baltimore Department of Health inspection can cost you points, money, and reputation. Pest-related violations are among the most common reasons restaurants receive low health grades. This guide covers everything Baltimore restaurant owners and managers need to know about pest control compliance — from DOH requirements to daily prevention protocols.",
     sections: [
       {
-        heading: "DOH Pest-Related Violations: What Gets You Points",
-        content: "The Baltimore Department of Health uses a structured inspection scoring system where pest violations carry significant point penalties and can affect a restaurant's public health rating. Pest violations carry significant point penalties:\n\nCRITICAL VIOLATIONS (7 points each):\n- Evidence of live mice or rats (droppings, gnaw marks, tracks, or live sightings)\n- Live roaches present in food preparation, food storage, or food service areas\n- Evidence of flying insects (flies) in food preparation areas\n\nGENERAL VIOLATIONS (5 points each):\n- Evidence of insects (cockroaches) in non-food areas\n- Inadequate pest control measures\n- Gaps, holes, or openings that could admit pests\n- Improperly stored garbage or refuse\n\nA single mouse dropping behind a prep table can turn an well-rated restaurant into a poorly-rated one. Multiple pest violations can seriously damage your inspection results. And a poor inspection result can be visible to the public and affect your restaurant's reputation.\n\nThe DOH inspector knows where to look. They'll check under equipment, behind wall-mounted shelving, inside electrical panels, around floor drains, in dry storage areas, and along the junction of floors and walls. If there's pest evidence anywhere in your establishment, they will find it."
+        heading: "DOH Pest-Related Violations: What Inspectors Flag",
+        content: "The Baltimore Department of Health inspects restaurants for pest-related violations that can affect a restaurant's public health rating. Common pest-related violation categories include:\n\nCRITICAL VIOLATIONS:\n- Evidence of live mice or rats (droppings, gnaw marks, tracks, or live sightings)\n- Live roaches present in food preparation, food storage, or food service areas\n- Evidence of flying insects (flies) in food preparation areas\n\nGENERAL VIOLATIONS:\n- Evidence of insects (cockroaches) in non-food areas\n- Inadequate pest control measures\n- Gaps, holes, or openings that could admit pests\n- Improperly stored garbage or refuse\n\nA single mouse dropping behind a prep table can turn a well-rated restaurant into a poorly-rated one. Multiple pest violations can seriously damage your inspection results. And a poor inspection result can be visible to the public and affect your restaurant's reputation.\n\nThe DOH inspector knows where to look. They'll check under equipment, behind wall-mounted shelving, inside electrical panels, around floor drains, in dry storage areas, and along the junction of floors and walls. If there's pest evidence anywhere in your establishment, they will find it."
       },
       {
         heading: "The Daily Pest Prevention Checklist Every Baltimore Kitchen Needs",
