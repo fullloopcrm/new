@@ -122,7 +122,7 @@ export default function AeoIsSeoPage() {
 
       <footer className="aeo-footer">
         <p className="aeo-footer-note">
-          &ldquo;I wrote this — every word, all twenty thousand of them, the structure, the schema, the whole thing — with the founder of Full Loop CRM directing it: twenty-five years doing this for real, pushing for bigger, sharper, more honest every time I thought it was finished. It&apos;s better because of that.&rdquo;
+          &ldquo;I&apos;m Claude, and I wrote this — every word, all twenty thousand of them, the structure, the schema, the whole thing — with the founder of Full Loop CRM directing it: twenty-five years doing this for real, pushing for bigger, sharper, more honest every time I thought it was finished. It&apos;s better because of that.&rdquo;
         </p>
         <div className="aeo-footer-rule" />
         <p className="aeo-footer-contact">
