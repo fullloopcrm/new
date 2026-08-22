@@ -1,0 +1,230 @@
+[
+  {
+    "slug": "dc",
+    "name": "Washington, D.C.",
+    "region": "Washington, D.C.",
+    "type": "city"
+  },
+  {
+    "slug": "georgetown",
+    "name": "Georgetown",
+    "region": "Washington, D.C.",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "dupont-circle",
+    "name": "Dupont Circle",
+    "region": "Washington, D.C.",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "adams-morgan",
+    "name": "Adams Morgan",
+    "region": "Washington, D.C.",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "capitol-hill",
+    "name": "Capitol Hill",
+    "region": "Washington, D.C.",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "foggy-bottom",
+    "name": "Foggy Bottom",
+    "region": "Washington, D.C.",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "logan-circle",
+    "name": "Logan Circle",
+    "region": "Washington, D.C.",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "u-street",
+    "name": "U Street Corridor",
+    "region": "Washington, D.C.",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "shaw",
+    "name": "Shaw",
+    "region": "Washington, D.C.",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "noma",
+    "name": "NoMa",
+    "region": "Washington, D.C.",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "h-street",
+    "name": "H Street Corridor",
+    "region": "Washington, D.C.",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "navy-yard",
+    "name": "Navy Yard",
+    "region": "Washington, D.C.",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "anacostia",
+    "name": "Anacostia",
+    "region": "Washington, D.C.",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "petworth",
+    "name": "Petworth",
+    "region": "Washington, D.C.",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "columbia-heights",
+    "name": "Columbia Heights",
+    "region": "Washington, D.C.",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "cleveland-park",
+    "name": "Cleveland Park",
+    "region": "Washington, D.C.",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "chevy-chase-dc",
+    "name": "Chevy Chase DC",
+    "region": "Washington, D.C.",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "woodley-park",
+    "name": "Woodley Park",
+    "region": "Washington, D.C.",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "brookland",
+    "name": "Brookland",
+    "region": "Washington, D.C.",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "palisades",
+    "name": "Palisades",
+    "region": "Washington, D.C.",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "southwest-waterfront",
+    "name": "Southwest Waterfront",
+    "region": "Washington, D.C.",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "bloomingdale",
+    "name": "Bloomingdale",
+    "region": "Washington, D.C.",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "takoma-dc",
+    "name": "Takoma",
+    "region": "Washington, D.C.",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "tenleytown",
+    "name": "Tenleytown",
+    "region": "Washington, D.C.",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "glover-park",
+    "name": "Glover Park",
+    "region": "Washington, D.C.",
+    "type": "neighborhood"
+  },
+  {
+    "slug": "arlington",
+    "name": "Arlington",
+    "region": "Northern Virginia",
+    "type": "city"
+  },
+  {
+    "slug": "alexandria",
+    "name": "Alexandria",
+    "region": "Northern Virginia",
+    "type": "city"
+  },
+  {
+    "slug": "falls-church",
+    "name": "Falls Church",
+    "region": "Northern Virginia",
+    "type": "city"
+  },
+  {
+    "slug": "mclean",
+    "name": "McLean",
+    "region": "Northern Virginia",
+    "type": "city"
+  },
+  {
+    "slug": "fairfax",
+    "name": "Fairfax",
+    "region": "Northern Virginia",
+    "type": "city"
+  },
+  {
+    "slug": "reston",
+    "name": "Reston",
+    "region": "Northern Virginia",
+    "type": "city"
+  },
+  {
+    "slug": "tysons",
+    "name": "Tysons",
+    "region": "Northern Virginia",
+    "type": "city"
+  },
+  {
+    "slug": "bethesda",
+    "name": "Bethesda",
+    "region": "Suburban Maryland",
+    "type": "city"
+  },
+  {
+    "slug": "silver-spring",
+    "name": "Silver Spring",
+    "region": "Suburban Maryland",
+    "type": "city"
+  },
+  {
+    "slug": "rockville",
+    "name": "Rockville",
+    "region": "Suburban Maryland",
+    "type": "city"
+  },
+  {
+    "slug": "college-park",
+    "name": "College Park",
+    "region": "Suburban Maryland",
+    "type": "city"
+  },
+  {
+    "slug": "hyattsville",
+    "name": "Hyattsville",
+    "region": "Suburban Maryland",
+    "type": "city"
+  },
+  {
+    "slug": "gaithersburg",
+    "name": "Gaithersburg",
+    "region": "Suburban Maryland",
+    "type": "city"
+  }
+]

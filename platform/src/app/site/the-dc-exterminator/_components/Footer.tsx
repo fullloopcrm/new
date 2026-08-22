@@ -16,7 +16,7 @@ export default function Footer() {
             </span>
             <p className="mt-3 text-sm leading-6 text-zinc-500">
               Professional pest control and extermination services across DC,
-              NJ, Long Island & Westchester. Licensed, insured, and trusted
+              Northern Virginia & Suburban Maryland. Licensed, insured, and trusted
               by thousands of residential and commercial properties.
             </p>
             <div className="mt-4 space-y-1 text-sm">
@@ -39,7 +39,7 @@ export default function Footer() {
                 {EMAIL}
               </a>
               <p className="text-zinc-600">
-                {ADDRESS.street}, {ADDRESS.city}, {ADDRESS.state} {ADDRESS.zip}
+                Serving {ADDRESS.city}, {ADDRESS.state} {ADDRESS.zip} &amp; the greater metro area
               </p>
             </div>
           </div>
@@ -97,7 +97,7 @@ export default function Footer() {
           <p>
             &copy; {new Date().getFullYear()} {SITE_NAME}. All rights reserved.
             <Link href="/legal" className="hover:underline">Legal</Link>
-            Licensed pest control serving DC, NJ, Long Island &amp; Westchester.
+            Licensed pest control serving DC, Northern Virginia &amp; Suburban Maryland.
           </p>
           <p className="mt-2 text-xs text-zinc-700">
             Branding &amp; Digital Marketing by{" "}

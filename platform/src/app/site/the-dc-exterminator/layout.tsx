@@ -1,0 +1,125 @@
+import { safeJsonLd } from '@/lib/escape-html'
+import type { Metadata, Viewport } from "next";
+import { Inter } from "next/font/google";
+import { Suspense } from "react";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
+import "./globals.css";
+import Header from "@/app/site/the-dc-exterminator/_components/Header";
+import Footer from "@/app/site/the-dc-exterminator/_components/Footer";
+import Tracker from "@/app/site/the-dc-exterminator/_components/Tracker";
+import { getOrganizationSchema, getWebsiteSchema, SITE_URL } from "@/app/site/the-dc-exterminator/_lib/seo";
+import ConsentBanner from "@/components/consent/ConsentBanner";
+import ClientErrorMonitor from "@/components/monitoring/ClientErrorMonitor";
+import ConsentGate from "@/components/consent/ConsentGate";
+import TenantAnalyticsScript from "@/components/analytics/TenantAnalyticsScript";
+
+const CLARITY_ID = process.env.NEXT_PUBLIC_CLARITY_ID ?? "";
+
+const inter = Inter({
+  variable: "--font-inter",
+  subsets: ["latin"],
+});
+
+const GA_ID = process.env.NEXT_PUBLIC_GA_ID ?? "";
+
+export const viewport: Viewport = {
+  themeColor: "#0A0A0A",
+  width: "device-width",
+  initialScale: 1,
+};
+
+export const metadata: Metadata = {
+  title: {
+    default: "The DC Exterminator | Pest Control $199/hr | Self-Book & Save $20",
+    template: "%s | The DC Exterminator",
+  },
+  description:
+    "Pest control at a flat $199/hr, 1-hour minimum (fully inclusive — no hidden fees). Self-book online & save $20 — the fastest way to get service. Pay only when the job is done. No contracts. No deposits. No catches. Licensed & insured.",
+  metadataBase: new URL(SITE_URL),
+  icons: {
+    icon: "/icon.svg",
+    apple: "/icon.svg",
+  },
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    siteName: "The DC Exterminator",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "The DC Exterminator | DC Pest Control | Self-Book & Save $20",
+    description:
+      "Pest control at a flat $199/hr, 1-hour minimum (fully inclusive — no hidden fees). Self-book online & save $20 — the fastest way to get service. Pay only when the job is done. No contracts.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: safeJsonLd(getWebsiteSchema()),
+          }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: safeJsonLd(getOrganizationSchema()),
+          }}
+        />
+      </head>
+      <body className={`${inter.variable} font-sans antialiased bg-[#0A0A0A] text-white`}>
+        <Header />
+        <main className="min-h-screen">{children}</main>
+        <Footer />
+        {/* Vercel Analytics/Speed Insights are cookieless first-party telemetry (no
+            persistent identifier written to the visitor's device) — not gated. */}
+        <Analytics />
+        <SpeedInsights />
+        <ConsentGate>
+          <Suspense fallback={null}>
+            <Tracker />
+          </Suspense>
+          {GA_ID && (
+            <>
+              <script async src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`} />
+              <script
+                dangerouslySetInnerHTML={{
+                  __html: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${GA_ID}');`,
+                }}
+              />
+            </>
+          )}
+          {CLARITY_ID && (
+            <script
+              dangerouslySetInnerHTML={{
+                __html: `(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window,document,"clarity","script","${CLARITY_ID}");`,
+              }}
+            />
+          )}
+        </ConsentGate>
+        <ConsentBanner />
+        <ClientErrorMonitor slug="the-dc-exterminator" />
+        <TenantAnalyticsScript slug="the-dc-exterminator" />
+      </body>
+    </html>
+  );
+}
