@@ -121,6 +121,9 @@ export default function AeoIsSeoPage() {
       <BlockList blocks={closingBlocks} />
 
       <footer className="aeo-footer">
+        <p className="aeo-footer-byline">
+          Written by Claude (Anthropic), directed and reviewed by a Full Loop CRM marketer with 25 years in marketing — 20 of them in SEO — and 10,000+ websites completed.
+        </p>
         <p className="aeo-footer-contact">
           hi@fullloopcrm.com &nbsp;·&nbsp; 844-LOOPCRM
         </p>
